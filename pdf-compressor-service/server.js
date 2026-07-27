@@ -10,7 +10,24 @@ import pdfParse from 'pdf-parse';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Explicit CORS configuration — must come before ALL routes and error handlers
+const corsOptions = {
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: [
+    'x-original-size',
+    'x-compressed-size',
+    'x-original-pages',
+    'x-compressed-pages',
+    'x-compression-pass',
+  ],
+};
+app.use(cors(corsOptions));
+
+// Handle preflight OPTIONS requests explicitly for all routes
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 
 // Set up temporary storage for file uploads
@@ -131,7 +148,6 @@ app.post('/compress', upload.single('file'), async (req, res) => {
     res.setHeader('x-original-pages', originalPageCount.toString());
     res.setHeader('x-compressed-pages', compressedPageCount.toString());
     res.setHeader('x-compression-pass', compressionPass);
-    res.setHeader('Access-Control-Expose-Headers', 'x-original-size, x-compressed-size, x-original-pages, x-compressed-pages, x-compression-pass');
 
     // Pipe compressed file to client
     const readStream = fs.createReadStream(finalOutputPath);
@@ -151,7 +167,7 @@ app.post('/compress', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error('Compression Endpoint Error:', err);
     res.status(500).json({ error: `Ghostscript compression failed: ${err.message}` });
-    
+
     // Clean up temporary files on error
     try {
       if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath);
@@ -159,6 +175,12 @@ app.post('/compress', upload.single('file'), async (req, res) => {
       if (fs.existsSync(outputPathPass2)) await fs.promises.unlink(outputPathPass2);
     } catch (_) {}
   }
+});
+
+// Global error handler — ensures CORS headers are always present even on unhandled errors
+app.use((err, req, res, next) => {
+  console.error('Unhandled Error:', err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
 app.listen(PORT, () => {
