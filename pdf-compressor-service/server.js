@@ -1,5 +1,4 @@
 import express from 'express';
-import cors from 'cors';
 import multer from 'multer';
 import { execFile } from 'child_process';
 import fs from 'fs';
@@ -10,23 +9,26 @@ import pdfParse from 'pdf-parse';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Explicit CORS configuration — must come before ALL routes and error handlers
-const corsOptions = {
-  origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  exposedHeaders: [
-    'x-original-size',
-    'x-compressed-size',
-    'x-original-pages',
-    'x-compressed-pages',
-    'x-compression-pass',
-  ],
-};
-app.use(cors(corsOptions));
+// ─── CORS: Must be the VERY FIRST middleware ────────────────────────────────
+// Manually set headers on every single response, including errors.
+// We do NOT rely solely on the cors() npm package because multer can
+// intercept before it runs on multipart requests.
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader(
+    'Access-Control-Expose-Headers',
+    'x-original-size, x-compressed-size, x-original-pages, x-compressed-pages, x-compression-pass'
+  );
 
-// Handle preflight OPTIONS requests explicitly for all routes
-app.options('*', cors(corsOptions));
+  // Answer preflight immediately — before any other middleware runs
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 app.use(express.json());
 
@@ -38,7 +40,6 @@ const upload = multer({ dest: os.tmpdir() });
  */
 function runGhostscript(inputPath, outputPath, settingsPreset = '/screen') {
   return new Promise((resolve, reject) => {
-    // GS arguments for screen quality image downsampling
     const args = [
       '-sDEVICE=pdfwrite',
       '-dCompatibilityLevel=1.4',
@@ -80,7 +81,7 @@ async function getPdfPageCount(filePath) {
   }
 }
 
-// Health check endpoint
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'Ghostscript PDF Compressor', timestamp: new Date() });
 });
@@ -100,9 +101,9 @@ app.post('/compress', upload.single('file'), async (req, res) => {
     const originalSize = originalStat.size;
     const originalPageCount = await getPdfPageCount(inputPath);
 
-    console.log(`Processing PDF: ${req.file.originalname} | Original Size: ${(originalSize / (1024 * 1024)).toFixed(2)} MB | Pages: ${originalPageCount}`);
+    console.log(`Processing PDF: ${req.file.originalname} | ${(originalSize / (1024 * 1024)).toFixed(2)} MB | Pages: ${originalPageCount}`);
 
-    // Pass 1: Standard Screen Quality Preset
+    // Pass 1: Screen quality
     console.log('Running Ghostscript Pass 1 (/screen)...');
     await runGhostscript(inputPath, outputPathPass1, '/screen');
 
@@ -112,16 +113,15 @@ app.post('/compress', upload.single('file'), async (req, res) => {
     let compressedSize = compressedStat.size;
     let compressedPageCount = await getPdfPageCount(outputPathPass1);
 
-    // Pass 2: Aggressive Pass if Pass 1 is still > 14MB (14,680,064 bytes)
+    // Pass 2: Aggressive if still > 14MB
     const MAX_TARGET_BYTES = 14 * 1024 * 1024;
     if (compressedSize > MAX_TARGET_BYTES) {
-      console.log('Pass 1 size still > 14MB. Running Ghostscript Pass 2 (/ebook aggressive)...');
+      console.log('Pass 1 still > 14MB — running Pass 2 (/ebook)...');
       try {
         await runGhostscript(inputPath, outputPathPass2, '/ebook');
         const pass2Stat = await fs.promises.stat(outputPathPass2);
         const pass2PageCount = await getPdfPageCount(outputPathPass2);
 
-        // Accept Pass 2 if page count is verified and size is smaller
         if (pass2PageCount === originalPageCount && pass2Stat.size < compressedSize) {
           finalOutputPath = outputPathPass2;
           compressedSize = pass2Stat.size;
@@ -129,19 +129,19 @@ app.post('/compress', upload.single('file'), async (req, res) => {
           compressionPass = 'aggressive';
         }
       } catch (pass2Err) {
-        console.warn('Pass 2 warning, sticking to Pass 1 result:', pass2Err.message);
+        console.warn('Pass 2 warning, keeping Pass 1 result:', pass2Err.message);
       }
     }
 
-    // VERIFICATION CHECK: Ensure page count is 100% unchanged
+    // Verification: page count must be unchanged
     if (originalPageCount > 0 && compressedPageCount > 0 && originalPageCount !== compressedPageCount) {
       console.error(`Page count mismatch! Original: ${originalPageCount}, Compressed: ${compressedPageCount}`);
       return res.status(422).json({
-        error: `Compression verification failed: Page count mismatch (Original: ${originalPageCount}, Compressed: ${compressedPageCount}). Compression aborted to prevent corruption.`,
+        error: `Page count mismatch (Original: ${originalPageCount}, Compressed: ${compressedPageCount}). Aborted to prevent corruption.`,
       });
     }
 
-    // Set Response Metadata Headers
+    // Set metadata headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('x-original-size', originalSize.toString());
     res.setHeader('x-compressed-size', compressedSize.toString());
@@ -149,12 +149,11 @@ app.post('/compress', upload.single('file'), async (req, res) => {
     res.setHeader('x-compressed-pages', compressedPageCount.toString());
     res.setHeader('x-compression-pass', compressionPass);
 
-    // Pipe compressed file to client
+    // Stream compressed file back
     const readStream = fs.createReadStream(finalOutputPath);
     readStream.pipe(res);
 
     readStream.on('end', async () => {
-      // Clean up temporary files
       try {
         if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath);
         if (fs.existsSync(outputPathPass1)) await fs.promises.unlink(outputPathPass1);
@@ -168,7 +167,6 @@ app.post('/compress', upload.single('file'), async (req, res) => {
     console.error('Compression Endpoint Error:', err);
     res.status(500).json({ error: `Ghostscript compression failed: ${err.message}` });
 
-    // Clean up temporary files on error
     try {
       if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath);
       if (fs.existsSync(outputPathPass1)) await fs.promises.unlink(outputPathPass1);
@@ -177,7 +175,7 @@ app.post('/compress', upload.single('file'), async (req, res) => {
   }
 });
 
-// Global error handler — ensures CORS headers are always present even on unhandled errors
+// Global error handler — CORS headers already set by top middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled Error:', err);
   res.status(500).json({ error: err.message || 'Internal server error' });
