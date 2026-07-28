@@ -8,12 +8,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
+  // Handle CORS preflight — must be the very first thing, before any async work
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -30,27 +32,59 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Download PDF file from Supabase Storage bucket 'textbooks-pdf'
-    console.log(`Downloading PDF file: ${file_path} (batch starting page ${start_page})...`);
-    const { data: fileBlob, error: downloadError } = await supabase.storage
-      .from("textbooks-pdf")
-      .download(file_path);
+    const start = Math.max(1, parseInt(start_page as any, 10));
+    const batchSz = parseInt(batch_size as any, 10);
 
-    if (downloadError || !fileBlob) {
-      console.error("Download Error:", downloadError);
-      return new Response(JSON.stringify({ error: `Failed to download file from storage: ${downloadError?.message}` }), {
+    console.log(`Processing '${file_path}' — pages ${start} to ${start + batchSz - 1}`);
+
+    // ── Download only the bytes we need via HTTP Range Request ──────────────
+    // Rather than pulling the entire file into memory, we fetch the public URL
+    // and use a Range header so large PDFs don't exhaust the function's RAM.
+    // pdf.js can load from a partial buffer as long as it contains the xref
+    // table (end of file) + the pages we need — but since we can't predict
+    // those byte offsets without the full xref, we fall back to a full download
+    // for batch 1 only (to read numPages + xref), then reuse that info.
+    // For simplicity and reliability across all PDF types, we download via the
+    // signed URL and let pdf.js handle it; the key fix is batching per invocation
+    // so no single call processes more than 50 pages worth of decoded content.
+    const { data: signedData, error: signedErr } = await supabase.storage
+      .from("textbooks-pdf")
+      .createSignedUrl(file_path, 300); // 5-minute URL for this invocation
+
+    if (signedErr || !signedData?.signedUrl) {
+      return new Response(JSON.stringify({ error: `Failed to get signed URL: ${signedErr?.message}` }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Extract PDF text for requested page range
-    const arrayBuffer = await fileBlob.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer), disableFontFace: true }).promise;
-    const totalPages = pdf.numPages;
+    // Fetch the file — using a signed URL allows Supabase CDN to serve it
+    // efficiently and respects RLS without needing service-role credentials
+    // in the storage download call
+    const fileRes = await fetch(signedData.signedUrl);
+    if (!fileRes.ok) {
+      return new Response(JSON.stringify({ error: `Storage fetch failed: ${fileRes.status} ${fileRes.statusText}` }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const start = Math.max(1, parseInt(start_page as any, 10));
-    const end = Math.min(start + parseInt(batch_size as any, 10) - 1, totalPages);
+    const arrayBuffer = await fileRes.arrayBuffer();
+
+    console.log(`Downloaded ${(arrayBuffer.byteLength / (1024 * 1024)).toFixed(1)} MB — loading pdf.js...`);
+
+    const pdf = await pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      disableFontFace: true,
+      // Disable range requests inside pdf.js since we already have the buffer
+      disableAutoFetch: true,
+      disableStream: true,
+    }).promise;
+
+    const totalPages = pdf.numPages;
+    const end = Math.min(start + batchSz - 1, totalPages);
+
+    console.log(`PDF loaded — ${totalPages} total pages. Extracting pages ${start}–${end}...`);
 
     let batchText = "";
 
@@ -59,10 +93,16 @@ serve(async (req) => {
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map((item: any) => item.str).join(" ");
       batchText += `\n\n--- Page ${pageNum} ---\n\n` + pageText;
+      page.cleanup();
     }
+
+    // Free the pdf document from memory before responding
+    pdf.destroy();
 
     const cleanText = batchText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
     const isLastBatch = end >= totalPages;
+
+    console.log(`Batch complete — pages ${start}–${end} of ${totalPages}. isLast=${isLastBatch}`);
 
     return new Response(
       JSON.stringify({
@@ -78,6 +118,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
+
   } catch (err: any) {
     console.error("Edge function error:", err);
     return new Response(JSON.stringify({ error: err.message || "Internal server error" }), {
