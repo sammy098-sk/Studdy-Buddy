@@ -222,6 +222,13 @@ export default function TextbookImporter({ onNavigate, user }) {
       // ─────────────────────────────────────────────────────────
       // STEP 3: Sequential 50-Page Batch Server Extraction Loop
       // ─────────────────────────────────────────────────────────
+      setStatusText('Generating secure URL for extraction...');
+      const { data: signedData, error: signedErr } = await supabase.storage.from('textbooks-pdf').createSignedUrl(filePath, 3600);
+      if (signedErr || !signedData?.signedUrl) {
+        throw new Error(`Failed to generate signed URL: ${signedErr?.message}`);
+      }
+      const signedUrl = signedData.signedUrl;
+
       let startPage = 1;
       const batchSize = 50;
       let fullExtractedText = '';
@@ -229,31 +236,31 @@ export default function TextbookImporter({ onNavigate, user }) {
       let totalPages = 0;
 
       while (!isDone) {
-        setStatusText(
-          totalPages > 0
-            ? `Server extracting pages ${startPage}–${Math.min(startPage + batchSize - 1, totalPages)} of ${totalPages}...`
-            : `Server processing PDF pages (Batch starting page ${startPage})...`
-        );
-
-        const { data: batchData, error: batchErr } = await supabase.functions.invoke('process-textbook-pdf', {
-          body: {
-            file_path: filePath,
+        setStatusText(`Extracting PDF text (batch starting at page ${startPage})...`);
+        
+        const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL;
+        
+        const response = await fetch(`${COMPRESSOR_URL}/extract`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            signedUrl: signedUrl,
             start_page: startPage,
-            batch_size: batchSize,
-          },
+            batch_size: batchSize
+          })
         });
 
-        if (batchErr || !batchData) {
-          let contextData = null;
+        if (!response.ok) {
+          let errorMsg = `Server returned ${response.status}`;
           try {
-            if (batchErr?.context) contextData = await batchErr.context.json();
-          } catch (e) {
-            try { if (batchErr?.context) contextData = await batchErr.context.text(); } catch (e2) {}
-          }
-          console.error('Edge Function Invoke Error Details:', batchErr, contextData);
-          const detailMsg = contextData?.error || batchErr?.message || batchData?.error || 'Failed to send request to Edge Function.';
-          throw new Error(`Edge Function Request Error: ${detailMsg}`);
+            const errData = await response.json();
+            if (errData.error) errorMsg = errData.error;
+          } catch(e) {}
+          throw new Error(`Extraction failed: ${errorMsg}`);
         }
+
+        const batchData = await response.json();
+
         if (batchData.error) {
           throw new Error(batchData.error);
         }
@@ -439,19 +446,27 @@ export default function TextbookImporter({ onNavigate, user }) {
                 <CheckCircle2 size={18} />
                 <span>Textbook compressed & chapters saved to database successfully!</span>
               </div>
-              <button
-                onClick={() => {
-                  setFile(null);
-                  setChapters([]);
-                  setTitle('');
-                  setAuthor('');
-                  setCompressionStats(null);
-                  setSaveSuccess(false);
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-700 text-white"
-              >
-                Upload Another PDF
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onNavigate('reader')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-green-700 border border-green-700 hover:bg-green-50 transition-colors"
+                >
+                  Read Textbook
+                </button>
+                <button
+                  onClick={() => {
+                    setFile(null);
+                    setChapters([]);
+                    setTitle('');
+                    setAuthor('');
+                    setCompressionStats(null);
+                    setSaveSuccess(false);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-700 text-white hover:bg-green-800 transition-colors"
+                >
+                  Upload Another PDF
+                </button>
+              </div>
             </div>
           )}
 

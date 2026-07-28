@@ -5,6 +5,17 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import pdfParse from 'pdf-parse';
+import { fileURLToPath } from 'url';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
+import Tesseract from 'tesseract.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure pdfjs CMap path for proper embedded font decoding
+const CMAP_URL = path.join(__dirname, 'node_modules', 'pdfjs-dist', 'cmaps') + '/';
+const CMAP_PACKED = true;
+const STANDARD_FONT_DATA_URL = path.join(__dirname, 'node_modules', 'pdfjs-dist', 'standard_fonts') + '/';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -172,6 +183,97 @@ app.post('/compress', upload.single('file'), async (req, res) => {
       if (fs.existsSync(outputPathPass1)) await fs.promises.unlink(outputPathPass1);
       if (fs.existsSync(outputPathPass2)) await fs.promises.unlink(outputPathPass2);
     } catch (_) {}
+  }
+});
+
+// ─── PDF TEXT EXTRACTION & OCR ENDPOINT ─────────────────────────────────────
+app.post('/extract', async (req, res) => {
+  const { signedUrl, start_page = 1, batch_size = 50 } = req.body;
+  if (!signedUrl) return res.status(400).json({ error: 'signedUrl is required' });
+
+  const start = Math.max(1, parseInt(start_page, 10));
+  const batchSz = parseInt(batch_size, 10);
+  const pdfTmpPath = path.join(os.tmpdir(), `extract_${Date.now()}.pdf`);
+
+  try {
+    const fileRes = await fetch(signedUrl);
+    if (!fileRes.ok) throw new Error(`Fetch failed: ${fileRes.status}`);
+    const buffer = await fileRes.arrayBuffer();
+    await fs.promises.writeFile(pdfTmpPath, Buffer.from(buffer));
+
+    // Load PDF with CMaps enabled to fix the Caesar shift/encoding issues
+    const pdf = await pdfjsLib.getDocument({
+      data: new Uint8Array(buffer),
+      cMapUrl: CMAP_URL,
+      cMapPacked: CMAP_PACKED,
+      standardFontDataUrl: STANDARD_FONT_DATA_URL,
+      disableFontFace: true,
+    }).promise;
+
+    const totalPages = pdf.numPages;
+    const end = Math.min(start + batchSz - 1, totalPages);
+    let batchText = "";
+
+    for (let pageNum = start; pageNum <= end; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      let pageText = textContent.items.map(item => item.str).join(" ");
+      
+      // Heuristic for scanned pages: few printable chars but has items/images
+      if (pageText.replace(/\s/g, '').length < 30) {
+        console.log(`Page ${pageNum} appears scanned (len=${pageText.length}). Running OCR...`);
+        const imgTmpPath = path.join(os.tmpdir(), `page_${pageNum}_${Date.now()}.png`);
+        try {
+          // Render to PNG using Ghostscript
+          await new Promise((resolve, reject) => {
+            const args = [
+              '-dQUIET', '-dPARANOIDSAFER', '-dBATCH', '-dNOPAUSE', '-dNOPROMPT',
+              '-sDEVICE=png16m', '-r300',
+              `-dFirstPage=${pageNum}`, `-dLastPage=${pageNum}`,
+              `-sOutputFile=${imgTmpPath}`,
+              pdfTmpPath
+            ];
+            execFile('gs', args, (error) => {
+              if (error) return reject(error);
+              resolve();
+            });
+          });
+
+          // Run Tesseract OCR on the generated image
+          const { data: { text } } = await Tesseract.recognize(imgTmpPath, 'eng', { 
+            logger: m => {} 
+          });
+          pageText = text;
+        } catch (ocrErr) {
+          console.error(`OCR failed on page ${pageNum}:`, ocrErr);
+        } finally {
+          if (fs.existsSync(imgTmpPath)) await fs.promises.unlink(imgTmpPath);
+        }
+      }
+
+      batchText += `\n\n--- Page ${pageNum} ---\n\n` + pageText;
+      page.cleanup();
+    }
+
+    pdf.destroy();
+    if (fs.existsSync(pdfTmpPath)) await fs.promises.unlink(pdfTmpPath);
+
+    const cleanText = batchText.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+    const isLastBatch = end >= totalPages;
+
+    res.json({
+      success: true,
+      total_pages: totalPages,
+      start_page: start,
+      end_page: end,
+      is_last_batch: isLastBatch,
+      extracted_text: cleanText,
+    });
+  } catch (err) {
+    console.error("Extraction Endpoint Error:", err);
+    if (fs.existsSync(pdfTmpPath)) await fs.promises.unlink(pdfTmpPath).catch(()=>{});
+    res.status(500).json({ error: err.message });
   }
 });
 
