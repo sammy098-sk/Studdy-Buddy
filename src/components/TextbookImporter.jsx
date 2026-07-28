@@ -16,7 +16,7 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-export default function TextbookImporter({ onNavigate }) {
+export default function TextbookImporter({ onNavigate, user }) {
   const [file, setFile] = useState(null);
   const [fileStats, setFileStats] = useState(null);
   const [title, setTitle] = useState('');
@@ -186,6 +186,10 @@ export default function TextbookImporter({ onNavigate }) {
 
   const handleStartUpload = async () => {
     if (!file || !title) return;
+    if (!user) {
+      setErrorMessage("Authentication required: Please log in to upload textbooks.");
+      return;
+    }
     setIsProcessing(true);
     setErrorMessage(null);
     setFailedChunkIndex(null);
