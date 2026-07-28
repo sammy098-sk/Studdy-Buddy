@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, ChevronLeft, ChevronRight, Volume2, VolumeX, Pause, Play, CheckCircle2, List, Sun, Moon, Book } from 'lucide-react';
+import { BookOpen, ChevronLeft, ChevronRight, Volume2, VolumeX, Pause, Play, CheckCircle2, List, Sun, Moon, Book, FileText } from 'lucide-react';
 import { supabase } from '../supabase';
 import useSpeech from '../hooks/useSpeech';
 import BackToHomeButton from './BackToHomeButton';
 import Footer from './Footer';
+import StreamingPdfViewer from './StreamingPdfViewer';
 
 export default function TextbookReader({ subject, onNavigate, user }) {
   const [textbooks, setTextbooks] = useState([]);
@@ -13,6 +14,8 @@ export default function TextbookReader({ subject, onNavigate, user }) {
   const [loading, setLoading] = useState(true);
   const [loadingChapters, setLoadingChapters] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // 'pdf' = streaming PDF viewer | 'text' = chapter text reader
+  const [viewMode, setViewMode] = useState('pdf');
 
   // Reader Customizations
   const [theme, setTheme] = useState('light'); // 'light' | 'sepia' | 'dark'
@@ -42,6 +45,13 @@ export default function TextbookReader({ subject, onNavigate, user }) {
 
     fetchTextbooks();
   }, [subject]);
+
+  // Reset to PDF view when textbook changes; fall back to text if no pdf_path
+  useEffect(() => {
+    if (selectedTextbook) {
+      setViewMode(selectedTextbook.pdf_path ? 'pdf' : 'text');
+    }
+  }, [selectedTextbook?.id]);
 
   // Fetch chapters when selectedTextbook changes
   useEffect(() => {
@@ -109,6 +119,8 @@ export default function TextbookReader({ subject, onNavigate, user }) {
               {/* Textbook Selector Dropdown */}
               {textbooks.length > 1 && (
                 <select
+                  id="textbook-selector"
+                  name="textbook-selector"
                   value={selectedTextbook?.id || ''}
                   onChange={(e) => {
                     const found = textbooks.find((t) => t.id === e.target.value);
@@ -121,6 +133,28 @@ export default function TextbookReader({ subject, onNavigate, user }) {
                     <option key={tb.id} value={tb.id}>{tb.title}</option>
                   ))}
                 </select>
+              )}
+
+              {/* View mode toggle — only shown when textbook has a PDF file */}
+              {selectedTextbook?.pdf_path && (
+                <div className="flex items-center border rounded-lg overflow-hidden text-xs" style={{ borderColor: currentTheme.border }}>
+                  <button
+                    onClick={() => setViewMode('pdf')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 font-semibold ${
+                      viewMode === 'pdf' ? 'bg-blue-600 text-white' : ''
+                    }`}
+                  >
+                    <BookOpen size={13} /> PDF
+                  </button>
+                  <button
+                    onClick={() => setViewMode('text')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 font-semibold ${
+                      viewMode === 'text' ? 'bg-blue-600 text-white' : ''
+                    }`}
+                  >
+                    <FileText size={13} /> Chapter Text
+                  </button>
+                </div>
               )}
             </div>
 
@@ -184,109 +218,124 @@ export default function TextbookReader({ subject, onNavigate, user }) {
 
           {selectedTextbook && (
             <div className="flex flex-col md:flex-row gap-6">
-              
-              {/* TOC Drawer / Sidebar */}
-              {(sidebarOpen || window.innerWidth >= 768) && (
-                <div className={`w-full md:w-64 shrink-0 rounded-2xl border p-4 mb-4 md:mb-0`} style={{ background: currentTheme.cardBg, borderColor: currentTheme.border }}>
-                  <h3 className="text-xs font-bold uppercase tracking-wider mb-3 opacity-70">
-                    {selectedTextbook.title}
-                  </h3>
-                  <div className="flex flex-col gap-1 max-h-[500px] overflow-y-auto pr-1">
-                    {chapters.map((ch, idx) => (
-                      <button
-                        key={ch.id || idx}
-                        onClick={() => {
-                          setActiveChapterIndex(idx);
-                          setSidebarOpen(false);
-                        }}
-                        className={`text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors truncate ${
-                          activeChapterIndex === idx ? 'bg-blue-600 text-white' : 'hover:opacity-80'
-                        }`}
-                      >
-                        {ch.title}
-                      </button>
-                    ))}
-                  </div>
+
+              {/* ── Streaming PDF Viewer (full-width, replaces chapter reader) ── */}
+              {viewMode === 'pdf' && selectedTextbook.pdf_path && (
+                <div style={{ flex: 1, minHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+                  <StreamingPdfViewer
+                    textbook={selectedTextbook}
+                    onBack={() => setViewMode('text')}
+                  />
                 </div>
               )}
 
-              {/* Chapter Reading Canvas */}
-              <div className="flex-1 min-w-0">
-                {loadingChapters && (
-                  <div className="py-16 text-center text-sm opacity-70">Loading chapter content...</div>
-                )}
-
-                {!loadingChapters && activeChapter && (
-                  <div className="flex flex-col gap-6">
-                    
-                    {/* Chapter Header */}
-                    <div className="p-6 rounded-2xl border flex flex-col gap-4" style={{ background: currentTheme.cardBg, borderColor: currentTheme.border }}>
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <span className="text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded bg-blue-100 text-blue-700">
-                          Chapter {activeChapter.chapter_number} of {chapters.length}
-                        </span>
-
-                        {/* Speech Listen Controls */}
-                        <div className="flex items-center gap-1">
-                          {!speaking && (
-                            <button
-                              onClick={() => speak(activeChapter.content, { subject: selectedTextbook.subject, label: activeChapter.title })}
-                              disabled={ttsLoading}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-opacity hover:opacity-80"
-                              style={{ borderColor: currentTheme.border }}
-                            >
-                              <Volume2 size={14} /> Listen to Chapter
-                            </button>
-                          )}
-                          {speaking && !paused && (
-                            <button onClick={pause} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border" style={{ borderColor: currentTheme.border }}>
-                              <Pause size={14} /> Pause
-                            </button>
-                          )}
-                          {speaking && paused && (
-                            <button onClick={resume} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border" style={{ borderColor: currentTheme.border }}>
-                              <Play size={14} /> Resume
-                            </button>
-                          )}
-                          {speaking && (
-                            <button onClick={stop} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-red-600 border border-red-200 bg-red-50">
-                              <VolumeX size={14} />
-                            </button>
-                          )}
-                        </div>
+              {/* ── Chapter Text Reader ─────────────────────────────────────── */}
+              {viewMode === 'text' && (
+                <>
+                  {/* TOC Drawer / Sidebar */}
+                  {(sidebarOpen || window.innerWidth >= 768) && (
+                    <div className={`w-full md:w-64 shrink-0 rounded-2xl border p-4 mb-4 md:mb-0`} style={{ background: currentTheme.cardBg, borderColor: currentTheme.border }}>
+                      <h3 className="text-xs font-bold uppercase tracking-wider mb-3 opacity-70">
+                        {selectedTextbook.title}
+                      </h3>
+                      <div className="flex flex-col gap-1 max-h-[500px] overflow-y-auto pr-1">
+                        {chapters.map((ch, idx) => (
+                          <button
+                            key={ch.id || idx}
+                            onClick={() => {
+                              setActiveChapterIndex(idx);
+                              setSidebarOpen(false);
+                            }}
+                            className={`text-left px-3 py-2 rounded-xl text-xs font-medium transition-colors truncate ${
+                              activeChapterIndex === idx ? 'bg-blue-600 text-white' : 'hover:opacity-80'
+                            }`}
+                          >
+                            {ch.title}
+                          </button>
+                        ))}
                       </div>
-
-                      <h1 className="text-2xl font-bold font-serif">{activeChapter.title}</h1>
                     </div>
+                  )}
 
-                    {/* Main Reading Text */}
-                    <div className={`p-6 sm:p-8 rounded-2xl border whitespace-pre-wrap ${fontSizeClasses[fontSize]}`} style={{ background: currentTheme.cardBg, borderColor: currentTheme.border }}>
-                      {activeChapter.content}
-                    </div>
+                  {/* Chapter Reading Canvas */}
+                  <div className="flex-1 min-w-0">
+                    {loadingChapters && (
+                      <div className="py-16 text-center text-sm opacity-70">Loading chapter content...</div>
+                    )}
 
-                    {/* Pagination Controls */}
-                    <div className="flex items-center justify-between pt-4">
-                      <button
-                        onClick={() => setActiveChapterIndex((i) => Math.max(0, i - 1))}
-                        disabled={activeChapterIndex === 0}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border disabled:opacity-30"
-                        style={{ borderColor: currentTheme.border }}
-                      >
-                        <ChevronLeft size={16} /> Previous Chapter
-                      </button>
+                    {!loadingChapters && activeChapter && (
+                      <div className="flex flex-col gap-6">
 
-                      <button
-                        onClick={() => setActiveChapterIndex((i) => Math.min(chapters.length - 1, i + 1))}
-                        disabled={activeChapterIndex === chapters.length - 1}
-                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 disabled:opacity-30"
-                      >
-                        Next Chapter <ChevronRight size={16} />
-                      </button>
-                    </div>
+                        {/* Chapter Header */}
+                        <div className="p-6 rounded-2xl border flex flex-col gap-4" style={{ background: currentTheme.cardBg, borderColor: currentTheme.border }}>
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded bg-blue-100 text-blue-700">
+                              Chapter {activeChapter.chapter_number} of {chapters.length}
+                            </span>
 
+                            {/* Speech Listen Controls */}
+                            <div className="flex items-center gap-1">
+                              {!speaking && (
+                                <button
+                                  onClick={() => speak(activeChapter.content, { subject: selectedTextbook.subject, label: activeChapter.title })}
+                                  disabled={ttsLoading}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-opacity hover:opacity-80"
+                                  style={{ borderColor: currentTheme.border }}
+                                >
+                                  <Volume2 size={14} /> Listen to Chapter
+                                </button>
+                              )}
+                              {speaking && !paused && (
+                                <button onClick={pause} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border" style={{ borderColor: currentTheme.border }}>
+                                  <Pause size={14} /> Pause
+                                </button>
+                              )}
+                              {speaking && paused && (
+                                <button onClick={resume} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border" style={{ borderColor: currentTheme.border }}>
+                                  <Play size={14} /> Resume
+                                </button>
+                              )}
+                              {speaking && (
+                                <button onClick={stop} className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-red-600 border border-red-200 bg-red-50">
+                                  <VolumeX size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <h1 className="text-2xl font-bold font-serif">{activeChapter.title}</h1>
+                        </div>
+
+                        {/* Main Reading Text */}
+                        <div className={`p-6 sm:p-8 rounded-2xl border whitespace-pre-wrap ${fontSizeClasses[fontSize]}`} style={{ background: currentTheme.cardBg, borderColor: currentTheme.border }}>
+                          {activeChapter.content}
+                        </div>
+
+                        {/* Pagination Controls */}
+                        <div className="flex items-center justify-between pt-4">
+                          <button
+                            onClick={() => setActiveChapterIndex((i) => Math.max(0, i - 1))}
+                            disabled={activeChapterIndex === 0}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border disabled:opacity-30"
+                            style={{ borderColor: currentTheme.border }}
+                          >
+                            <ChevronLeft size={16} /> Previous Chapter
+                          </button>
+
+                          <button
+                            onClick={() => setActiveChapterIndex((i) => Math.min(chapters.length - 1, i + 1))}
+                            disabled={activeChapterIndex === chapters.length - 1}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 disabled:opacity-30"
+                          >
+                            Next Chapter <ChevronRight size={16} />
+                          </button>
+                        </div>
+
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </>
+              )}
 
             </div>
           )}

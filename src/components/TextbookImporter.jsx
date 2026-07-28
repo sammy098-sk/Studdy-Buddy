@@ -72,8 +72,7 @@ export default function TextbookImporter({ onNavigate, user }) {
   const [progressPercent, setProgressPercent] = useState(0);
   const [statusText, setStatusText] = useState('');
   
-  // Compression statistics
-  const [compressionStats, setCompressionStats] = useState(null);
+
   
   // Textbook metadata
   const [title, setTitle] = useState('');
@@ -100,7 +99,6 @@ export default function TextbookImporter({ onNavigate, user }) {
     }
 
     setFile(selectedFile);
-    setCompressionStats(null);
     setErrorMessage(null);
     setSaveSuccess(false);
 
@@ -129,85 +127,17 @@ export default function TextbookImporter({ onNavigate, user }) {
     setProgressPercent(2);
     setErrorMessage(null);
     setSaveSuccess(false);
-    setCompressionStats(null);
-
-    const COMPRESSION_THRESHOLD_BYTES = 14 * 1024 * 1024; // 14 MB threshold
-    let fileToUpload = file;
 
     try {
       // ─────────────────────────────────────────────────────────
-      // STEP 1: Check File Size & Trigger Ghostscript Compression if > 14MB
+      // STEP 1: Upload PDF to Supabase Storage ('textbooks-pdf')
       // ─────────────────────────────────────────────────────────
-      if (file.size > COMPRESSION_THRESHOLD_BYTES) {
-        setStatusText(`File size is ${formatBytes(file.size)} (> 14MB). Running Ghostscript screen compression...`);
-        setProgressPercent(8);
+      setStatusText(`Uploading PDF to Supabase Storage (${formatBytes(file.size)})...`);
+      const cleanFileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
-        const compressorUrl = import.meta.env.VITE_COMPRESSOR_URL;
-
-        if (!compressorUrl) {
-          throw new Error(
-            'VITE_COMPRESSOR_URL is not configured. ' +
-            'Please deploy the pdf-compressor-service to Render (or another host) ' +
-            'and set VITE_COMPRESSOR_URL=https://your-service.onrender.com in your .env file, ' +
-            'then restart the dev server.'
-          );
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        try {
-          const compResponse = await fetch(`${compressorUrl}/compress`, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!compResponse.ok) {
-            const errData = await compResponse.json().catch(() => ({}));
-            throw new Error(errData.error || `Microservice compression failed (${compResponse.status})`);
-          }
-
-          const compressedBlob = await compResponse.blob();
-          const origSize = parseInt(compResponse.headers.get('x-original-size') || file.size.toString(), 10);
-          const compSize = parseInt(compResponse.headers.get('x-compressed-size') || compressedBlob.size.toString(), 10);
-          const origPages = parseInt(compResponse.headers.get('x-original-pages') || '0', 10);
-          const compPages = parseInt(compResponse.headers.get('x-compressed-pages') || '0', 10);
-
-          // VERIFICATION CHECK 1: Ensure page count is 100% unchanged
-          if (origPages > 0 && compPages > 0 && origPages !== compPages) {
-            throw new Error(`Page count mismatch after compression (Original: ${origPages}, Compressed: ${compPages}). Upload halted to prevent corruption.`);
-          }
-
-          // Compute reduction percentage
-          const reductionPercent = Math.max(0, ((origSize - compSize) / origSize) * 100).toFixed(1);
-
-          setCompressionStats({
-            originalSize: origSize,
-            compressedSize: compSize,
-            reductionPercent,
-            pages: compPages || origPages,
-          });
-
-          // Replace file to upload with compressed version
-          fileToUpload = new File([compressedBlob], file.name, { type: 'application/pdf' });
-          setProgressPercent(20);
-          setStatusText(`Compression complete! Size reduced by ${reductionPercent}% (${formatBytes(origSize)} ➔ ${formatBytes(compSize)}).`);
-
-        } catch (compErr) {
-          // Re-throw so the admin sees a real error, not a silent fallback
-          throw new Error(`Ghostscript Compression Failed: ${compErr.message}`);
-        }
-      }
-
-      // ─────────────────────────────────────────────────────────
-      // STEP 2: Upload File to Supabase Storage ('textbooks-pdf')
-      // ─────────────────────────────────────────────────────────
-      setStatusText('Uploading PDF to Supabase Storage...');
-      const cleanFileName = `${Date.now()}_${fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      
       const { data: uploadData, error: uploadErr } = await supabase.storage
         .from('textbooks-pdf')
-        .upload(cleanFileName, fileToUpload, {
+        .upload(cleanFileName, file, {
           cacheControl: '3600',
           upsert: true,
         });
@@ -217,10 +147,10 @@ export default function TextbookImporter({ onNavigate, user }) {
       }
 
       const filePath = uploadData.path;
-      setProgressPercent(30);
+      setProgressPercent(25);
 
       // ─────────────────────────────────────────────────────────
-      // STEP 3: Sequential 50-Page Batch Server Extraction Loop
+      // STEP 2: Sequential 50-Page Batch Server Extraction Loop
       // ─────────────────────────────────────────────────────────
       let startPage = 1;
       const batchSize = 50;
@@ -267,7 +197,7 @@ export default function TextbookImporter({ onNavigate, user }) {
       }
 
       // ─────────────────────────────────────────────────────────
-      // STEP 4: Chapter Auto-Detection & Database Persistence
+      // STEP 3: Chapter Auto-Detection & Database Persistence
       // ─────────────────────────────────────────────────────────
       setStatusText(`Detecting chapter headings across ${totalPages} pages...`);
       setProgressPercent(95);
@@ -289,6 +219,7 @@ export default function TextbookImporter({ onNavigate, user }) {
           title: title.trim(),
           subject: subject,
           author: author.trim() || null,
+          pdf_path: filePath,
         })
         .select()
         .single();
