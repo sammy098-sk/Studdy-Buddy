@@ -41,10 +41,14 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 
-// Set up temporary storage for file uploads
-const upload = multer({ dest: os.tmpdir() });
+// Set up temporary storage for file uploads with an explicit large limit
+const upload = multer({ 
+  dest: os.tmpdir(),
+  limits: { fileSize: 200 * 1024 * 1024 } // 200 MB limit
+});
 
 /**
  * Execute Ghostscript binary to compress PDF
