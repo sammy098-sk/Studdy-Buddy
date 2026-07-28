@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileText, CheckCircle2, Loader2, AlertCircle, Server, RefreshCw } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, Server, RefreshCw, BookOpen } from 'lucide-react';
 import { SUBJECTS } from '../config';
 import { supabase } from '../supabase';
 import BackToHomeButton from './BackToHomeButton';
@@ -16,7 +16,7 @@ function formatBytes(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-export default function TextbookImporter({ onNavigate, user }) {
+export default function TextbookImporter({ onNavigate }) {
   const [file, setFile] = useState(null);
   const [fileStats, setFileStats] = useState(null);
   const [title, setTitle] = useState('');
@@ -30,7 +30,8 @@ export default function TextbookImporter({ onNavigate, user }) {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // Retry state
+  // Retry & Job state
+  const [jobId, setJobId] = useState(null);
   const [failedChunkIndex, setFailedChunkIndex] = useState(null);
   const [pendingChunks, setPendingChunks] = useState([]);
   const [parentBookId, setParentBookId] = useState(null);
@@ -50,6 +51,7 @@ export default function TextbookImporter({ onNavigate, user }) {
     setSaveSuccess(false);
     setFailedChunkIndex(null);
     setPendingChunks([]);
+    setJobId(null);
     
     // Parse page count locally
     setStatusText('Inspecting PDF...');
@@ -77,7 +79,7 @@ export default function TextbookImporter({ onNavigate, user }) {
     
     // 1. Fetch chunk blob from Render
     const response = await fetch(`${COMPRESSOR_URL}${chunk.download_url}`);
-    if (!response.ok) throw new Error(`Failed to download part ${index + 1} from processor.`);
+    if (!response.ok) throw new Error(`Failed to download part ${index + 1} from server.`);
     const chunkBlob = await response.blob();
 
     // 2. Upload to Supabase Storage
@@ -103,12 +105,23 @@ export default function TextbookImporter({ onNavigate, user }) {
     return true;
   };
 
-  const processUploadLoop = async (chunks, startIdx, bookId) => {
+  const processUploadLoop = async (chunks, startIdx, bookId, currentJobId) => {
+    const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
     try {
       const totalChunks = chunks.length;
       for (let i = startIdx; i < totalChunks; i++) {
         await uploadChunkToSupabase(chunks[i], i, totalChunks, bookId);
         setProgressPercent(40 + Math.round(((i + 1) / totalChunks) * 60));
+      }
+
+      // Finalize: Mark book as ready
+      setStatusText('Finalizing...');
+      const { error: updateErr } = await supabase.from('textbooks').update({ status: 'ready' }).eq('id', bookId);
+      if (updateErr) throw new Error(`Failed to mark textbook as ready: ${updateErr.message}`);
+
+      // Cleanup job on server
+      if (currentJobId) {
+        await fetch(`${COMPRESSOR_URL}/jobs/${currentJobId}/complete`, { method: 'POST' }).catch(console.error);
       }
 
       setStatusText('');
@@ -122,6 +135,53 @@ export default function TextbookImporter({ onNavigate, user }) {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const pollJobStatus = async (currentJobId) => {
+    const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
+    
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${COMPRESSOR_URL}/jobs/${currentJobId}`);
+        if (!res.ok) throw new Error('Failed to fetch job status.');
+        const data = await res.json();
+
+        if (data.status === 'completed') {
+          clearInterval(interval);
+          const chunks = data.chunks || [];
+          setPendingChunks(chunks);
+          setProgressPercent(30);
+          setStatusText(`PDF split into ${chunks.length} parts. Creating database record...`);
+
+          // Create Parent Book Record (Status: 'uploading')
+          const { data: bookRecord, error: bookErr } = await supabase.from('textbooks').insert({
+            title: title.trim(),
+            subject: subject,
+            author: author.trim() || null,
+            total_pages: data.total_pages,
+            total_parts: chunks.length,
+            status: 'uploading'
+          }).select().single();
+
+          if (bookErr || !bookRecord) throw new Error(`Failed to create textbook record: ${bookErr?.message}`);
+          
+          const newBookId = bookRecord.id;
+          setParentBookId(newBookId);
+          setProgressPercent(40);
+
+          // Start sequential chunk upload
+          await processUploadLoop(chunks, 0, newBookId, currentJobId);
+        } else if (data.status === 'error') {
+          clearInterval(interval);
+          throw new Error(`Server splitting failed: ${data.error}`);
+        }
+      } catch (err) {
+        clearInterval(interval);
+        console.error('Polling Error:', err);
+        setErrorMessage(err.message || 'An error occurred during splitting.');
+        setIsProcessing(false);
+      }
+    }, 2000);
   };
 
   const handleStartUpload = async () => {
@@ -138,42 +198,27 @@ export default function TextbookImporter({ onNavigate, user }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      // STEP 1: Split PDF on Server
-      const splitRes = await fetch(`${COMPRESSOR_URL}/split`, {
+      // STEP 1: Start Async Split Job
+      const splitRes = await fetch(`${COMPRESSOR_URL}/jobs/split`, {
         method: 'POST',
         body: formData,
       });
 
       if (!splitRes.ok) {
         let msg = await splitRes.text();
-        throw new Error(`Server splitting failed: ${msg}`);
+        throw new Error(`Failed to start job: ${msg}`);
       }
 
       const splitData = await splitRes.json();
       if (splitData.error) throw new Error(splitData.error);
       
-      const chunks = splitData.chunks || [];
-      setPendingChunks(chunks);
-      setProgressPercent(30);
-      setStatusText(`PDF split into ${chunks.length} parts. Creating database record...`);
+      const newJobId = splitData.jobId;
+      setJobId(newJobId);
+      setProgressPercent(15);
+      setStatusText('Splitting PDF (this may take a minute for large files)...');
 
-      // STEP 2: Create Parent Book Record
-      const { data: bookRecord, error: bookErr } = await supabase.from('textbooks').insert({
-        title: title.trim(),
-        subject: subject,
-        author: author.trim() || null,
-        total_pages: splitData.total_pages,
-        total_parts: chunks.length
-      }).select().single();
-
-      if (bookErr || !bookRecord) throw new Error(`Failed to create textbook record: ${bookErr?.message}`);
-      
-      const newBookId = bookRecord.id;
-      setParentBookId(newBookId);
-      setProgressPercent(40);
-
-      // STEP 3: Sequential Chunk Upload
-      await processUploadLoop(chunks, 0, newBookId);
+      // STEP 2: Poll for completion
+      pollJobStatus(newJobId);
 
     } catch (err) {
       console.error('Upload Error:', err);
@@ -186,7 +231,7 @@ export default function TextbookImporter({ onNavigate, user }) {
     if (failedChunkIndex === null || pendingChunks.length === 0 || !parentBookId) return;
     setIsProcessing(true);
     setErrorMessage(null);
-    await processUploadLoop(pendingChunks, failedChunkIndex, parentBookId);
+    await processUploadLoop(pendingChunks, failedChunkIndex, parentBookId, jobId);
   };
 
   return (
@@ -204,7 +249,7 @@ export default function TextbookImporter({ onNavigate, user }) {
                 Large PDF Textbooks
               </h2>
               <p className="text-sm" style={{ color: '#8493B0' }}>
-                Upload massive PDFs safely. Books &gt;20MB are automatically split and streamed.
+                Upload massive PDFs safely. Books &gt;20MB are automatically split via async jobs and streamed.
               </p>
             </div>
           </div>
@@ -232,7 +277,7 @@ export default function TextbookImporter({ onNavigate, user }) {
             <div className="mb-6 p-4 rounded-xl flex items-center justify-between text-sm" style={{ background: '#F0FDF4', borderColor: '#86EFAC', color: '#166534', border: '1px solid' }}>
               <div className="flex items-center gap-3">
                 <CheckCircle2 size={18} />
-                <span>Textbook successfully uploaded and chunked!</span>
+                <span>Textbook successfully uploaded and chunked! Status: Ready.</span>
               </div>
               <button
                 onClick={() => {
@@ -256,7 +301,7 @@ export default function TextbookImporter({ onNavigate, user }) {
                   </div>
                   <h3 className="text-lg font-semibold mb-2" style={{ color: '#101C34' }}>Select Textbook PDF</h3>
                   <p className="text-sm text-slate-500 mb-6 max-w-md">
-                    Upload textbooks up to 250MB. They will be automatically split for safe storage on Supabase Free Tier.
+                    Upload textbooks up to 250MB. They will be automatically split via background jobs for safe storage.
                   </p>
                   <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <Upload size={18} />

@@ -27,7 +27,7 @@ export default function TextbookReader({ subject, onNavigate, user }) {
   useEffect(() => {
     const fetchTextbooks = async () => {
       setLoading(true);
-      let query = supabase.from('textbooks').select('*').order('created_at', { ascending: false });
+      let query = supabase.from('textbooks').select('*').eq('status', 'ready').order('created_at', { ascending: false });
       if (subject) {
         query = query.eq('subject', subject);
       }

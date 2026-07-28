@@ -11,6 +11,7 @@ CREATE TABLE textbooks (
   subject TEXT,
   total_pages INTEGER NOT NULL,
   total_parts INTEGER NOT NULL,
+  status TEXT DEFAULT 'uploading',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

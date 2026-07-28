@@ -3,6 +3,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import { PDFDocument } from 'pdf-lib';
 
 const app = express();
@@ -11,7 +12,7 @@ const PORT = process.env.PORT || 3001;
 // ─── CORS ──────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
@@ -27,9 +28,12 @@ const upload = multer({
   limits: { fileSize: 250 * 1024 * 1024 } // 250 MB limit
 });
 
+// Store jobs in memory (for Phase 1, simple polling)
+const jobs = {};
+
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'PDF Splitter Service' });
+  res.json({ status: 'ok', service: 'PDF Splitter Service (Async)' });
 });
 
 // ─── ENDPOINT: Serve Split Chunks ──────────────────────────────────────────
@@ -41,78 +45,119 @@ app.get('/download/:filename', (req, res) => {
   res.sendFile(filePath);
 });
 
-// ─── ENDPOINT: Split PDF ───────────────────────────────────────────────────
-app.post('/split', upload.single('file'), async (req, res) => {
+// ─── ENDPOINT: Start Async Split Job ───────────────────────────────────────
+app.post('/jobs/split', upload.single('file'), (req, res) => {
   const inputPath = req.file?.path;
   if (!inputPath) return res.status(400).json({ error: 'No PDF uploaded.' });
 
-  try {
-    const originalStat = await fs.promises.stat(inputPath);
-    const totalBytes = originalStat.size;
-    const MAX_CHUNK_SIZE = 20 * 1024 * 1024; // 20 MB
+  const jobId = `job_${crypto.randomBytes(8).toString('hex')}`;
+  
+  jobs[jobId] = {
+    status: 'processing',
+    originalName: req.file.originalname,
+    chunks: [],
+    error: null,
+    filesToDelete: [inputPath],
+    createdAt: Date.now()
+  };
 
-    console.log(`Processing PDF: ${req.file.originalname} | ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
+  res.json({ success: true, jobId, status: 'processing' });
 
-    const pdfBytes = await fs.promises.readFile(inputPath);
-    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-    const totalPages = pdfDoc.getPageCount();
+  // Start background task
+  (async () => {
+    try {
+      const originalStat = await fs.promises.stat(inputPath);
+      const totalBytes = originalStat.size;
 
-    // Calculate heuristic for chunking
-    const avgBytesPerPage = totalBytes / totalPages;
-    // Aim for ~18MB to be safe below the 20MB limit
-    const TARGET_CHUNK = 18 * 1024 * 1024;
-    let pagesPerChunk = Math.floor(TARGET_CHUNK / avgBytesPerPage);
-    if (pagesPerChunk < 1) pagesPerChunk = 1;
+      console.log(`[${jobId}] Processing PDF: ${req.file.originalname} | ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
 
-    let chunks = [];
-    let startPage = 0;
-    let partNum = 1;
-    const sessionPrefix = `split_${Date.now()}`;
+      const pdfBytes = await fs.promises.readFile(inputPath);
+      const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+      const totalPages = pdfDoc.getPageCount();
 
-    while (startPage < totalPages) {
-      let endPage = Math.min(startPage + pagesPerChunk, totalPages);
+      // Heuristic chunk calculation
+      const avgBytesPerPage = totalBytes / totalPages;
+      const TARGET_CHUNK = 18 * 1024 * 1024; // Aim for ~18MB
+      let pagesPerChunk = Math.floor(TARGET_CHUNK / avgBytesPerPage);
+      if (pagesPerChunk < 1) pagesPerChunk = 1;
+
+      let chunks = [];
+      let startPage = 0;
+      let partNum = 1;
+      const sessionPrefix = `${jobId}_split`;
+
+      while (startPage < totalPages) {
+        let endPage = Math.min(startPage + pagesPerChunk, totalPages);
+        
+        console.log(`[${jobId}] Splitting Part ${partNum}: Pages ${startPage + 1} to ${endPage}`);
+        const newPdf = await PDFDocument.create();
+        
+        const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+        const copiedPages = await newPdf.copyPages(pdfDoc, pageIndices);
+        copiedPages.forEach((page) => newPdf.addPage(page));
+
+        const newPdfBytes = await newPdf.save();
+        const chunkFilename = `${sessionPrefix}_part${partNum}.pdf`;
+        const chunkPath = path.join(os.tmpdir(), chunkFilename);
+        
+        await fs.promises.writeFile(chunkPath, newPdfBytes);
+        
+        jobs[jobId].filesToDelete.push(chunkPath);
+
+        chunks.push({
+          part_number: partNum,
+          first_page: startPage + 1,
+          last_page: endPage,
+          size_bytes: newPdfBytes.length,
+          download_url: `/download/${chunkFilename}`
+        });
+
+        startPage = endPage;
+        partNum++;
+      }
+
+      jobs[jobId].status = 'completed';
+      jobs[jobId].chunks = chunks;
+      jobs[jobId].total_pages = totalPages;
+      jobs[jobId].original_size = totalBytes;
       
-      console.log(`Splitting Part ${partNum}: Pages ${startPage + 1} to ${endPage}`);
-      const newPdf = await PDFDocument.create();
-      
-      const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
-      const copiedPages = await newPdf.copyPages(pdfDoc, pageIndices);
-      copiedPages.forEach((page) => newPdf.addPage(page));
-
-      const newPdfBytes = await newPdf.save();
-      const chunkFilename = `${sessionPrefix}_part${partNum}.pdf`;
-      const chunkPath = path.join(os.tmpdir(), chunkFilename);
-      
-      await fs.promises.writeFile(chunkPath, newPdfBytes);
-
-      chunks.push({
-        part_number: partNum,
-        first_page: startPage + 1,
-        last_page: endPage,
-        size_bytes: newPdfBytes.length,
-        download_url: `/download/${chunkFilename}`
-      });
-
-      startPage = endPage;
-      partNum++;
+      console.log(`[${jobId}] Processing complete. Created ${chunks.length} chunks.`);
+    } catch (err) {
+      console.error(`[${jobId}] Error:`, err);
+      jobs[jobId].status = 'error';
+      jobs[jobId].error = err.message;
     }
+  })();
+});
 
-    // Cleanup original file
-    if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath);
+// ─── ENDPOINT: Poll Job Status ─────────────────────────────────────────────
+app.get('/jobs/:jobId', (req, res) => {
+  const job = jobs[req.params.jobId];
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
 
-    res.json({
-      success: true,
-      original_size: totalBytes,
-      total_pages: totalPages,
-      total_parts: chunks.length,
-      chunks: chunks
-    });
+  res.json({
+    status: job.status,
+    error: job.error,
+    total_pages: job.total_pages,
+    original_size: job.original_size,
+    chunks: job.chunks
+  });
+});
 
-  } catch (err) {
-    console.error('Split Error:', err);
-    if (fs.existsSync(inputPath)) await fs.promises.unlink(inputPath).catch(()=>{});
-    res.status(500).json({ error: err.message });
+// ─── ENDPOINT: Cleanup Job ─────────────────────────────────────────────────
+app.post('/jobs/:jobId/complete', async (req, res) => {
+  const job = jobs[req.params.jobId];
+  if (!job) return res.status(404).json({ error: 'Job not found.' });
+
+  console.log(`[${req.params.jobId}] Cleaning up ${job.filesToDelete.length} temporary files...`);
+  for (const file of job.filesToDelete) {
+    if (fs.existsSync(file)) {
+      await fs.promises.unlink(file).catch(err => console.error(`Cleanup error on ${file}:`, err));
+    }
   }
+
+  delete jobs[req.params.jobId];
+  res.json({ success: true, message: 'Cleanup complete.' });
 });
 
 // Global error handler
@@ -122,5 +167,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`PDF Splitter Microservice running on port ${PORT}`);
+  console.log(`PDF Splitter Async Microservice running on port ${PORT}`);
 });
