@@ -1,18 +1,10 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-// @ts-ignore
-import * as pdfjsLib from "npm:pdfjs-dist@3.11.174/legacy/build/pdf.js";
-
-// Disable worker in Deno serverless environment
-pdfjsLib.GlobalWorkerOptions.workerSrc = "";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight — must be the very first thing, before any async work
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200, headers: corsHeaders });
@@ -30,12 +22,17 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.39.3");
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const start = Math.max(1, parseInt(start_page as any, 10));
     const batchSz = parseInt(batch_size as any, 10);
 
     console.log(`Processing '${file_path}' — pages ${start} to ${start + batchSz - 1}`);
+
+    // Dynamically load pdfjs to prevent worker boot crashes from failing CORS
+    const pdfjsLib = await import("npm:pdfjs-dist@3.11.174/legacy/build/pdf.js");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "";
 
     // ── Download only the bytes we need via HTTP Range Request ──────────────
     // Rather than pulling the entire file into memory, we fetch the public URL
