@@ -244,8 +244,14 @@ export default function TextbookImporter({ onNavigate, user }) {
         });
 
         if (batchErr || !batchData) {
-          console.error('Edge Function Invoke Error Details:', batchErr);
-          const detailMsg = batchErr?.message || batchData?.error || 'Failed to send request to Edge Function.';
+          let contextData = null;
+          try {
+            if (batchErr?.context) contextData = await batchErr.context.json();
+          } catch (e) {
+            try { if (batchErr?.context) contextData = await batchErr.context.text(); } catch (e2) {}
+          }
+          console.error('Edge Function Invoke Error Details:', batchErr, contextData);
+          const detailMsg = contextData?.error || batchErr?.message || batchData?.error || 'Failed to send request to Edge Function.';
           throw new Error(`Edge Function Request Error: ${detailMsg}`);
         }
         if (batchData.error) {
