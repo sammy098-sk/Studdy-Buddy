@@ -31,8 +31,12 @@ Deno.serve(async (req) => {
     console.log(`Processing '${file_path}' — pages ${start} to ${start + batchSz - 1}`);
 
     // Dynamically load pdfjs to prevent worker boot crashes from failing CORS
-    const pdfjsLib = await import("npm:pdfjs-dist@3.11.174/legacy/build/pdf.js");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+    const pdfjsModule = await import("npm:pdfjs-dist@3.11.174/legacy/build/pdf.js");
+    const pdfjsLib = pdfjsModule.default || pdfjsModule;
+    
+    if (pdfjsLib.GlobalWorkerOptions) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "";
+    }
 
     // ── Download only the bytes we need via HTTP Range Request ──────────────
     // Rather than pulling the entire file into memory, we fetch the public URL

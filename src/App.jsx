@@ -169,6 +169,14 @@ export default function App() {
           </button>
 
           <button
+            onClick={() => setPage("reader")}
+            className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg transition-colors"
+            style={page === "reader" ? { background: "#E8F1FE", color: "#2954E5" } : { color: "#5A6B8C" }}
+            aria-label="Library"
+          >
+            <BookOpen size={17} />
+          </button>
+          <button
             onClick={() => setPage("sessions")}
             className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg transition-colors"
             style={page === "sessions" ? { background: "#E8F1FE", color: "#2954E5" } : { color: "#5A6B8C" }}
