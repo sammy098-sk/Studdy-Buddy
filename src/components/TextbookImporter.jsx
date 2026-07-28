@@ -153,14 +153,14 @@ export default function TextbookImporter({ onNavigate }) {
           setProgressPercent(30);
           setStatusText(`PDF split into ${chunks.length} parts. Creating database record...`);
 
-          // Create Parent Book Record (Status: 'uploading')
           const { data: bookRecord, error: bookErr } = await supabase.from('textbooks').insert({
             title: title.trim(),
             subject: subject,
             author: author.trim() || null,
             total_pages: data.total_pages,
             total_parts: chunks.length,
-            status: 'uploading'
+            status: 'uploading',
+            user_id: user?.id
           }).select().single();
 
           if (bookErr || !bookRecord) throw new Error(`Failed to create textbook record: ${bookErr?.message}`);
