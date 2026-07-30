@@ -37,6 +37,7 @@ export default function App() {
   const [page, setPage] = useState("study");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [resumeSession, setResumeSession] = useState(null);
+  const [currentBookId, setCurrentBookId] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async (session) => {
@@ -122,9 +123,12 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  const navigateTo = (key) => {
+  const navigateTo = (key, payload = null) => {
     setPage(key);
     setMobileMenuOpen(false);
+    if (key === 'reader' && payload?.bookId) {
+      setCurrentBookId(payload.bookId);
+    }
   };
 
   const getGreeting = () => {
@@ -229,7 +233,7 @@ export default function App() {
         <SessionsPage userId={user.id} onNavigate={navigateTo} onResume={handleResume} />
       )}
       {page === "importer" && <TextbookImporter onNavigate={navigateTo} user={user} />}
-      {page === "reader" && <TextbookReader onNavigate={navigateTo} user={user} />}
+      {page === "reader" && <TextbookReader onNavigate={navigateTo} user={user} bookId={currentBookId} />}
 
       {page === "how-it-works" && (
         <InfoPage

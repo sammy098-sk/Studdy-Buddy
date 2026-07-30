@@ -83,9 +83,38 @@ export default function TextbookImporter({ onNavigate, user }) {
     try {
       const buffer = await selectedFile.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      
+      let extractedChapters = [];
+      try {
+        const outline = await pdf.getOutline();
+        if (outline) {
+          setStatusText('Extracting chapters...');
+          // Simple flattening of the top-level outline for now
+          for (const item of outline) {
+            let dest = item.dest;
+            if (typeof dest === 'string') {
+              dest = await pdf.getDestination(dest);
+            }
+            if (dest) {
+              const pageRef = dest[0];
+              const pageIndex = await pdf.getPageIndex(pageRef).catch(() => -1);
+              if (pageIndex !== -1) {
+                extractedChapters.push({
+                  title: item.title,
+                  page_number: pageIndex + 1
+                });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to extract outline:", err);
+      }
+
       setFileStats({
         pages: pdf.numPages,
         size: selectedFile.size,
+        chapters: extractedChapters
       });
     } catch (err) {
       console.error("Failed to read page count locally:", err);
@@ -285,6 +314,21 @@ export default function TextbookImporter({ onNavigate, user }) {
           if (bookErr || !bookRecord) throw new Error(`Failed to create textbook record: ${bookErr?.message}`);
           
           const newBookId = bookRecord.id;
+          
+          if (fileStats?.chapters?.length > 0) {
+            setStatusText('Saving chapter metadata...');
+            // Take up to 1000 chapters to prevent payload limits
+            const chaptersToInsert = fileStats.chapters.slice(0, 1000).map(ch => ({
+              book_id: newBookId,
+              title: ch.title,
+              page_number: ch.page_number
+            }));
+            const { error: chapterErr } = await supabase.from('textbook_chapters').insert(chaptersToInsert);
+            if (chapterErr) {
+              console.warn("Failed to insert chapters:", chapterErr);
+            }
+          }
+
           setParentBookId(newBookId);
           setProgressPercent(40);
 
@@ -479,18 +523,26 @@ export default function TextbookImporter({ onNavigate, user }) {
                  <div className="text-sm text-slate-500">
                    {adminSummary.totalParts} individual chunk signatures cryptographically verified.
                  </div>
-                 <button
-                   onClick={() => {
-                     setFile(null);
-                     setFileStats(null);
-                     setTitle('');
-                     setAuthor('');
-                     setAdminSummary(null);
-                   }}
-                   className="px-6 py-2.5 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
-                 >
-                   Upload Another Textbook
-                 </button>
+                 <div className="flex gap-3">
+                   <button
+                     onClick={() => {
+                       setFile(null);
+                       setFileStats(null);
+                       setTitle('');
+                       setAuthor('');
+                       setAdminSummary(null);
+                     }}
+                     className="px-6 py-2.5 rounded-lg font-medium bg-white text-blue-600 border border-blue-600 hover:bg-blue-50 transition-colors shadow-sm"
+                   >
+                     Upload Another
+                   </button>
+                   <button
+                     onClick={() => onNavigate('reader', { bookId: parentBookId })}
+                     className="px-6 py-2.5 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+                   >
+                     View Book
+                   </button>
+                 </div>
               </div>
             </div>
           ) : (
