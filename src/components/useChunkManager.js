@@ -6,7 +6,6 @@ export function useChunkManager(bookId, user) {
   const [chunks, setChunks] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [bookMeta, setBookMeta] = useState(null);
-  const [initialPage, setInitialPage] = useState(1);
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
