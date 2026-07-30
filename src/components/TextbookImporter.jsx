@@ -82,7 +82,7 @@ export default function TextbookImporter({ onNavigate, user }) {
     setProgressPercent(2);
     try {
       const buffer = await selectedFile.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument(buffer).promise;
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
       setFileStats({
         pages: pdf.numPages,
         size: selectedFile.size,
