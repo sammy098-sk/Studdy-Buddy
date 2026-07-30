@@ -10,6 +10,7 @@ export default function ReaderToolbar({
   zoom,
   onZoomIn,
   onZoomOut,
+  onZoomChange,
   onFitWidth,
   fitWidth,
   isFullscreen,
@@ -20,8 +21,13 @@ export default function ReaderToolbar({
   setMode
 }) {
   const [inputPage, setInputPage] = useState(currentPage);
+  const [zoomInput, setZoomInput] = useState(Math.round(zoom * 100).toString());
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+
+  useEffect(() => {
+    setZoomInput(Math.round(zoom * 100).toString());
+  }, [zoom]);
 
   useEffect(() => {
     setInputPage(currentPage);
@@ -48,6 +54,17 @@ export default function ReaderToolbar({
   };
 
   const progressPercent = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
+
+  const handleZoomSubmit = (e) => {
+    e.preventDefault();
+    let val = parseInt(zoomInput.replace('%', ''), 10);
+    if (isNaN(val)) {
+       setZoomInput(Math.round(zoom * 100).toString());
+       return;
+    }
+    const decimalZoom = val / 100;
+    if (onZoomChange) onZoomChange(decimalZoom);
+  };
 
   return (
     <div className="relative flex flex-col shrink-0 bg-white" style={{ zIndex: 10 }}>
@@ -89,7 +106,17 @@ export default function ReaderToolbar({
            <button onClick={onZoomOut} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600" title="Zoom Out">
              <ZoomOut size={18} />
            </button>
-           <span className="text-xs font-medium w-12 text-center text-slate-600">{Math.round(zoom * 100)}%</span>
+           <form onSubmit={handleZoomSubmit} className="flex items-center justify-center relative w-12">
+             <input
+               type="text"
+               value={zoomInput}
+               onChange={(e) => setZoomInput(e.target.value)}
+               onBlur={handleZoomSubmit}
+               className="w-full text-center text-xs font-medium text-slate-600 bg-transparent outline-none focus:bg-slate-50 focus:ring-1 ring-slate-200 rounded py-1"
+               title="Custom Zoom"
+             />
+             <span className="absolute right-1 top-1.5 text-[10px] font-medium text-slate-400 pointer-events-none">%</span>
+           </form>
            <button onClick={onZoomIn} className="p-2 hover:bg-slate-100 rounded-lg text-slate-600" title="Zoom In">
              <ZoomIn size={18} />
            </button>
@@ -115,7 +142,18 @@ export default function ReaderToolbar({
                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">View</div>
                    <div className="flex items-center gap-2 mb-2">
                      <button onClick={onZoomOut} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600"><ZoomOut size={16}/></button>
-                     <span className="text-sm font-medium flex-1 text-center">{Math.round(zoom * 100)}%</span>
+                     
+                     <form onSubmit={handleZoomSubmit} className="flex-1 flex items-center justify-center relative">
+                       <input
+                         type="text"
+                         value={zoomInput}
+                         onChange={(e) => setZoomInput(e.target.value)}
+                         onBlur={handleZoomSubmit}
+                         className="w-16 text-center text-sm font-medium text-slate-600 bg-slate-50 outline-none focus:bg-slate-100 focus:ring-1 ring-slate-200 rounded py-1"
+                       />
+                       <span className="absolute right-[30%] top-1.5 text-xs font-medium text-slate-400 pointer-events-none">%</span>
+                     </form>
+
                      <button onClick={onZoomIn} className="p-2 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-600"><ZoomIn size={16}/></button>
                    </div>
                    <button onClick={onFitWidth} className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium ${fitWidth ? 'text-blue-600 bg-blue-50' : 'text-slate-600 hover:bg-slate-50'}`}>

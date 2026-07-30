@@ -79,7 +79,7 @@ const PageRenderer = React.memo(({ pageNum, getPage, zoom, fitWidth, containerWi
   );
 });
 
-export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, fitWidth, currentPage, onPageChange, mode }) {
+export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, onZoomChange, fitWidth, currentPage, onPageChange, mode }) {
   const containerRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [visiblePages, setVisiblePages] = useState([]);
@@ -95,6 +95,56 @@ export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, fitWidth
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Pinch-to-Zoom functionality
+  const pinchRef = useRef({ initialDist: 0, initialZoom: 1.0 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        pinchRef.current = { initialDist: dist, initialZoom: zoom };
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault(); // Prevent native browser pinch-zoom and scroll
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        
+        if (pinchRef.current.initialDist > 0) {
+          const scale = dist / pinchRef.current.initialDist;
+          const newZoom = pinchRef.current.initialZoom * scale;
+          if (onZoomChange) onZoomChange(newZoom);
+        }
+      }
+    };
+
+    const handleTouchEnd = (e) => {
+      if (e.touches.length < 2) {
+        pinchRef.current = { initialDist: 0, initialZoom: zoom };
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+    }
+  }, [zoom, onZoomChange]);
 
   // Jump to specific page logic
   useEffect(() => {

@@ -7,7 +7,7 @@ import ReaderCanvas from './ReaderCanvas';
 
 export default function TextbookReader({ bookId, user, onNavigate }) {
   const { 
-    bookMeta, chunks, chapters, initialPage, 
+    bookMeta, chunks, chapters, initialPage, initialZoom, initialViewMode, initialFitMode,
     isLoading, loadingText, error, getPage,
     isPreloading, preloadError, retryPreload
   } = useChunkManager(bookId, user);
@@ -18,22 +18,20 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
   const [showHUD, setShowHUD] = useState(false);
   const hudTimeoutRef = useRef(null);
 
-  // Persistent Settings
-  const [zoom, setZoom] = useState(() => {
-    return parseFloat(localStorage.getItem('sb_reader_zoom')) || 1.0;
-  });
-  const [fitWidth, setFitWidth] = useState(() => {
-    const val = localStorage.getItem('sb_reader_fit');
-    return val !== null ? val === 'true' : true; // Default true!
-  });
-  const [mode, setMode] = useState(() => {
-    return localStorage.getItem('sb_reader_mode') || 'continuous';
-  });
+  // We'll initialize these to standard defaults, then override them once `isLoading` is false
+  const [zoom, setZoom] = useState(1.0);
+  const [fitWidth, setFitWidth] = useState(true);
+  const [mode, setMode] = useState('continuous');
 
-  // Save Settings
-  useEffect(() => { localStorage.setItem('sb_reader_zoom', zoom); }, [zoom]);
-  useEffect(() => { localStorage.setItem('sb_reader_fit', fitWidth); }, [fitWidth]);
-  useEffect(() => { localStorage.setItem('sb_reader_mode', mode); }, [mode]);
+  // Once loading completes, load the DB preferences (if they exist)
+  useEffect(() => {
+    if (!isLoading) {
+      if (initialPage) setCurrentPage(initialPage);
+      if (initialZoom) setZoom(initialZoom);
+      if (initialViewMode) setMode(initialViewMode);
+      if (initialFitMode !== null) setFitWidth(initialFitMode);
+    }
+  }, [isLoading, initialPage, initialZoom, initialViewMode, initialFitMode]);
 
   // Handle Fullscreen toggle
   const toggleFullscreen = () => {
@@ -72,13 +70,13 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
         case '=':
           e.preventDefault();
           setFitWidth(false);
-          setZoom(z => Math.min(z + 0.25, 3.0));
+          setZoom(z => Math.min(z + 0.25, 5.0));
           break;
         case '-':
         case '_':
           e.preventDefault();
           setFitWidth(false);
-          setZoom(z => Math.max(z - 0.25, 0.5));
+          setZoom(z => Math.max(z - 0.25, 0.25));
           break;
         case 'f':
         case 'F':
@@ -93,12 +91,7 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [bookMeta]);
 
-  // Restore user's last saved page on mount
-  useEffect(() => {
-    if (!isLoading && initialPage) {
-      setCurrentPage(initialPage);
-    }
-  }, [isLoading, initialPage]);
+  // (The page is now handled in the single unified useEffect above)
 
   // Show Floating HUD on page change
   useEffect(() => {
@@ -108,7 +101,7 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
     hudTimeoutRef.current = setTimeout(() => setShowHUD(false), 1500);
   }, [currentPage, isLoading]);
 
-  // Persist Reading Progress
+  // Persist Reading Progress & Preferences
   useEffect(() => {
     if (!user || !bookId || isLoading) return;
     const saveProgress = async () => {
@@ -116,12 +109,15 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
          user_id: user.id,
          book_id: bookId,
          current_page: currentPage,
+         zoom_level: zoom,
+         view_mode: mode,
+         fit_mode: fitWidth,
          last_read_at: new Date().toISOString()
        }, { onConflict: 'user_id,book_id' }).catch(err => console.warn('Failed to save progress:', err));
     };
     const timer = setTimeout(saveProgress, 2000); // debounce save
     return () => clearTimeout(timer);
-  }, [currentPage, user, bookId, isLoading]);
+  }, [currentPage, zoom, mode, fitWidth, user, bookId, isLoading]);
 
   if (error) {
     return (
@@ -150,8 +146,9 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
          totalPages={bookMeta?.total_pages || 1}
          onPageChange={setCurrentPage}
          zoom={zoom}
-         onZoomIn={() => { setZoom(z => Math.min(z + 0.25, 3.0)); setFitWidth(false); }}
-         onZoomOut={() => { setZoom(z => Math.max(z - 0.25, 0.5)); setFitWidth(false); }}
+         onZoomIn={() => { setZoom(z => Math.min(z + 0.25, 5.0)); setFitWidth(false); }}
+         onZoomOut={() => { setZoom(z => Math.max(z - 0.25, 0.25)); setFitWidth(false); }}
+         onZoomChange={(val) => { setZoom(Math.max(0.25, Math.min(val, 5.0))); setFitWidth(false); }}
          onFitWidth={() => { setFitWidth(true); setZoom(1.0); }}
          fitWidth={fitWidth}
          isFullscreen={isFullscreen}
@@ -173,6 +170,7 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
            totalGlobalPages={bookMeta?.total_pages || 1}
            getPage={getPage}
            zoom={zoom}
+           onZoomChange={(val) => { setZoom(Math.max(0.25, Math.min(val, 5.0))); setFitWidth(false); }}
            fitWidth={fitWidth}
            currentPage={currentPage}
            onPageChange={setCurrentPage}

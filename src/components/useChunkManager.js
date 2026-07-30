@@ -14,6 +14,11 @@ export function useChunkManager(bookId, user) {
   const [isPreloading, setIsPreloading] = useState(false);
   const [preloadError, setPreloadError] = useState(null);
 
+  const [initialPage, setInitialPage] = useState(null);
+  const [initialZoom, setInitialZoom] = useState(null);
+  const [initialViewMode, setInitialViewMode] = useState(null);
+  const [initialFitMode, setInitialFitMode] = useState(null);
+
   const loadedDocs = useRef({}); // { chunkIndex: PDFDocumentProxy }
   const downloadingChunks = useRef({}); // { chunkIndex: Promise }
   const preloadRetryRef = useRef({}); // { chunkIndex: retryCount }
@@ -52,24 +57,30 @@ export function useChunkManager(bookId, user) {
         if (chapErr) console.warn("Failed to load chapters:", chapErr);
 
         // 4. Fetch Reading Progress
-        let startPage = 1;
         if (user) {
-          const { data: progress } = await supabase
-            .from('reading_progress')
-            .select('current_page')
-            .eq('user_id', user.id)
-            .eq('book_id', bookId)
-            .single();
-          if (progress?.current_page) {
-            startPage = progress.current_page;
-          }
-        }
+          const { data: progressData } = await supabase
+          .from('reading_progress')
+          .select('current_page, zoom_level, view_mode, fit_mode')
+          .eq('user_id', user.id)
+          .eq('book_id', bookId)
+          .maybeSingle();
+          
+        if (progressData) {
+          setInitialPage(progressData.current_page || 1);
+          setInitialZoom(progressData.zoom_level || 1.0);
+          setInitialViewMode(progressData.view_mode || 'continuous');
+          setInitialFitMode(progressData.fit_mode !== false);
+        } else {
+          setInitialPage(1);
+          setInitialZoom(1.0);
+          setInitialViewMode('continuous');
+          setInitialFitMode(true);
+        }  }
 
         if (isMounted) {
           setBookMeta(book);
           setChunks(chunkData || []);
           setChapters(chapterData || []);
-          setInitialPage(startPage);
           setIsLoading(false);
         }
       } catch (err) {
@@ -185,6 +196,9 @@ export function useChunkManager(bookId, user) {
     chunks,
     chapters,
     initialPage,
+    initialZoom,
+    initialViewMode,
+    initialFitMode,
     isLoading,
     loadingText,
     error,

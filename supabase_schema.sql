@@ -37,6 +37,9 @@ CREATE TABLE reading_progress (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   book_id UUID REFERENCES textbooks(id) ON DELETE CASCADE,
   current_page INTEGER DEFAULT 1,
+  zoom_level NUMERIC DEFAULT 1.0,
+  view_mode TEXT DEFAULT 'continuous',
+  fit_mode BOOLEAN DEFAULT true,
   last_read_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, book_id)
 );
