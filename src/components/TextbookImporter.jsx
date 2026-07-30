@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileText, CheckCircle2, AlertCircle, Server, RefreshCw, BookOpen } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, Server, RefreshCw, BookOpen, XCircle } from 'lucide-react';
 import { SUBJECTS } from '../config';
 import { supabase } from '../supabase';
 import BackToHomeButton from './BackToHomeButton';
@@ -14,6 +14,13 @@ function formatBytes(bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+async function calculateSHA256(arrayBuffer) {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
 }
 
 export default function TextbookImporter({ onNavigate, user }) {
@@ -53,9 +60,9 @@ export default function TextbookImporter({ onNavigate, user }) {
     setPendingChunks([]);
     setJobId(null);
     
-    // Parse page count locally
-    setStatusText('Inspecting PDF...');
+    setStatusText('Reading PDF...');
     setIsProcessing(true);
+    setProgressPercent(2);
     try {
       const buffer = await selectedFile.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(buffer).promise;
@@ -69,20 +76,31 @@ export default function TextbookImporter({ onNavigate, user }) {
     } finally {
       setIsProcessing(false);
       setStatusText('');
+      setProgressPercent(0);
     }
   };
 
   const uploadChunkToSupabase = async (chunk, index, totalChunks, bookId) => {
-    setStatusText(`Uploading Part ${index + 1} of ${totalChunks}...`);
-    
+    setStatusText(`Downloading Part ${index + 1} from server...`);
     const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
     
     // 1. Fetch chunk blob from Render
     const response = await fetch(`${COMPRESSOR_URL}${chunk.download_url}`);
     if (!response.ok) throw new Error(`Failed to download part ${index + 1} from server.`);
-    const chunkBlob = await response.blob();
+    
+    const arrayBuffer = await response.arrayBuffer();
+    
+    setStatusText(`Verifying checksum for Part ${index + 1}...`);
+    // 2. Verify Checksum
+    const calculatedHash = await calculateSHA256(arrayBuffer);
+    if (calculatedHash !== chunk.checksum) {
+      throw new Error(`Checksum mismatch for part ${index + 1}. The file might be corrupted during transit.`);
+    }
 
-    // 2. Upload to Supabase Storage
+    const chunkBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+
+    setStatusText(`Uploading Part ${index + 1} of ${totalChunks}...`);
+    // 3. Upload to Supabase Storage
     const cleanFileName = `${Date.now()}_part${chunk.part_number}.pdf`;
     const { error: uploadErr } = await supabase.storage
       .from('textbooks-pdf')
@@ -90,14 +108,17 @@ export default function TextbookImporter({ onNavigate, user }) {
     
     if (uploadErr) throw new Error(`Storage upload failed for part ${index + 1}: ${uploadErr.message}`);
 
-    // 3. Insert chunk metadata into database
+    // 4. Insert chunk metadata into database
     const { error: dbErr } = await supabase.from('textbook_chunks').insert({
       book_id: bookId,
       part_number: chunk.part_number,
       first_page: chunk.first_page,
       last_page: chunk.last_page,
+      page_count: chunk.page_count,
       storage_path: cleanFileName,
-      size_bytes: chunk.size_bytes
+      size_bytes: chunk.size_bytes,
+      checksum: chunk.checksum,
+      upload_status: 'success'
     });
 
     if (dbErr) throw new Error(`Database error for part ${index + 1}: ${dbErr.message}`);
@@ -106,8 +127,10 @@ export default function TextbookImporter({ onNavigate, user }) {
   };
 
   const processUploadLoop = async (chunks, startIdx, bookId, currentJobId) => {
-    const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
     try {
+      // Set book status to uploading
+      await supabase.from('textbooks').update({ status: 'uploading' }).eq('id', bookId);
+
       const totalChunks = chunks.length;
       for (let i = startIdx; i < totalChunks; i++) {
         await uploadChunkToSupabase(chunks[i], i, totalChunks, bookId);
@@ -115,23 +138,27 @@ export default function TextbookImporter({ onNavigate, user }) {
       }
 
       // Finalize: Mark book as ready
-      setStatusText('Finalizing...');
+      setStatusText('Finalizing book status to ready...');
       const { error: updateErr } = await supabase.from('textbooks').update({ status: 'ready' }).eq('id', bookId);
       if (updateErr) throw new Error(`Failed to mark textbook as ready: ${updateErr.message}`);
 
-      // Cleanup job on server
+      // Cleanup job on server (delete temporary files)
+      const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
       if (currentJobId) {
         await fetch(`${COMPRESSOR_URL}/jobs/${currentJobId}/complete`, { method: 'POST' }).catch(console.error);
       }
 
-      setStatusText('');
+      setStatusText('Upload complete.');
       setProgressPercent(100);
       setSaveSuccess(true);
       setFailedChunkIndex(null);
     } catch (err) {
       console.error(err);
+      // Fallback update to failed status
+      await supabase.from('textbooks').update({ status: 'failed' }).eq('id', bookId).catch(console.error);
+      
       setErrorMessage(err.message);
-      setFailedChunkIndex(startIdx); // Save index for retry
+      setFailedChunkIndex(startIdx); // Save index for retry (do not cleanup Render files)
     } finally {
       setIsProcessing(false);
     }
@@ -157,14 +184,14 @@ export default function TextbookImporter({ onNavigate, user }) {
           const { data: authData } = await supabase.auth.getUser();
           if (!authData?.user) throw new Error("Authenticated user not found in Supabase session.");
 
-          // Create Parent Book Record (Status: 'uploading')
+          // Create Parent Book Record (Status: 'processing')
           const { data: bookRecord, error: bookErr } = await supabase.from('textbooks').insert({
             title: title.trim(),
             subject: subject,
             author: author.trim() || null,
             total_pages: data.total_pages,
             total_parts: chunks.length,
-            status: 'uploading',
+            status: 'processing',
             user_id: authData.user.id
           }).select().single();
 
@@ -179,6 +206,9 @@ export default function TextbookImporter({ onNavigate, user }) {
         } else if (data.status === 'error') {
           clearInterval(interval);
           throw new Error(`Server splitting failed: ${data.error}`);
+        } else {
+           // still processing, maybe update progress safely if possible
+           setStatusText(`Splitting document...`);
         }
       } catch (err) {
         clearInterval(interval);
@@ -198,8 +228,8 @@ export default function TextbookImporter({ onNavigate, user }) {
     setIsProcessing(true);
     setErrorMessage(null);
     setFailedChunkIndex(null);
-    setProgressPercent(10);
-    setStatusText('Sending PDF to server for splitting...');
+    setProgressPercent(5);
+    setStatusText('Uploading original PDF...');
 
     try {
       const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
@@ -224,7 +254,7 @@ export default function TextbookImporter({ onNavigate, user }) {
       const newJobId = splitData.jobId;
       setJobId(newJobId);
       setProgressPercent(15);
-      setStatusText('Splitting PDF (this may take a minute for large files)...');
+      setStatusText('Inspecting document...');
 
       // STEP 2: Poll for completion
       pollJobStatus(newJobId);
@@ -241,6 +271,24 @@ export default function TextbookImporter({ onNavigate, user }) {
     setIsProcessing(true);
     setErrorMessage(null);
     await processUploadLoop(pendingChunks, failedChunkIndex, parentBookId, jobId);
+  };
+
+  const handleCancelUpload = async () => {
+    if (jobId) {
+      const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
+      await fetch(`${COMPRESSOR_URL}/jobs/${jobId}/complete`, { method: 'POST' }).catch(console.error);
+    }
+    if (parentBookId) {
+      await supabase.from('textbooks').update({ status: 'failed' }).eq('id', parentBookId).catch(console.error);
+    }
+    setFile(null);
+    setFileStats(null);
+    setTitle('');
+    setAuthor('');
+    setSaveSuccess(false);
+    setFailedChunkIndex(null);
+    setIsProcessing(false);
+    setErrorMessage('Upload cancelled.');
   };
 
   return (
@@ -273,7 +321,7 @@ export default function TextbookImporter({ onNavigate, user }) {
               {failedChunkIndex !== null && !isProcessing && (
                 <button 
                   onClick={handleRetryUpload}
-                  className="ml-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center gap-2"
+                  className="ml-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center gap-2 shadow-sm"
                 >
                   <RefreshCw size={16} />
                   Retry Part {failedChunkIndex + 1}
@@ -372,10 +420,20 @@ export default function TextbookImporter({ onNavigate, user }) {
                   )}
 
                   {!isProcessing && failedChunkIndex === null && (
-                    <div className="flex justify-end">
-                      <button onClick={handleStartUpload} disabled={!title.trim() || !file} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50">
+                    <div className="flex justify-end gap-3">
+                      <button onClick={handleCancelUpload} className="px-6 py-2.5 bg-white border hover:bg-slate-50 text-slate-600 rounded-lg font-medium transition-colors">
+                        Cancel
+                      </button>
+                      <button onClick={handleStartUpload} disabled={!title.trim() || !file} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm">
                         Upload & Chunk PDF
                       </button>
+                    </div>
+                  )}
+                  {isProcessing && (
+                    <div className="flex justify-end">
+                       <button onClick={handleCancelUpload} className="text-sm text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
+                          <XCircle size={16} /> Cancel Upload
+                       </button>
                     </div>
                   )}
                 </div>

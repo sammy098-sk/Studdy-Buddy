@@ -11,7 +11,7 @@ CREATE TABLE textbooks (
   subject TEXT,
   total_pages INTEGER NOT NULL,
   total_parts INTEGER NOT NULL,
-  status TEXT DEFAULT 'uploading',
+  status TEXT DEFAULT 'processing' CHECK (status IN ('processing', 'uploading', 'ready', 'failed')),
   user_id UUID, -- References auth.users(id)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -23,8 +23,11 @@ CREATE TABLE textbook_chunks (
   part_number INTEGER NOT NULL,
   first_page INTEGER NOT NULL,
   last_page INTEGER NOT NULL,
+  page_count INTEGER NOT NULL,
   storage_path TEXT NOT NULL,
   size_bytes BIGINT NOT NULL,
+  checksum TEXT NOT NULL,
+  upload_status TEXT DEFAULT 'pending' CHECK (upload_status IN ('pending', 'success', 'failed')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

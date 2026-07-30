@@ -75,43 +75,84 @@ app.post('/jobs/split', upload.single('file'), (req, res) => {
       const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
       const totalPages = pdfDoc.getPageCount();
 
-      // Heuristic chunk calculation
-      const avgBytesPerPage = totalBytes / totalPages;
       const TARGET_CHUNK = 18 * 1024 * 1024; // Aim for ~18MB
-      let pagesPerChunk = Math.floor(TARGET_CHUNK / avgBytesPerPage);
-      if (pagesPerChunk < 1) pagesPerChunk = 1;
+      const MAX_CHUNK = 20 * 1024 * 1024; // Never exceed 20MB
+      const avgBytesPerPage = totalBytes / totalPages;
 
       let chunks = [];
       let startPage = 0;
       let partNum = 1;
       const sessionPrefix = `${jobId}_split`;
 
-      while (startPage < totalPages) {
-        let endPage = Math.min(startPage + pagesPerChunk, totalPages);
-        
-        console.log(`[${jobId}] Splitting Part ${partNum}: Pages ${startPage + 1} to ${endPage}`);
+      const measureSize = async (start, end) => {
         const newPdf = await PDFDocument.create();
-        
-        const pageIndices = Array.from({ length: endPage - startPage }, (_, i) => startPage + i);
+        const pageIndices = Array.from({ length: end - start }, (_, i) => start + i);
         const copiedPages = await newPdf.copyPages(pdfDoc, pageIndices);
         copiedPages.forEach((page) => newPdf.addPage(page));
+        const bytes = await newPdf.save();
+        return bytes;
+      };
 
-        const newPdfBytes = await newPdf.save();
+      while (startPage < totalPages) {
+        let low = 1;
+        let high = totalPages - startPage;
+        
+        // Optimize upper bound using heuristic to prevent testing massive page ranges unnecessarily
+        let heuristicPages = Math.floor(TARGET_CHUNK / avgBytesPerPage);
+        if (heuristicPages < 1) heuristicPages = 1;
+        high = Math.min(high, Math.ceil(heuristicPages * 1.5));
+
+        let bestBytes = null;
+        let bestPagesCount = 1;
+
+        console.log(`[${jobId}] Calculating optimal size for Part ${partNum} starting at page ${startPage + 1}...`);
+        
+        while (low <= high) {
+          let mid = Math.floor((low + high) / 2);
+          const bytes = await measureSize(startPage, startPage + mid);
+          
+          if (bytes.length > MAX_CHUNK) {
+            high = mid - 1; // Too large, search smaller range
+          } else {
+            bestBytes = bytes;
+            bestPagesCount = mid;
+            
+            if (bytes.length >= TARGET_CHUNK) {
+              // Sweet spot achieved (18MB - 20MB), stop searching to save resources
+              break;
+            }
+            low = mid + 1; // Try to get closer to 18MB
+          }
+        }
+
+        // Edge case fallback: if a single page is > 20MB, we must accept it to make progress
+        if (!bestBytes) {
+          bestBytes = await measureSize(startPage, startPage + 1);
+          bestPagesCount = 1;
+          console.warn(`[${jobId}] WARNING: Page ${startPage + 1} exceeds 20MB limit (${bestBytes.length} bytes)!`);
+        }
+
+        const endPage = startPage + bestPagesCount;
         const chunkFilename = `${sessionPrefix}_part${partNum}.pdf`;
         const chunkPath = path.join(os.tmpdir(), chunkFilename);
         
-        await fs.promises.writeFile(chunkPath, newPdfBytes);
-        
+        await fs.promises.writeFile(chunkPath, bestBytes);
         jobs[jobId].filesToDelete.push(chunkPath);
+
+        const checksum = crypto.createHash('sha256').update(bestBytes).digest('hex');
 
         chunks.push({
           part_number: partNum,
           first_page: startPage + 1,
           last_page: endPage,
-          size_bytes: newPdfBytes.length,
+          page_count: bestPagesCount,
+          size_bytes: bestBytes.length,
+          checksum: checksum,
           download_url: `/download/${chunkFilename}`
         });
 
+        console.log(`[${jobId}] Part ${partNum} created: Pages ${startPage + 1}-${endPage} | ${(bestBytes.length / (1024 * 1024)).toFixed(2)} MB`);
+        
         startPage = endPage;
         partNum++;
       }
