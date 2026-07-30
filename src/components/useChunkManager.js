@@ -11,9 +11,12 @@ export function useChunkManager(bookId, user) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [loadingText, setLoadingText] = useState('Initializing reader...');
+  const [isPreloading, setIsPreloading] = useState(false);
+  const [preloadError, setPreloadError] = useState(null);
 
   const loadedDocs = useRef({}); // { chunkIndex: PDFDocumentProxy }
   const downloadingChunks = useRef({}); // { chunkIndex: Promise }
+  const preloadRetryRef = useRef({}); // { chunkIndex: retryCount }
 
   useEffect(() => {
     let isMounted = true;
@@ -90,7 +93,7 @@ export function useChunkManager(bookId, user) {
     };
   }, [bookId, user]);
 
-  const loadChunk = async (chunkIndex) => {
+  const loadChunk = async (chunkIndex, isPreloadAction = false) => {
     if (loadedDocs.current[chunkIndex]) {
       return loadedDocs.current[chunkIndex];
     }
@@ -100,6 +103,11 @@ export function useChunkManager(bookId, user) {
 
     const chunk = chunks[chunkIndex];
     if (!chunk) throw new Error("Chunk not found.");
+    
+    if (isPreloadAction) {
+       setIsPreloading(true);
+       setPreloadError(null);
+    }
 
     const downloadPromise = (async () => {
       try {
@@ -114,9 +122,21 @@ export function useChunkManager(bookId, user) {
         
         loadedDocs.current[chunkIndex] = doc;
         delete downloadingChunks.current[chunkIndex];
+        if (isPreloadAction) setIsPreloading(false);
         return doc;
       } catch (err) {
         delete downloadingChunks.current[chunkIndex];
+        
+        if (isPreloadAction) {
+           const retries = preloadRetryRef.current[chunkIndex] || 0;
+           if (retries < 3) {
+              setPreloadError("Retrying next section...");
+              preloadRetryRef.current[chunkIndex] = retries + 1;
+              setTimeout(() => loadChunk(chunkIndex, true), 2000);
+           } else {
+              setPreloadError("Failed to load upcoming pages.");
+           }
+        }
         throw err;
       }
     })();
@@ -137,8 +157,9 @@ export function useChunkManager(bookId, user) {
     
     // 3. Preload Next Chunk if we are near the end of this one (within 15 pages)
     if (chunk.last_page - globalPageNum < 15 && chunkIndex + 1 < chunks.length) {
-      // fire and forget
-      loadChunk(chunkIndex + 1).catch(e => console.warn("Preload failed:", e));
+      if (!loadedDocs.current[chunkIndex + 1] && !downloadingChunks.current[chunkIndex + 1]) {
+         loadChunk(chunkIndex + 1, true).catch(e => console.warn("Preload failed:", e));
+      }
     }
 
     // 4. Memory Management: Unload old chunks
@@ -168,6 +189,13 @@ export function useChunkManager(bookId, user) {
     loadingText,
     error,
     getPage,
-    totalChunks: chunks.length
+    totalChunks: chunks.length,
+    isPreloading,
+    preloadError,
+    retryPreload: (globalPageNum) => {
+       // Identify which chunk should be loading
+       const chunkIndex = chunks.findIndex(c => c.first_page > globalPageNum);
+       if (chunkIndex !== -1) loadChunk(chunkIndex, true);
+    }
   };
 }

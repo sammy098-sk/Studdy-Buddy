@@ -26,7 +26,7 @@ const PageRenderer = React.memo(({ pageNum, getPage, zoom, fitWidth, containerWi
     let unscaledViewport = pageProxy.getViewport({ scale: 1.0 });
     let scale = zoom;
     if (fitWidth && containerWidth) {
-       scale = (containerWidth - 40) / unscaledViewport.width;
+       scale = (containerWidth - 16) / unscaledViewport.width;
     }
     
     const viewport = pageProxy.getViewport({ scale });
@@ -62,9 +62,9 @@ const PageRenderer = React.memo(({ pageNum, getPage, zoom, fitWidth, containerWi
 
   return (
     <div 
-      className="flex flex-col items-center justify-center my-2 bg-white shadow-md relative" 
+      className="flex flex-col items-center justify-center my-1 bg-white shadow-md relative" 
       style={{ 
-        width: fitWidth && containerWidth ? containerWidth - 40 : 'auto',
+        width: fitWidth && containerWidth ? containerWidth - 16 : 'auto',
         minHeight: actualHeight ? actualHeight + 'px' : (fitWidth ? '800px' : (1000 * zoom) + 'px') 
       }}
       data-page={pageNum}
@@ -100,8 +100,8 @@ export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, fitWidth
   useEffect(() => {
     // Only auto-scroll if the current page is not already in the visible set
     if (!visiblePages.includes(currentPage) && containerRef.current) {
-       const estimatedPageHeight = fitWidth ? (containerWidth * 1.3) : (1000 * zoom);
-       const targetScroll = (currentPage - 1) * (estimatedPageHeight + 16); // 16px is margin
+       const estimatedPageHeight = fitWidth ? ((containerWidth - 16) * 1.3) : (1000 * zoom);
+       const targetScroll = (currentPage - 1) * (estimatedPageHeight + 8); // 8px is margin
        containerRef.current.scrollTop = targetScroll;
     }
   }, [currentPage, fitWidth, containerWidth, zoom]);
@@ -114,8 +114,8 @@ export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, fitWidth
     const scrollTop = containerRef.current.scrollTop;
     const clientHeight = containerRef.current.clientHeight;
     
-    const estimatedPageHeight = fitWidth ? (containerWidth * 1.3) : (1000 * zoom);
-    const rowHeight = estimatedPageHeight + 16;
+    const estimatedPageHeight = fitWidth ? ((containerWidth - 16) * 1.3) : (1000 * zoom);
+    const rowHeight = estimatedPageHeight + 8;
     
     let startIdx = Math.floor(scrollTop / rowHeight);
     let endIdx = Math.floor((scrollTop + clientHeight) / rowHeight);
@@ -161,14 +161,14 @@ export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, fitWidth
          <div 
            className="relative mx-auto flex flex-col items-center" 
            style={{ 
-             height: `${totalGlobalPages * (fitWidth ? (containerWidth * 1.3) + 16 : (1000 * zoom) + 16)}px`
+             height: `${totalGlobalPages * (fitWidth ? ((containerWidth - 16) * 1.3) + 8 : (1000 * zoom) + 8)}px`
            }}
          >
            {renderList.map(p => (
              <div 
                key={p} 
                className="absolute w-full flex justify-center" 
-               style={{ top: `${(p - 1) * (fitWidth ? (containerWidth * 1.3) + 16 : (1000 * zoom) + 16)}px` }}
+               style={{ top: `${(p - 1) * (fitWidth ? ((containerWidth - 16) * 1.3) + 8 : (1000 * zoom) + 8)}px` }}
              >
                <PageRenderer 
                  pageNum={p} 
