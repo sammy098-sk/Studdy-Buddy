@@ -11,7 +11,7 @@ CREATE TABLE textbooks (
   subject TEXT,
   total_pages INTEGER NOT NULL,
   total_parts INTEGER NOT NULL,
-  status TEXT DEFAULT 'processing' CHECK (status IN ('processing', 'uploading', 'ready', 'failed')),
+  status TEXT DEFAULT 'processing' CHECK (status IN ('processing', 'splitting', 'uploading', 'verifying', 'ready', 'failed')),
   user_id UUID, -- References auth.users(id)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, FileText, CheckCircle2, AlertCircle, Server, RefreshCw, BookOpen, XCircle } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, Server, RefreshCw, BookOpen, XCircle, ShieldCheck } from 'lucide-react';
 import { SUBJECTS } from '../config';
 import { supabase } from '../supabase';
 import BackToHomeButton from './BackToHomeButton';
@@ -34,8 +34,11 @@ export default function TextbookImporter({ onNavigate, user }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const [statusText, setStatusText] = useState('');
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  // Verification Summary State
+  const [adminSummary, setAdminSummary] = useState(null);
+  const [startTime, setStartTime] = useState(null);
 
   // Retry & Job state
   const [jobId, setJobId] = useState(null);
@@ -55,7 +58,7 @@ export default function TextbookImporter({ onNavigate, user }) {
     setFile(selectedFile);
     setTitle(selectedFile.name.replace(/\.pdf$/i, '').replace(/[-_]/g, ' '));
     setErrorMessage(null);
-    setSaveSuccess(false);
+    setAdminSummary(null);
     setFailedChunkIndex(null);
     setPendingChunks([]);
     setJobId(null);
@@ -91,24 +94,38 @@ export default function TextbookImporter({ onNavigate, user }) {
     const arrayBuffer = await response.arrayBuffer();
     
     setStatusText(`Verifying checksum for Part ${index + 1}...`);
-    // 2. Verify Checksum
+    // 2. Verify Checksum locally (pre-upload safety)
     const calculatedHash = await calculateSHA256(arrayBuffer);
     if (calculatedHash !== chunk.checksum) {
       throw new Error(`Checksum mismatch for part ${index + 1}. The file might be corrupted during transit.`);
     }
 
     const chunkBlob = new Blob([arrayBuffer], { type: 'application/pdf' });
+    const cleanFileName = `${Date.now()}_part${chunk.part_number}.pdf`;
 
     setStatusText(`Uploading Part ${index + 1} of ${totalChunks}...`);
     // 3. Upload to Supabase Storage
-    const cleanFileName = `${Date.now()}_part${chunk.part_number}.pdf`;
     const { error: uploadErr } = await supabase.storage
       .from('textbooks-pdf')
       .upload(cleanFileName, chunkBlob, { contentType: 'application/pdf', upsert: false });
     
     if (uploadErr) throw new Error(`Storage upload failed for part ${index + 1}: ${uploadErr.message}`);
 
-    // 4. Insert chunk metadata into database
+    setStatusText(`Validating Storage integrity for Part ${index + 1}...`);
+    // 4. Post-Upload Verification (Verify it exists and size matches)
+    const { data: listData, error: listErr } = await supabase.storage
+      .from('textbooks-pdf')
+      .list('', { search: cleanFileName });
+      
+    if (listErr || !listData || listData.length === 0) {
+      throw new Error(`Validation failed: Part ${index + 1} is missing from Supabase Storage.`);
+    }
+    const uploadedFileMeta = listData.find(f => f.name === cleanFileName);
+    if (!uploadedFileMeta || uploadedFileMeta.metadata.size !== chunk.size_bytes) {
+       throw new Error(`Validation failed: Part ${index + 1} size mismatch in storage. Expected ${chunk.size_bytes}, got ${uploadedFileMeta?.metadata?.size || 'unknown'}.`);
+    }
+
+    // 5. Insert chunk metadata into database
     const { error: dbErr } = await supabase.from('textbook_chunks').insert({
       book_id: bookId,
       part_number: chunk.part_number,
@@ -126,6 +143,47 @@ export default function TextbookImporter({ onNavigate, user }) {
     return true;
   };
 
+  const verifyBookIntegrity = async (bookId, originalChunksManifest) => {
+    setStatusText('Verifying book consistency...');
+    await supabase.from('textbooks').update({ status: 'verifying' }).eq('id', bookId);
+
+    const { data: dbChunks, error: fetchErr } = await supabase
+      .from('textbook_chunks')
+      .select('*')
+      .eq('book_id', bookId)
+      .order('part_number', { ascending: true });
+
+    if (fetchErr || !dbChunks) throw new Error('Failed to fetch chunks for verification.');
+    if (dbChunks.length !== originalChunksManifest.length) {
+      throw new Error(`Verification failed: Expected ${originalChunksManifest.length} chunks, found ${dbChunks.length} in DB.`);
+    }
+
+    let previousLastPage = 0;
+    let totalPagesSum = 0;
+
+    for (let i = 0; i < dbChunks.length; i++) {
+      const chunk = dbChunks[i];
+      if (i === 0 && chunk.first_page !== 1) {
+        throw new Error(`Verification failed: First chunk does not start on page 1.`);
+      }
+      if (i > 0 && chunk.first_page !== previousLastPage + 1) {
+         throw new Error(`Verification failed: Missing or duplicate pages detected between chunk ${i} and ${i+1}.`);
+      }
+      previousLastPage = chunk.last_page;
+      totalPagesSum += chunk.page_count;
+    }
+
+    const { data: bookRecord } = await supabase.from('textbooks').select('*').eq('id', bookId).single();
+    if (totalPagesSum !== bookRecord.total_pages) {
+      throw new Error(`Verification failed: Total pages mismatch. Expected ${bookRecord.total_pages}, got ${totalPagesSum}.`);
+    }
+    if (previousLastPage !== bookRecord.total_pages) {
+      throw new Error(`Verification failed: Last page of final chunk (${previousLastPage}) does not match book total pages (${bookRecord.total_pages}).`);
+    }
+
+    return dbChunks; // Return validated chunks for summary
+  };
+
   const processUploadLoop = async (chunks, startIdx, bookId, currentJobId) => {
     try {
       // Set book status to uploading
@@ -134,24 +192,40 @@ export default function TextbookImporter({ onNavigate, user }) {
       const totalChunks = chunks.length;
       for (let i = startIdx; i < totalChunks; i++) {
         await uploadChunkToSupabase(chunks[i], i, totalChunks, bookId);
-        setProgressPercent(40 + Math.round(((i + 1) / totalChunks) * 60));
+        setProgressPercent(40 + Math.round(((i + 1) / totalChunks) * 50));
       }
 
-      // Finalize: Mark book as ready
-      setStatusText('Finalizing book status to ready...');
+      // Finalize: Verify everything
+      const validatedDbChunks = await verifyBookIntegrity(bookId, chunks);
+      
+      setStatusText('Verification complete. Marking as ready...');
       const { error: updateErr } = await supabase.from('textbooks').update({ status: 'ready' }).eq('id', bookId);
       if (updateErr) throw new Error(`Failed to mark textbook as ready: ${updateErr.message}`);
 
-      // Cleanup job on server (delete temporary files)
+      // Cleanup job on server (delete temporary files) ONLY after verification succeeds
       const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
       if (currentJobId) {
         await fetch(`${COMPRESSOR_URL}/jobs/${currentJobId}/complete`, { method: 'POST' }).catch(console.error);
       }
 
-      setStatusText('Upload complete.');
       setProgressPercent(100);
-      setSaveSuccess(true);
       setFailedChunkIndex(null);
+      setIsProcessing(false);
+
+      const timeTakenMs = Date.now() - startTime;
+      const mins = Math.floor(timeTakenMs / 60000);
+      const secs = Math.floor((timeTakenMs % 60000) / 1000);
+
+      setAdminSummary({
+         title: title,
+         originalSize: fileStats?.size,
+         totalPages: fileStats?.pages,
+         totalParts: chunks.length,
+         chunkSizes: validatedDbChunks.map(c => c.size_bytes),
+         processingTime: `${mins}m ${secs}s`,
+         createdAt: new Date().toLocaleString()
+      });
+
     } catch (err) {
       console.error(err);
       // Fallback update to failed status
@@ -159,7 +233,6 @@ export default function TextbookImporter({ onNavigate, user }) {
       
       setErrorMessage(err.message);
       setFailedChunkIndex(startIdx); // Save index for retry (do not cleanup Render files)
-    } finally {
       setIsProcessing(false);
     }
   };
@@ -207,7 +280,6 @@ export default function TextbookImporter({ onNavigate, user }) {
           clearInterval(interval);
           throw new Error(`Server splitting failed: ${data.error}`);
         } else {
-           // still processing, maybe update progress safely if possible
            setStatusText(`Splitting document...`);
         }
       } catch (err) {
@@ -225,6 +297,8 @@ export default function TextbookImporter({ onNavigate, user }) {
       setErrorMessage("Authentication required: Please log in to upload textbooks.");
       return;
     }
+    
+    setStartTime(Date.now());
     setIsProcessing(true);
     setErrorMessage(null);
     setFailedChunkIndex(null);
@@ -253,8 +327,10 @@ export default function TextbookImporter({ onNavigate, user }) {
       
       const newJobId = splitData.jobId;
       setJobId(newJobId);
+      
+      // We are now in processing/splitting stage
       setProgressPercent(15);
-      setStatusText('Inspecting document...');
+      setStatusText('Splitting document...');
 
       // STEP 2: Poll for completion
       pollJobStatus(newJobId);
@@ -285,10 +361,10 @@ export default function TextbookImporter({ onNavigate, user }) {
     setFileStats(null);
     setTitle('');
     setAuthor('');
-    setSaveSuccess(false);
+    setAdminSummary(null);
     setFailedChunkIndex(null);
     setIsProcessing(false);
-    setErrorMessage('Upload cancelled.');
+    setErrorMessage('Upload cancelled. Temporary files cleaned up.');
   };
 
   return (
@@ -299,14 +375,14 @@ export default function TextbookImporter({ onNavigate, user }) {
 
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #2954E5, #4f46e5)' }}>
-              <Server size={20} color="#FFFFFF" />
+              <ShieldCheck size={20} color="#FFFFFF" />
             </div>
             <div>
               <h2 className="text-2xl font-semibold" style={{ color: '#101C34', fontFamily: "'Montserrat', sans-serif" }}>
-                Large PDF Textbooks
+                Large PDF Upload & Verification
               </h2>
               <p className="text-sm" style={{ color: '#8493B0' }}>
-                Upload massive PDFs safely. Books &gt;20MB are automatically split via async jobs and streamed.
+                Securely stream and cryptographically verify textbook chunks up to 250MB.
               </p>
             </div>
           </div>
@@ -330,24 +406,78 @@ export default function TextbookImporter({ onNavigate, user }) {
             </div>
           )}
 
-          {saveSuccess ? (
-            <div className="mb-6 p-4 rounded-xl flex items-center justify-between text-sm" style={{ background: '#F0FDF4', borderColor: '#86EFAC', color: '#166534', border: '1px solid' }}>
-              <div className="flex items-center gap-3">
-                <CheckCircle2 size={18} />
-                <span>Textbook successfully uploaded and chunked! Status: Ready.</span>
+          {adminSummary ? (
+            <div className="bg-white rounded-2xl shadow-sm border p-8 mb-8" style={{ borderColor: '#E2E8F0' }}>
+              <div className="flex items-center gap-3 mb-6">
+                <CheckCircle2 size={28} className="text-green-600" />
+                <h3 className="text-xl font-semibold text-slate-800">Upload Complete. Textbook verified and ready for reading.</h3>
               </div>
-              <button
-                onClick={() => {
-                  setFile(null);
-                  setFileStats(null);
-                  setTitle('');
-                  setAuthor('');
-                  setSaveSuccess(false);
-                }}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-700 text-white hover:bg-green-800 transition-colors"
-              >
-                Upload Another
-              </button>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="text-xs text-slate-500 font-medium uppercase mb-1">Book Title</div>
+                  <div className="font-semibold text-slate-800 truncate" title={adminSummary.title}>{adminSummary.title}</div>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="text-xs text-slate-500 font-medium uppercase mb-1">Original Size</div>
+                  <div className="font-semibold text-slate-800">{formatBytes(adminSummary.originalSize)}</div>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="text-xs text-slate-500 font-medium uppercase mb-1">Total Pages</div>
+                  <div className="font-semibold text-slate-800">{adminSummary.totalPages}</div>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="text-xs text-slate-500 font-medium uppercase mb-1">Processing Time</div>
+                  <div className="font-semibold text-slate-800">{adminSummary.processingTime}</div>
+                </div>
+              </div>
+
+              <div className="mb-6 border rounded-xl overflow-hidden" style={{ borderColor: '#E2E8F0' }}>
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-6 py-3 font-semibold text-slate-600">Metric</th>
+                      <th className="px-6 py-3 font-semibold text-slate-600">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                     <tr>
+                        <td className="px-6 py-3 text-slate-700">Total Parts Verified</td>
+                        <td className="px-6 py-3 font-medium text-slate-900">{adminSummary.totalParts}</td>
+                     </tr>
+                     <tr>
+                        <td className="px-6 py-3 text-slate-700">Storage Metadata Validation</td>
+                        <td className="px-6 py-3 font-medium text-green-600">✓ Passed</td>
+                     </tr>
+                     <tr>
+                        <td className="px-6 py-3 text-slate-700">Mathematical Page Continuity</td>
+                        <td className="px-6 py-3 font-medium text-green-600">✓ Passed</td>
+                     </tr>
+                     <tr>
+                        <td className="px-6 py-3 text-slate-700">Created Date</td>
+                        <td className="px-6 py-3 font-medium text-slate-900">{adminSummary.createdAt}</td>
+                     </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-between items-center mt-8 pt-6 border-t" style={{ borderColor: '#E2E8F0' }}>
+                 <div className="text-sm text-slate-500">
+                   {adminSummary.totalParts} individual chunk signatures cryptographically verified.
+                 </div>
+                 <button
+                   onClick={() => {
+                     setFile(null);
+                     setFileStats(null);
+                     setTitle('');
+                     setAuthor('');
+                     setAdminSummary(null);
+                   }}
+                   className="px-6 py-2.5 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
+                 >
+                   Upload Another Textbook
+                 </button>
+              </div>
             </div>
           ) : (
             <div className="bg-white rounded-2xl shadow-sm border p-6 mb-8" style={{ borderColor: '#E2E8F0' }}>
@@ -358,7 +488,7 @@ export default function TextbookImporter({ onNavigate, user }) {
                   </div>
                   <h3 className="text-lg font-semibold mb-2" style={{ color: '#101C34' }}>Select Textbook PDF</h3>
                   <p className="text-sm text-slate-500 mb-6 max-w-md">
-                    Upload textbooks up to 250MB. They will be automatically split via background jobs for safe storage.
+                    Upload textbooks up to 250MB. They will be strictly verified and chunked for safe cloud storage.
                   </p>
                   <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2">
                     <Upload size={18} />
@@ -425,14 +555,14 @@ export default function TextbookImporter({ onNavigate, user }) {
                         Cancel
                       </button>
                       <button onClick={handleStartUpload} disabled={!title.trim() || !file} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm">
-                        Upload & Chunk PDF
+                        Start Upload & Verify
                       </button>
                     </div>
                   )}
                   {isProcessing && (
                     <div className="flex justify-end">
                        <button onClick={handleCancelUpload} className="text-sm text-red-500 hover:text-red-700 font-medium flex items-center gap-1">
-                          <XCircle size={16} /> Cancel Upload
+                          <XCircle size={16} /> Cancel Job
                        </button>
                     </div>
                   )}
