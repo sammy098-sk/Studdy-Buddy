@@ -23,6 +23,20 @@ async function calculateSHA256(arrayBuffer) {
   return hashHex;
 }
 
+function formatDuration(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const parts = [];
+  if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+  if (minutes > 0) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds} second${seconds !== 1 ? 's' : ''}`);
+  
+  return parts.join(' ');
+}
+
 export default function TextbookImporter({ onNavigate, user }) {
   const [file, setFile] = useState(null);
   const [fileStats, setFileStats] = useState(null);
@@ -38,7 +52,7 @@ export default function TextbookImporter({ onNavigate, user }) {
 
   // Verification Summary State
   const [adminSummary, setAdminSummary] = useState(null);
-  const [startTime, setStartTime] = useState(null);
+  const startTimeRef = React.useRef(null);
 
   // Retry & Job state
   const [jobId, setJobId] = useState(null);
@@ -74,8 +88,10 @@ export default function TextbookImporter({ onNavigate, user }) {
         size: selectedFile.size,
       });
     } catch (err) {
-      console.warn("Failed to read page count locally:", err);
-      setFileStats({ size: selectedFile.size, pages: 'Unknown' });
+      console.error("Failed to read page count locally:", err);
+      setErrorMessage("Could not parse PDF page count. The file may be corrupted or encrypted.");
+      setFileStats(null);
+      setFile(null);
     } finally {
       setIsProcessing(false);
       setStatusText('');
@@ -181,7 +197,7 @@ export default function TextbookImporter({ onNavigate, user }) {
       throw new Error(`Verification failed: Last page of final chunk (${previousLastPage}) does not match book total pages (${bookRecord.total_pages}).`);
     }
 
-    return dbChunks; // Return validated chunks for summary
+    return { dbChunks, validatedTotalPages: bookRecord.total_pages }; // Return validated chunks for summary
   };
 
   const processUploadLoop = async (chunks, startIdx, bookId, currentJobId) => {
@@ -196,7 +212,7 @@ export default function TextbookImporter({ onNavigate, user }) {
       }
 
       // Finalize: Verify everything
-      const validatedDbChunks = await verifyBookIntegrity(bookId, chunks);
+      const { dbChunks: validatedDbChunks, validatedTotalPages } = await verifyBookIntegrity(bookId, chunks);
       
       setStatusText('Verification complete. Marking as ready...');
       const { error: updateErr } = await supabase.from('textbooks').update({ status: 'ready' }).eq('id', bookId);
@@ -212,17 +228,15 @@ export default function TextbookImporter({ onNavigate, user }) {
       setFailedChunkIndex(null);
       setIsProcessing(false);
 
-      const timeTakenMs = Date.now() - startTime;
-      const mins = Math.floor(timeTakenMs / 60000);
-      const secs = Math.floor((timeTakenMs % 60000) / 1000);
+      const timeTakenMs = Date.now() - startTimeRef.current;
 
       setAdminSummary({
          title: title,
          originalSize: fileStats?.size,
-         totalPages: fileStats?.pages,
+         totalPages: validatedTotalPages,
          totalParts: chunks.length,
          chunkSizes: validatedDbChunks.map(c => c.size_bytes),
-         processingTime: `${mins}m ${secs}s`,
+         processingTime: formatDuration(timeTakenMs),
          createdAt: new Date().toLocaleString()
       });
 
@@ -298,7 +312,7 @@ export default function TextbookImporter({ onNavigate, user }) {
       return;
     }
     
-    setStartTime(Date.now());
+    startTimeRef.current = Date.now();
     setIsProcessing(true);
     setErrorMessage(null);
     setFailedChunkIndex(null);
