@@ -141,7 +141,7 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
     <div className="flex flex-col h-full w-full bg-[#E2E8F0] overflow-hidden relative" style={{ touchAction: 'pan-y' }}>
        <ReaderToolbar 
          bookMeta={bookMeta}
-         onBack={() => onNavigate('importer')} 
+         onBack={() => onNavigate('library')} 
          currentPage={currentPage}
          totalPages={bookMeta?.total_pages || 1}
          onPageChange={setCurrentPage}

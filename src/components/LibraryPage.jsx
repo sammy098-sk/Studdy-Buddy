@@ -21,7 +21,7 @@ export default function LibraryPage({ user, onNavigate }) {
       const { data: textbooksData, error: textbooksError } = await supabase
         .from('textbooks')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('is_published', true)
         .order('created_at', { ascending: false });
 
       if (textbooksError) throw textbooksError;
@@ -163,7 +163,7 @@ export default function LibraryPage({ user, onNavigate }) {
                   {/* CSS Placeholder Cover */}
                   <div 
                     className={`h-48 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-6 flex flex-col justify-end relative group cursor-pointer`}
-                    onClick={() => !isProcessing && navigate(`/book/${book.id}`)}
+                    onClick={() => !isProcessing && navigate(`/book/${book.id}/read`)}
                   >
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
                     <div className="relative z-10">
@@ -190,7 +190,7 @@ export default function LibraryPage({ user, onNavigate }) {
 
                     <div className="mt-auto pt-2 flex items-center justify-between border-t border-slate-100">
                       <button 
-                        onClick={() => navigate(`/book/${book.id}`)}
+                        onClick={() => navigate(`/book/${book.id}/read`)}
                         disabled={isProcessing}
                         className={`font-semibold text-sm py-2 px-3 rounded-lg -ml-3 transition-colors ${isProcessing ? 'text-slate-400 cursor-not-allowed' : 'text-blue-600 hover:bg-blue-50'}`}
                       >

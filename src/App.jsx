@@ -34,7 +34,8 @@ function useIsDesktop() {
 function ReaderRouteWrapper({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  return <TextbookReader bookId={id} user={user} onNavigate={(path) => navigate(path === 'importer' ? '/upload' : `/${path}`)} />;
+  // We use navigate('/library') instead of letting TextbookReader guess
+  return <TextbookReader bookId={id} user={user} onNavigate={() => navigate('/library')} />;
 }
 
 export default function App() {
@@ -149,7 +150,7 @@ function MainApp() {
   const navigateTo = (key, payload = null) => {
     setMobileMenuOpen(false);
     if (key === 'reader' && payload?.bookId) {
-      navigate(`/book/${payload.bookId}`);
+      navigate(`/book/${payload.bookId}/read`);
     } else if (key === 'importer') {
       navigate('/upload');
     } else {
@@ -237,7 +238,8 @@ function MainApp() {
           <Route path="/" element={<Navigate to="/library" replace />} />
           <Route path="/library" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
           <Route path="/upload" element={<TextbookImporter onNavigate={navigateTo} user={user} />} />
-          <Route path="/book/:id" element={<ReaderRouteWrapper user={user} />} />
+          <Route path="/book/:id" element={<Navigate to="read" replace />} />
+          <Route path="/book/:id/read" element={<ReaderRouteWrapper user={user} />} />
           <Route path="/study" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />
           <Route path="/sessions" element={<SessionsPage userId={user.id} onNavigate={navigateTo} onResume={handleResume} />} />
           <Route path="/notifications" element={<NotificationsPage onNavigate={navigateTo} />} />

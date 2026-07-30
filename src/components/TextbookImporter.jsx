@@ -302,13 +302,14 @@ export default function TextbookImporter({ onNavigate, user }) {
 
           // Create Parent Book Record (Status: 'processing')
           const { data: bookRecord, error: bookErr } = await supabase.from('textbooks').insert({
-            title: title.trim(),
+            title: title.trim() || 'Untitled Textbook',
             subject: subject,
             author: author.trim() || null,
             total_pages: data.total_pages,
             total_parts: chunks.length,
             status: 'processing',
-            user_id: authData.user.id
+            uploaded_by: authData.user.id,
+            is_published: true
           }).select().single();
 
           if (bookErr || !bookRecord) throw new Error(`Failed to create textbook record: ${bookErr?.message}`);

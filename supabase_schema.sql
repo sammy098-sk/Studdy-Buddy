@@ -1,6 +1,7 @@
 -- Drop the old tables if they exist
 DROP TABLE IF EXISTS textbook_chapters CASCADE;
 DROP TABLE IF EXISTS textbook_chunks CASCADE;
+DROP TABLE IF EXISTS reading_progress CASCADE;
 DROP TABLE IF EXISTS textbooks CASCADE;
 
 -- Create the Textbooks parent table
@@ -12,7 +13,8 @@ CREATE TABLE textbooks (
   total_pages INTEGER NOT NULL,
   total_parts INTEGER NOT NULL,
   status TEXT DEFAULT 'processing' CHECK (status IN ('processing', 'splitting', 'uploading', 'verifying', 'ready', 'failed')),
-  user_id UUID, -- References auth.users(id)
+  uploaded_by UUID, -- References auth.users(id), represents the admin who uploaded it
+  is_published BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
