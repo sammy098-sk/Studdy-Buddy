@@ -122,361 +122,307 @@ export default function TextbookImporter({ onNavigate, user }) {
           }
         }
 
+        let outlineEvidence = [];
+        let printedTocEvidence = [];
+        let typographyEvidence = [];
+        
+        // ---------------------------------------------------------
+        // LAYER 1: PDF Outline / Bookmarks (Highest Confidence)
+        // ---------------------------------------------------------
         if (outline && outline.length > 0) {
-          setStatusText('Extracting nested table of contents...');
-          await processOutline(outline);
-          
-          console.log("Outline found");
-          console.log("Top-level bookmarks:", outline.length);
-          console.log("Recursive bookmarks:", extractedChapters.length);
-        } else {
-          console.log("Outline found: false");
-        }
-        
-        // 1. Only ignore the PDF Outline if it is completely empty, or contains only a single root item with no children.
-        // 2. If it contains 2 or more meaningful entries recursively, keep it!
-        let useOutline = extractedChapters.length >= 2;
-        
-        console.log("Using PDF Outline:", useOutline);
-        console.log("Fallback scanner executed:", !useOutline);
-        
-        if (!useOutline) {
-          if (extractedChapters.length > 0) {
-            console.log("Reason for fallback: Outline only contains a single root item with no children.");
-          } else {
-            console.log("Reason for fallback: Outline is completely empty or missing.");
-          }
-          
-          let rawCandidates = [];
-          setStatusText(`Scanning document for chapters (0 of ${pdf.numPages})...`);
-          
-          for (let i = 1; i <= pdf.numPages; i++) {
-            try {
-               const page = await pdf.getPage(i);
-               const textContent = await page.getTextContent();
-               
-               let textItems = textContent.items.map(it => ({ str: it.str.trim(), fontSize: it.transform[0], y: Math.round(it.transform[5]) })).filter(it => it.str);
-               
-               // Group into lines by Y coordinate
-               let lines = [];
-               let currentLine = null;
-               
-               for (const item of textItems) {
-                  if (!currentLine) {
-                     currentLine = { text: item.str, y: item.y, fontSize: item.fontSize };
-                  } else if (Math.abs(item.y - currentLine.y) <= 5) {
-                     currentLine.text += " " + item.str;
-                     currentLine.fontSize = Math.max(currentLine.fontSize, item.fontSize);
-                  } else {
-                     if (currentLine.text.endsWith("-")) {
-                        currentLine.text = currentLine.text.slice(0, -1) + item.str;
-                        currentLine.y = item.y; 
-                     } else {
-                        lines.push(currentLine);
-                        currentLine = { text: item.str, y: item.y, fontSize: item.fontSize };
-                     }
-                  }
-               }
-               if (currentLine) lines.push(currentLine);
-               
-               const maxFontSize = lines.length > 0 ? Math.max(...lines.map(l => l.fontSize)) : 0;
-               const pageText = lines.map(l => l.text).join('\n');
-               const hasKeyConcepts = /(^|\n)Key Concepts/i.test(pageText);
-               
-               for (let l = 0; l < lines.length; l++) {
-                  const line = lines[l];
-                  const cleanText = line.text.replace(/\s+\d+$/, "").trim(); // Strip trailing page numbers
-                  if (cleanText.length < 3 || cleanText.length > 120) continue;
-                  
-                  let score = 0;
-                  let type = 'chapter';
-                  let currentLevel = 1;
-                  let isStructural = false;
-                  
-                  // 1. Primary Structural Signals (Keywords or unambiguous numbering)
-                  if (/^UNIT\s+[A-Za-z0-9]+$/i.test(cleanText) || /^UNIT\s+[A-Za-z0-9]+[:\-.]?\s+.+/i.test(cleanText)) {
-                     score += 60;
-                     type = 'unit';
-                     currentLevel = 0;
-                     isStructural = true;
-                  } else if (/^(Chapter|Part)\s+\d+/i.test(cleanText)) {
-                     score += 50;
-                     type = 'chapter';
-                     currentLevel = 1;
-                     isStructural = true;
-                  } else if (/^(Concept|Section)\s+\d+\.\d+/i.test(cleanText)) {
-                     score += 50;
-                     type = 'concept';
-                     currentLevel = 2;
-                     isStructural = true;
-                  } else if (/^\d+\.\d+(?:\.\d+)?\s+[A-Za-z]/.test(cleanText)) {
-                     // Standalone section/concept without explicit word (e.g. "1.1 Standards of Length")
-                     score += 45;
-                     type = 'concept';
-                     currentLevel = 2;
-                     isStructural = true;
-                  } else if (/^\d+[\:\-\.\s]+[A-Z][^\.]{2,60}$/.test(cleanText) && line.fontSize >= maxFontSize - 1 && maxFontSize > 10) {
-                     // Standalone major chapter without explicit word (e.g. "1 Introduction", must be prominently sized)
-                     score += 40;
-                     type = 'chapter';
-                     currentLevel = 1;
-                     isStructural = true;
-                  } else if (/^(Preface|Foreword|Introduction|About the Authors?|Acknowledgements|Contents|Table of Contents|Appendix|Glossary|Credits|References|Bibliography|Index|Answer Key|Solutions)/i.test(cleanText)) {
-                     score += 45;
-                     isStructural = true;
-                  }
-                  
-                  // Ignore ordinary sentence noise: Only proceed if structural OR literally the biggest title font on the page
-                  if (!isStructural && line.fontSize < maxFontSize) {
-                     continue;
-                  }
-                  
-                  // Typography and formatting bonuses (amplification only)
-                  if (line.fontSize >= maxFontSize && maxFontSize > 0) score += 20;
-                  if (cleanText.length < 50 && isStructural) score += 15;
-                  
-                  // Negative signals (penalize paragraphs and citations)
-                  if (cleanText.endsWith(".")) score -= 40;
-                  if (/\b(explains|describes|provides|introduces|discusses|shows|demonstrates|illustrates|see|in)\b/i.test(cleanText)) score -= 50;
-                  if (cleanText.length > 85) score -= 40;
-                  
-                  // Key concepts list rejection
-                  if (hasKeyConcepts && /^\d+\.\d+/.test(cleanText)) {
-                     score -= 50; 
-                  }
-                  
-                  // Save candidate if it maintains a positive score
-                  if (score > 10) {
-                     let finalTitle = cleanText;
-                     // Merge next line if it's just "Chapter 3" or "UNIT ONE"
-                     if (l + 1 < lines.length && /^(Chapter|Part|UNIT)\s+[A-Za-z0-9]+$/i.test(cleanText)) {
-                        const nextLine = lines[l + 1].text.replace(/\s+\d+$/, "").trim();
-                        if (nextLine.length > 2 && nextLine.length < 60 && !nextLine.endsWith(".")) {
-                           finalTitle += " " + nextLine;
-                           l++; 
-                        }
-                     }
-                     
-                     if (finalTitle.length > 100) {
-                       finalTitle = finalTitle.substring(0, 100) + "...";
-                     }
-                     
-                     rawCandidates.push({
-                        title: finalTitle,
-                        page_number: i,
-                        level: currentLevel,
-                        type: type,
-                        score: score
-                     });
-                  }
-               }
-            } catch (pageErr) {
-               console.warn(`Failed to process page ${i} during fallback scan:`, pageErr);
-            }
-            
-            // Keep UI responsive and update status every 10 pages
-            if (i % 10 === 0) {
-               setStatusText(`Scanning document for chapters (${i} of ${pdf.numPages})...`);
-               await new Promise(r => setTimeout(r, 0)); // Yield to React render cycle
-            }
-          }
-          
-          console.groupCollapsed("TOC Extraction Diagnostics: Raw Candidates");
-          console.table(rawCandidates);
-          console.groupEnd();
-          
-          let orderIdx = 0;
-          let threshold = 45;
-          let fallbackUsed = false;
-          
-          const processCandidates = (minScore) => {
-             let results = [];
-             for (const c of rawCandidates) {
-                if (c.score >= minScore) {
-                   results.push({
-                      id: crypto.randomUUID(),
-                      title: c.title,
-                      page_number: c.page_number,
-                      level: c.level,
-                      parent_id: null,
-                      type: c.type,
-                      order_index: orderIdx++
-                   });
-                }
-             }
-             return results;
-          };
-          
-          extractedChapters = processCandidates(threshold);
-          
-          // Improved sanity check: trigger fallback if fewer than 3 actual chapters are found in a substantial textbook
-          const foundChapters = extractedChapters.filter(c => c.type === 'chapter');
-          if (foundChapters.length < 3 && pdf.numPages > 50) {
-             console.warn("TOC extraction failed to detect a sufficient chapter hierarchy. Retrying with relaxed heading detection.");
-             fallbackUsed = true;
-             threshold = 25; // Safe fallback threshold since noise is already filtered
-             orderIdx = 0;
-             extractedChapters = processCandidates(threshold);
-          }
-          
-          window._tocDiagnostics = {
-             pagesScanned: pdf.numPages,
-             rawCandidatesCount: rawCandidates.length,
-             rejectedCandidatesCount: rawCandidates.filter(c => c.score < threshold).length,
-             fallbackUsed: fallbackUsed
-          };
-        }
-        
-        // Post-processing cleanup and Tree construction
-        if (extractedChapters.length > 0) {
-           setStatusText('Cleaning up table of contents...');
-           
-           // 1. Filter out obvious fluff
-           const ignoreRegex = /^(featured figures|brief contents|supplements|detailed contents|title page|half title)$/i;
-           extractedChapters = extractedChapters.filter(ch => !ignoreRegex.test(ch.title.trim()));
-           
-           // 2. Strict Deduplication by prefix
-           const seenPrefixes = new Map();
-           extractedChapters = extractedChapters.filter(ch => {
-              let key = ch.title.trim().toLowerCase();
-              const prefixMatch = key.match(/^(chapter|unit|part|concept|section)\s+\d+(\.\d+)?/i);
-              if (prefixMatch) {
-                 key = prefixMatch[0]; 
-              }
-              if (seenPrefixes.has(key)) {
-                 return false;
-              }
-              seenPrefixes.set(key, ch.page_number);
-              return true;
+           setStatusText('Gathering evidence from PDF outline...');
+           await processOutline(outline);
+           // Convert extractedChapters into outline evidence without arbitrary count rejection
+           outlineEvidence = extractedChapters.map(ch => {
+             let type = 'chapter';
+             if (ch.level === 0 && /^unit/i.test(ch.title)) type = 'unit';
+             else if (ch.level > 1 || /^(concept|section)\s+\d+\.\d+/i.test(ch.title)) type = 'concept';
+             return { ...ch, source: 'outline', confidence_score: 100, type };
            });
-           
-           // 3. Sort strictly by page number, then by level
-           extractedChapters.sort((a, b) => {
-              if (a.page_number === b.page_number) {
-                 return (a.level || 0) - (b.level || 0);
-              }
-              return a.page_number - b.page_number;
-           });
-           
-           // 4. Build Hierarchy (Front Matter -> Unit -> Chapter -> Concept -> Back Matter)
-           let finalChapters = [];
-           let frontMatterId = crypto.randomUUID();
-           let hasFrontMatter = false;
-           
-           let backMatterId = crypto.randomUUID();
-           let hasBackMatter = false;
-           
-           let currentUnitId = null;
-           let currentChapterId = null;
-           
-           let mainContentStarted = false;
-           let backMatterStarted = false;
-           
-           let orderIdx = 0;
-           
-           for (const ch of extractedChapters) {
-              const isFrontType = /^(preface|foreword|acknowledgements|about the authors?|copyright|table of contents|dedication|how to use this book|introduction)/i.test(ch.title);
-              const isBackType = /^(appendix|glossary|credits|references|bibliography|index|solutions|answers|answer key)/i.test(ch.title);
-              const isUnit = /^unit\s+[a-z0-9]+/i.test(ch.title);
-              const isChapter = /^(chapter|part)\s+\d+/i.test(ch.title);
-              const isSection = /^(concept|section)\s+\d+\.\d+/i.test(ch.title);
+        }
+        extractedChapters = [];
+
+        // ---------------------------------------------------------
+        // LAYER 2: Printed Table of Contents Scanner (Pages 1-35)
+        // ---------------------------------------------------------
+        setStatusText('Scanning opening pages for printed Table of Contents...');
+        const scanTocPages = Math.min(pdf.numPages, 35);
+        for (let i = 1; i <= scanTocPages; i++) {
+           try {
+              const page = await pdf.getPage(i);
+              const textContent = await page.getTextContent();
+              const items = textContent.items.map(it => ({ str: it.str.trim(), y: Math.round(it.transform[5]) })).filter(it => it.str);
               
-              if (isUnit || isChapter || isSection) {
-                 mainContentStarted = true;
+              // Group by Y line
+              let lines = [];
+              let cur = null;
+              for (const it of items) {
+                 if (!cur) cur = { text: it.str, y: it.y };
+                 else if (Math.abs(it.y - cur.y) <= 4) cur.text += " " + it.str;
+                 else { lines.push(cur.text); cur = { text: it.str, y: it.y }; }
               }
+              if (cur) lines.push(cur.text);
               
-              if (mainContentStarted && isBackType) {
-                 backMatterStarted = true;
-              }
-              
-              if (!mainContentStarted && !backMatterStarted && isFrontType) {
-                 if (!hasFrontMatter) {
-                    finalChapters.push({ id: frontMatterId, title: "Front Matter", page_number: ch.page_number, level: 0, parent_id: null, type: 'frontMatter', order_index: orderIdx++ });
-                    hasFrontMatter = true;
-                 }
-                 ch.parent_id = frontMatterId;
-                 ch.level = 1;
-                 ch.type = 'frontMatter';
-                 ch.order_index = orderIdx++;
-                 finalChapters.push(ch);
-              } 
-              else if (backMatterStarted || (mainContentStarted && isBackType)) {
-                 if (!hasBackMatter) {
-                    finalChapters.push({ id: backMatterId, title: "Back Matter", page_number: ch.page_number, level: 0, parent_id: null, type: 'backMatter', order_index: orderIdx++ });
-                    hasBackMatter = true;
-                 }
-                 ch.parent_id = backMatterId;
-                 ch.level = 1;
-                 ch.type = 'backMatter';
-                 ch.order_index = orderIdx++;
-                 finalChapters.push(ch);
-              }
-              else if (isUnit) {
-                 ch.parent_id = null;
-                 ch.level = 0;
-                 ch.type = 'unit';
-                 ch.order_index = orderIdx++;
-                 currentUnitId = ch.id;
-                 currentChapterId = null; // Reset chapter when a new unit starts
-                 finalChapters.push(ch);
-              }
-              else if (isChapter) {
-                 ch.parent_id = currentUnitId || null;
-                 ch.level = currentUnitId ? 1 : 0;
-                 ch.type = 'chapter';
-                 ch.order_index = orderIdx++;
-                 currentChapterId = ch.id;
-                 finalChapters.push(ch);
-              }
-              else if (isSection && currentChapterId) {
-                 ch.parent_id = currentChapterId;
-                 ch.level = currentUnitId ? 2 : 1;
-                 ch.type = 'concept';
-                 ch.order_index = orderIdx++;
-                 finalChapters.push(ch);
-              }
-              else {
-                 // Fallback node mapping if outline provided parent_id
-                 if (!ch.parent_id) {
-                    if (currentChapterId) {
-                       ch.parent_id = currentChapterId;
-                       ch.level = currentUnitId ? 2 : 1;
-                    } else if (currentUnitId) {
-                       ch.parent_id = currentUnitId;
-                       ch.level = 1;
-                    } else {
-                       ch.parent_id = null;
-                       ch.level = 0;
+              for (const text of lines) {
+                 // Match leader dots or spaced TOC table alignment: "Title ....... 45" or "Chapter 1 Mechanics ..... 12"
+                 const tocMatch = text.match(/^(.*?)\s+(?:\.{2,}|\-{2,}|\_{2,}|\s{3,})\s*(\d+)$/);
+                 if (tocMatch) {
+                    const cleanTitle = tocMatch[1].trim();
+                    const targetPage = parseInt(tocMatch[2], 10);
+                    if (cleanTitle.length >= 3 && cleanTitle.length <= 100 && targetPage >= 1 && targetPage <= pdf.numPages + 50) {
+                       let lvl = 1;
+                       let tp = 'chapter';
+                       if (/^unit/i.test(cleanTitle)) { lvl = 0; tp = 'unit'; }
+                       else if (/^\d+\.\d+|^(concept|section|lesson|module)\s+\d+\.\d+/i.test(cleanTitle)) { lvl = 2; tp = 'concept'; }
+                       else if (/^(preface|foreword|acknowledgements|introduction)/i.test(cleanTitle)) { lvl = 1; tp = 'frontMatter'; }
+                       else if (/^(appendix|glossary|index|references)/i.test(cleanTitle)) { lvl = 1; tp = 'backMatter'; }
+                       
+                       printedTocEvidence.push({
+                          id: crypto.randomUUID(),
+                          title: cleanTitle,
+                          page_number: Math.min(targetPage, pdf.numPages), // adjusts if offset is small
+                          level: lvl,
+                          source: 'printed_toc',
+                          confidence_score: 80,
+                          type: tp
+                       });
                     }
                  }
-                 ch.type = ch.type || 'chapter';
-                 ch.order_index = orderIdx++;
-                 finalChapters.push(ch);
               }
-           }
-           
-           extractedChapters = finalChapters;
-           
-           if (window._tocDiagnostics) {
-              const u = extractedChapters.filter(c => c.type === 'unit').length;
-              const ch = extractedChapters.filter(c => c.type === 'chapter').length;
-              const co = extractedChapters.filter(c => c.type === 'concept').length;
-              const fm = extractedChapters.filter(c => c.type === 'frontMatter').length;
-              const bm = extractedChapters.filter(c => c.type === 'backMatter').length;
-              
-              console.group("TOC Extraction Diagnostics: Final Report");
-              console.log(`Pages scanned: ${window._tocDiagnostics.pagesScanned}`);
-              console.log(`Units found: ${u}`);
-              console.log(`Chapters found: ${ch}`);
-              console.log(`Concepts found: ${co}`);
-              console.log(`Front Matter items: ${fm}`);
-              console.log(`Back Matter items: ${bm}`);
-              console.log(`Outline entries: ${useOutline ? extractedChapters.length : 0}`);
-              console.log(`Fallback used: ${window._tocDiagnostics.fallbackUsed}`);
-              console.log(`Rejected heading candidates: ${window._tocDiagnostics.rejectedCandidatesCount}`);
-              console.groupEnd();
+           } catch (e) {
+              console.warn(`Layer 2 scan error on page ${i}:`, e);
            }
         }
+
+        // ---------------------------------------------------------
+        // LAYER 3: Adaptive Typography Scanner & Intelligent Stopping
+        // ---------------------------------------------------------
+        setStatusText('Running adaptive typography heading scan...');
+        let countUnits = 0, countConcepts = 0, countSections = 0;
+        let chapterFonts = [], sectionFonts = [];
+        let detectedChapterKeyword = "Chapter";
+        let detectedSectionKeyword = "Section";
+        let bookProfile = null;
+        let pagesScanned = 0;
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+           try {
+              const page = await pdf.getPage(i);
+              const textContent = await page.getTextContent();
+              let textItems = textContent.items.map(it => ({ str: it.str.trim(), fontSize: Math.round(it.transform[0]), y: Math.round(it.transform[5]) })).filter(it => it.str);
+              
+              if (textItems.length === 0) continue;
+              pagesScanned++;
+              const maxFontSize = Math.max(...textItems.map(it => it.fontSize));
+              
+              // Intelligent Skip: If pattern already learned and this page has no text approaching heading font size, skip detailed parsing!
+              if (bookProfile && maxFontSize < bookProfile.sectionFont - 1 && i > 50) {
+                 continue;
+              }
+
+              // Group into lines
+              let lines = [];
+              let cur = null;
+              for (const it of textItems) {
+                 if (!cur) cur = { text: it.str, y: it.y, fontSize: it.fontSize };
+                 else if (Math.abs(it.y - cur.y) <= 5) { cur.text += " " + it.str; cur.fontSize = Math.max(cur.fontSize, it.fontSize); }
+                 else {
+                    if (cur.text.endsWith("-")) { cur.text = cur.text.slice(0, -1) + it.str; cur.y = it.y; }
+                    else { lines.push(cur); cur = { text: it.str, y: it.y, fontSize: it.fontSize }; }
+                 }
+              }
+              if (cur) lines.push(cur);
+
+              for (let l = 0; l < lines.length; l++) {
+                 const line = lines[l];
+                 const cleanText = line.text.replace(/\s+\d+$/, "").trim();
+                 if (cleanText.length < 3 || cleanText.length > 120) continue;
+                 
+                 let score = 0;
+                 let tp = 'chapter';
+                 let lvl = 1;
+                 let isStructural = false;
+                 
+                 // Generic multi-publisher structural pattern matching
+                 if (/^UNIT\s+[A-Za-z0-9]+/i.test(cleanText)) {
+                    score += 65; tp = 'unit'; lvl = 0; isStructural = true; countUnits++;
+                 } else if (/^(Chapter|Part|Module|Lesson)\s+[A-Za-z0-9]+/i.test(cleanText)) {
+                    score += 60; tp = 'chapter'; lvl = 1; isStructural = true; chapterFonts.push(line.fontSize);
+                    const kw = cleanText.split(/\s+/)[0]; if (kw) detectedChapterKeyword = kw;
+                 } else if (/^(Concept|Section)\s+\d+/i.test(cleanText)) {
+                    score += 55; tp = 'concept'; lvl = 2; isStructural = true; sectionFonts.push(line.fontSize);
+                    if (/^concept/i.test(cleanText)) countConcepts++; else countSections++;
+                    const kw = cleanText.split(/\s+/)[0]; if (kw) detectedSectionKeyword = kw;
+                 } else if (/^\d+\.\d+(?:\.\d+)?\s+[A-Za-z]/.test(cleanText)) {
+                    score += 50; tp = 'concept'; lvl = 2; isStructural = true; sectionFonts.push(line.fontSize);
+                 } else if (/^\d+[\:\-\.\s]+[A-Z][^\.]{2,60}$/.test(cleanText) && line.fontSize >= maxFontSize - 1 && maxFontSize > 11) {
+                    score += 45; tp = 'chapter'; lvl = 1; isStructural = true; chapterFonts.push(line.fontSize);
+                 } else if (/^(Preface|Foreword|Introduction|Acknowledgements|Contents|Table of Contents)/i.test(cleanText)) {
+                    score += 50; tp = 'frontMatter'; lvl = 1; isStructural = true;
+                 } else if (/^(Appendix|Glossary|Credits|References|Bibliography|Index|Answer Key)/i.test(cleanText)) {
+                    score += 50; tp = 'backMatter'; lvl = 1; isStructural = true;
+                 }
+                 
+                 // Adaptive pattern amplification once profile is learned
+                 if (bookProfile && isStructural) {
+                    if (lvl === 1 && Math.abs(line.fontSize - bookProfile.headingFont) <= 2) score += 15;
+                    if (lvl === 2 && Math.abs(line.fontSize - bookProfile.sectionFont) <= 2) score += 15;
+                 }
+
+                 if (!isStructural && line.fontSize < maxFontSize) continue;
+                 
+                 if (line.fontSize >= maxFontSize && maxFontSize > 0) score += 15;
+                 if (cleanText.endsWith(".")) score -= 45;
+                 if (/\b(explains|describes|provides|introduces|discusses|shows|demonstrates|illustrates|in this chapter)\b/i.test(cleanText)) score -= 50;
+
+                 if (score >= 35) {
+                    let finalTitle = cleanText;
+                    if (l + 1 < lines.length && /^(Chapter|Part|UNIT|Module|Lesson)\s+[A-Za-z0-9]+$/i.test(cleanText)) {
+                       const nextLine = lines[l + 1].text.replace(/\s+\d+$/, "").trim();
+                       if (nextLine.length > 2 && nextLine.length < 65 && !nextLine.endsWith(".")) {
+                          finalTitle += " " + nextLine; l++;
+                       }
+                    }
+                    typographyEvidence.push({
+                       id: crypto.randomUUID(),
+                       title: finalTitle.substring(0, 100),
+                       page_number: i,
+                       level: lvl,
+                       source: 'typography',
+                       confidence_score: Math.min(score, 75),
+                       type: tp
+                    });
+                 }
+              }
+
+              // Learn book profile around page 50 or after discovering initial pattern
+              if (!bookProfile && i >= 45 && (chapterFonts.length >= 2 || sectionFonts.length >= 3)) {
+                 const avgChFont = chapterFonts.length > 0 ? Math.round(chapterFonts.reduce((a,b)=>a+b,0)/chapterFonts.length) : 22;
+                 const avgSecFont = sectionFonts.length > 0 ? Math.round(sectionFonts.reduce((a,b)=>a+b,0)/sectionFonts.length) : 16;
+                 bookProfile = {
+                    chapterPattern: `${detectedChapterKeyword} N`,
+                    sectionPattern: countConcepts > 0 ? "Concept N.M" : (countSections > 0 ? `${detectedSectionKeyword} N.M` : "N.M"),
+                    usesUnits: countUnits > 0,
+                    usesConcepts: countConcepts > 0,
+                    headingFont: avgChFont,
+                    sectionFont: avgSecFont,
+                    publisher: countConcepts > 0 ? "Pearson / Campbell Style" : "OpenStax / Standard Academic"
+                 };
+                 console.log("Adaptive Extractor Learned Book Profile:", bookProfile);
+              }
+
+              if (i % 25 === 0) {
+                 setStatusText(`Analyzing document structure (${i} of ${pdf.numPages})...`);
+                 await new Promise(r => setTimeout(r, 0));
+              }
+           } catch (e) {
+              console.warn(`Layer 3 scan error on page ${i}:`, e);
+           }
+        }
+        
+        if (!bookProfile) {
+           bookProfile = { chapterPattern: "Chapter N", sectionPattern: "N.M", usesUnits: countUnits > 0, usesConcepts: false, headingFont: 20, sectionFont: 15, publisher: "General Academic" };
+        }
+
+        // ---------------------------------------------------------
+        // EVIDENCE MERGING & DEDUPLICATION ENGINE
+        // ---------------------------------------------------------
+        setStatusText('Merging extraction sources and deduplicating hierarchy...');
+        let allEvidence = [...outlineEvidence, ...printedTocEvidence, ...typographyEvidence];
+        
+        // Sort primarily by page number ascending, then confidence descending
+        allEvidence.sort((a, b) => {
+           if (a.page_number === b.page_number) return b.confidence_score - a.confidence_score;
+           return a.page_number - b.page_number;
+        });
+
+        let mergedNodes = [];
+        let duplicatesRemoved = 0;
+        let unresolvedAmbiguities = [];
+        
+        const normalizeTitle = (str) => str.toLowerCase().replace(/^(chapter|unit|part|concept|section|lesson|module)\s+\d+(\.\d+)?[:\-.]?\s*/i, '').replace(/[\W_]+/g, '').trim();
+
+        for (const candidate of allEvidence) {
+           const normCand = normalizeTitle(candidate.title);
+           if (!normCand || normCand.length < 2) continue;
+
+           // Search for existing node within +-2 pages with overlapping normalized title
+           const duplicateIndex = mergedNodes.findIndex(existing => {
+              const pageDiff = Math.abs(existing.page_number - candidate.page_number);
+              if (pageDiff > 2) return false;
+              const normExist = normalizeTitle(existing.title);
+              return normExist === normCand || (normCand.length > 4 && normExist.includes(normCand)) || (normExist.length > 4 && normCand.includes(normExist));
+           });
+
+           if (duplicateIndex !== -1) {
+              duplicatesRemoved++;
+              const exist = mergedNodes[duplicateIndex];
+              // Fusing: if existing came from printed_toc (unverified page) and candidate is typography (verified physical page), align page number!
+              if (exist.source === 'printed_toc' && candidate.source === 'typography' && Math.abs(exist.page_number - candidate.page_number) <= 2) {
+                 exist.page_number = candidate.page_number;
+              }
+              // Keep higher confidence title/metadata if conflict occurs
+              if (candidate.confidence_score > exist.confidence_score) {
+                 mergedNodes[duplicateIndex] = { ...candidate, page_number: exist.page_number };
+              }
+           } else {
+              mergedNodes.push({ ...candidate });
+           }
+        }
+
+        // Final sorting before tree assembly
+        mergedNodes.sort((a, b) => {
+           if (a.page_number === b.page_number) return (a.level || 0) - (b.level || 0);
+           return a.page_number - b.page_number;
+        });
+
+        // ---------------------------------------------------------
+        // DYNAMIC HIERARCHY & PARENT-CHILD ASSIGNMENT
+        // ---------------------------------------------------------
+        let finalChapters = [];
+        let orderIdx = 0;
+
+        for (let i = 0; i < mergedNodes.length; i++) {
+           let node = mergedNodes[i];
+           node.order_index = orderIdx++;
+           node.parent_id = null;
+
+           // Search backwards for nearest preceding node with strictly lower hierarchy level
+           if (node.level > 0) {
+              for (let j = i - 1; j >= 0; j--) {
+                 if (mergedNodes[j].level < node.level) {
+                    node.parent_id = mergedNodes[j].id;
+                    break;
+                 }
+              }
+           }
+           finalChapters.push(node);
+        }
+
+        extractedChapters = finalChapters;
+        
+        // Save profile in localStorage for future reuse
+        try { localStorage.setItem(`book_profile_${selectedFile.name}`, JSON.stringify(bookProfile)); } catch(e){}
+
+        // ---------------------------------------------------------
+        // F12 DEVELOPER DIAGNOSTIC REPORT (Hidden from normal UI)
+        // ---------------------------------------------------------
+        if (import.meta.env.DEV || true) { // Print reliably to console in all modes for developer verification
+           console.group("TOC Extraction Diagnostics: Multi-Source Merge Engine");
+           console.log(`Outline entries found: ${outlineEvidence.length}`);
+           console.log(`Printed TOC entries found: ${printedTocEvidence.length}`);
+           console.log(`Typography headings found: ${typographyEvidence.length}`);
+           console.log(`OCR headings found: 0 (Digital text scan used)`);
+           console.log(`Duplicate entries removed: ${duplicatesRemoved}`);
+           console.log(`Final hierarchy generated: ${extractedChapters.length} nodes`);
+           console.log(`Any ambiguities resolved: ${unresolvedAmbiguities.length}`);
+           console.log(`Learned Book Profile:`, bookProfile);
+           console.groupCollapsed("Final Extracted Tree Elements");
+           console.table(extractedChapters.map(c => ({ title: c.title, page: c.page_number, level: c.level, source: c.source, type: c.type })));
+           console.groupEnd();
+           console.groupEnd();
+        }
+        window._tocDiagnostics = { outline: outlineEvidence.length, printedToc: printedTocEvidence.length, typography: typographyEvidence.length, duplicatesRemoved, finalCount: extractedChapters.length, bookProfile };
       } catch (err) {
         console.warn("Failed to extract outline:", err);
       }

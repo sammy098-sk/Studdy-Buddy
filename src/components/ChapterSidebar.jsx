@@ -109,35 +109,30 @@ export default function ChapterSidebar({ chapters = [], isOpen, onClose, current
      return path;
   }, [activeChapterId, chapters]);
 
-  // 4. Auto-expand parents of the active chapter
+  // 4. Auto-expand parents of the active chapter and collapse unrelated branches
   useEffect(() => {
      if (activeChapterId) {
-        setExpandedNodes(prev => {
-           const next = new Set(prev);
-           let currentId = activeChapterId;
-           let changed = false;
-           
-           const activeNode = chapters.find(c => c.id === currentId);
-           if (activeNode) {
-              const childrenCount = chapters.filter(c => c.parent_id === activeNode.id).length;
-              if (childrenCount > 0 && !next.has(activeNode.id)) {
-                 next.add(activeNode.id);
-                 changed = true;
-              }
+        const next = new Set();
+        let currentId = activeChapterId;
+        
+        const activeNode = chapters.find(c => c.id === currentId);
+        if (activeNode) {
+           const childrenCount = chapters.filter(c => c.parent_id === activeNode.id).length;
+           if (childrenCount > 0) {
+              next.add(activeNode.id);
            }
+        }
 
-           while (currentId) {
-              const node = chapters.find(c => c.id === currentId);
-              if (!node) break;
-              if (node.parent_id && !next.has(node.parent_id)) {
-                 next.add(node.parent_id);
-                 changed = true;
-              }
-              currentId = node.parent_id;
+        while (currentId) {
+           const node = chapters.find(c => c.id === currentId);
+           if (!node) break;
+           if (node.parent_id) {
+              next.add(node.parent_id);
            }
-           
-           return changed ? next : prev;
-        });
+           currentId = node.parent_id;
+        }
+        
+        setExpandedNodes(next);
      }
   }, [activeChapterId, chapters]);
 
