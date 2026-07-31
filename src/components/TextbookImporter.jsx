@@ -87,10 +87,11 @@ export default function TextbookImporter({ onNavigate, user }) {
       let extractedChapters = [];
       try {
         const outline = await pdf.getOutline();
-        if (outline) {
-          setStatusText('Extracting chapters...');
-          // Simple flattening of the top-level outline for now
-          for (const item of outline) {
+        
+        async function processOutline(items, level = 0, parentId = null) {
+          if (!items) return;
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
             let dest = item.dest;
             if (typeof dest === 'string') {
               dest = await pdf.getDestination(dest);
@@ -99,11 +100,61 @@ export default function TextbookImporter({ onNavigate, user }) {
               const pageRef = dest[0];
               const pageIndex = await pdf.getPageIndex(pageRef).catch(() => -1);
               if (pageIndex !== -1) {
+                const id = crypto.randomUUID();
                 extractedChapters.push({
+                  id,
                   title: item.title,
-                  page_number: pageIndex + 1
+                  page_number: pageIndex + 1,
+                  level,
+                  parent_id: parentId,
+                  order_index: i
                 });
+                if (item.items && item.items.length > 0) {
+                  await processOutline(item.items, level + 1, id);
+                }
               }
+            }
+          }
+        }
+
+        if (outline && outline.length > 0) {
+          setStatusText('Extracting nested table of contents...');
+          await processOutline(outline);
+        } else {
+          setStatusText('Scanning for chapter headings...');
+          const pagesToScan = Math.min(pdf.numPages, 100);
+          let orderIdx = 0;
+          for (let i = 1; i <= pagesToScan; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            
+            let maxFontSize = 0;
+            let headingText = "";
+            for (const item of textContent.items) {
+               const fontSize = item.transform[0];
+               if (fontSize > 20 && fontSize > maxFontSize) {
+                  maxFontSize = fontSize;
+                  headingText = item.str.trim();
+               }
+            }
+            if (!headingText) {
+               for (const item of textContent.items) {
+                 if (item.str && /^(chapter|section)\s+\d+/i.test(item.str.trim())) {
+                    headingText = item.str.trim();
+                    break;
+                 }
+               }
+            }
+            
+            if (headingText && headingText.length > 2 && headingText.length < 80) {
+               extractedChapters.push({
+                  id: crypto.randomUUID(),
+                  title: headingText,
+                  page_number: i,
+                  level: 0,
+                  parent_id: null,
+                  order_index: orderIdx++
+               });
             }
           }
         }
@@ -318,11 +369,15 @@ export default function TextbookImporter({ onNavigate, user }) {
           
           if (fileStats?.chapters?.length > 0) {
             setStatusText('Saving chapter metadata...');
-            // Take up to 1000 chapters to prevent payload limits
-            const chaptersToInsert = fileStats.chapters.slice(0, 1000).map(ch => ({
+            // Take up to 1500 chapters to prevent payload limits
+            const chaptersToInsert = fileStats.chapters.slice(0, 1500).map(ch => ({
+              id: ch.id,
               book_id: newBookId,
               title: ch.title,
-              page_number: ch.page_number
+              page_number: ch.page_number,
+              level: ch.level,
+              parent_id: ch.parent_id,
+              order_index: ch.order_index
             }));
             const { error: chapterErr } = await supabase.from('textbook_chapters').insert(chaptersToInsert);
             if (chapterErr) {

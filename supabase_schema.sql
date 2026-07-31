@@ -53,6 +53,8 @@ CREATE TABLE textbook_chapters (
   title TEXT NOT NULL,
   page_number INTEGER NOT NULL,
   level INTEGER DEFAULT 0,
+  parent_id UUID REFERENCES textbook_chapters(id) ON DELETE CASCADE,
+  order_index INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

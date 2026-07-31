@@ -1,8 +1,17 @@
 import React from 'react';
 import { X, Book } from 'lucide-react';
 
-export default function ChapterSidebar({ chapters, isOpen, onClose, currentPage, onPageChange }) {
+export default function ChapterSidebar({ chapters = [], isOpen, onClose, currentPage, onPageChange }) {
   if (!isOpen) return null;
+
+  // Find active chapter by finding the last chapter whose page_number <= currentPage
+  let activeChapterId = null;
+  for (let i = chapters.length - 1; i >= 0; i--) {
+    if (currentPage >= chapters[i].page_number) {
+      activeChapterId = chapters[i].id || i;
+      break;
+    }
+  }
 
   return (
     <div className="absolute inset-y-0 left-0 w-64 bg-slate-50 border-r flex flex-col z-20 shadow-xl md:shadow-none md:relative transition-all" style={{ borderColor: '#E2E8F0' }}>
@@ -21,9 +30,15 @@ export default function ChapterSidebar({ chapters, isOpen, onClose, currentPage,
               No Chapters Available.
            </div>
          ) : (
-           <div className="flex flex-col gap-1">
+           <div className="flex flex-col gap-1 pb-4">
              {chapters.map((ch, idx) => {
-                const isActive = currentPage >= ch.page_number && (idx === chapters.length - 1 || currentPage < chapters[idx+1].page_number);
+                const isActive = (ch.id || idx) === activeChapterId;
+                const level = ch.level || 0;
+                // Base padding of 0.75rem (px-3), plus 1rem per level
+                const paddingLeft = `${0.75 + level * 1}rem`;
+                // Slightly smaller font for nested levels
+                const fontSize = level === 0 ? 'text-sm' : 'text-xs';
+                
                 return (
                   <button 
                     key={ch.id || idx}
@@ -31,7 +46,8 @@ export default function ChapterSidebar({ chapters, isOpen, onClose, currentPage,
                        onPageChange(ch.page_number);
                        if (window.innerWidth < 768) onClose();
                     }}
-                    className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${isActive ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-slate-200 text-slate-700'}`}
+                    style={{ paddingLeft }}
+                    className={`text-left pr-3 py-2 rounded-lg ${fontSize} transition-colors ${isActive ? 'bg-blue-100 text-blue-700 font-medium' : 'hover:bg-slate-200 text-slate-700'}`}
                   >
                     {ch.title}
                   </button>
