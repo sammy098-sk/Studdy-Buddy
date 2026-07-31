@@ -107,7 +107,7 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
   useEffect(() => {
     if (!user || !bookId || isLoading) return;
     const saveProgress = async () => {
-       await supabase.from('reading_progress').upsert({
+       const { error } = await supabase.from('reading_progress').upsert({
          user_id: user.id,
          book_id: bookId,
          current_page: currentPage,
@@ -115,7 +115,11 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
          view_mode: mode,
          fit_mode: fitWidth,
          last_read_at: new Date().toISOString()
-       }, { onConflict: 'user_id,book_id' }).catch(err => console.warn('Failed to save progress:', err));
+       }, { onConflict: 'user_id,book_id' });
+       
+       if (error) {
+         console.warn('Failed to save progress:', error);
+       }
     };
     const timer = setTimeout(saveProgress, 2000); // debounce save
     return () => clearTimeout(timer);
