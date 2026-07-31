@@ -323,7 +323,8 @@ export default function TextbookImporter({ onNavigate, user }) {
     } catch (err) {
       console.error(err);
       // Fallback update to failed status
-      await supabase.from('textbooks').update({ status: 'failed' }).eq('id', bookId).catch(console.error);
+      const { error: updateErr } = await supabase.from('textbooks').update({ status: 'failed' }).eq('id', bookId);
+      if (updateErr) console.error(updateErr);
       
       setErrorMessage(err.message);
       setFailedChunkIndex(startIdx); // Save index for retry (do not cleanup Render files)
@@ -469,7 +470,8 @@ export default function TextbookImporter({ onNavigate, user }) {
       await fetch(`${COMPRESSOR_URL}/jobs/${jobId}/complete`, { method: 'POST' }).catch(console.error);
     }
     if (parentBookId) {
-      await supabase.from('textbooks').update({ status: 'failed' }).eq('id', parentBookId).catch(console.error);
+      const { error: cancelErr } = await supabase.from('textbooks').update({ status: 'failed' }).eq('id', parentBookId);
+      if (cancelErr) console.error(cancelErr);
     }
     setFile(null);
     setFileStats(null);
