@@ -6,6 +6,7 @@ import DesktopLanding from './components/DesktopLanding';
 import OnboardingFlow from './components/OnboardingFlow';
 import AuthFlow from './components/AuthFlow';
 import ChatView from './components/ChatView';
+import HomeView from './components/HomeView';
 import ProfilePage from './components/ProfilePage';
 import NotificationsPage from './components/NotificationsPage';
 import SessionsPage from './components/SessionsPage';
@@ -154,6 +155,8 @@ function MainApp() {
       navigate(`/book/${payload.bookId}/read`);
     } else if (key === 'importer') {
       navigate('/upload');
+    } else if (key === 'library' && payload?.subject) {
+      navigate(`/library?subject=${encodeURIComponent(payload.subject)}`);
     } else {
       navigate(`/${key}`);
     }
@@ -162,6 +165,7 @@ function MainApp() {
   const handleResume = (session) => {
     setResumeSession(session);
     setResetKey((k) => k + 1);
+    // Legacy: we used to navigate to study for chat
     navigate('/study');
   };
 
@@ -198,7 +202,7 @@ function MainApp() {
               onClick={() => navigate('/study')}
               className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50"
             >
-              <Home size={15} /> Chat
+              <Home size={15} /> Home
             </button>
             <button
               onClick={() => navigate('/library')}
@@ -243,7 +247,9 @@ function MainApp() {
           <Route path="/upload" element={<TextbookImporter onNavigate={navigateTo} user={user} />} />
           <Route path="/book/:id" element={<Navigate to="read" replace />} />
           <Route path="/book/:id/read" element={<ReaderRouteWrapper user={user} />} />
-          <Route path="/study" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />
+          <Route path="/study" element={<HomeView user={user} onNavigate={navigateTo} />} />
+          {/* Legacy route kept for backward compatibility if needed */}
+          <Route path="/legacy-study" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />
           <Route path="/sessions" element={<SessionsPage userId={user.id} onNavigate={navigateTo} onResume={handleResume} />} />
           <Route path="/notifications" element={<NotificationsPage onNavigate={navigateTo} />} />
           <Route path="/profile" element={

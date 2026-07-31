@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
-import { BookOpen, Trash2, Plus, FileText, Calendar, Clock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { BookOpen, Trash2, Plus, FileText, Calendar, Clock, ChevronLeft } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isAdminUser } from '../config';
 
 export default function LibraryPage({ user, onNavigate }) {
+  const [searchParams] = useSearchParams();
+  const subjectFilter = searchParams.get('subject');
+
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,17 +14,23 @@ export default function LibraryPage({ user, onNavigate }) {
   useEffect(() => {
     if (!user?.id) return;
     fetchBooks();
-  }, [user]);
+  }, [user, subjectFilter]);
 
   const fetchBooks = async () => {
     try {
       setLoading(true);
       // Fetch textbooks
-      const { data: textbooksData, error: textbooksError } = await supabase
+      let query = supabase
         .from('textbooks')
         .select('*')
         .eq('is_published', true)
         .order('created_at', { ascending: false });
+
+      if (subjectFilter) {
+        query = query.eq('subject', subjectFilter);
+      }
+      
+      const { data: textbooksData, error: textbooksError } = await query;
 
       if (textbooksError) throw textbooksError;
 
@@ -103,22 +110,23 @@ export default function LibraryPage({ user, onNavigate }) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-        <p className="mt-4 text-slate-500 font-medium">Loading your library...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex-1 w-full h-full overflow-y-auto bg-slate-50 p-4 sm:p-8">
       <div className="max-w-7xl mx-auto">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 mb-1">Library</h1>
+            {subjectFilter && (
+              <button 
+                onClick={() => onNavigate('study')} 
+                className="flex items-center gap-1 text-sm text-slate-500 hover:text-blue-600 transition-colors mb-2"
+              >
+                <ChevronLeft size={16} /> Back to subjects
+              </button>
+            )}
+            <h1 className="text-2xl font-bold text-slate-800 mb-1">
+              {subjectFilter ? `${subjectFilter} Library` : 'Library'}
+            </h1>
             <p className="text-slate-500">Access and manage published textbooks</p>
           </div>
           {isAdminUser(user) && (
@@ -133,19 +141,29 @@ export default function LibraryPage({ user, onNavigate }) {
         </div>
 
         {error && (
-          <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl mb-6 font-medium">
-            Error loading library: {error}
+          <div className="p-4 mb-6 bg-red-50 text-red-600 rounded-xl text-sm border border-red-100 flex items-start gap-3">
+            <Trash2 size={16} className="mt-0.5 flex-shrink-0" />
+            <p>{error}</p>
           </div>
         )}
 
-        {books.length === 0 && !error ? (
-          <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 flex flex-col items-center text-center max-w-2xl mx-auto mt-12 shadow-sm">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6">
-              <BookOpen size={32} />
+        {loading ? (
+          <div className="flex justify-center items-center py-20 text-slate-400">
+            <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+          </div>
+        ) : books.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+              <BookOpen size={24} className="text-slate-300" />
             </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">Your library is empty</h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">
+              {subjectFilter ? `No ${subjectFilter} textbooks yet` : 'Your library is empty'}
+            </h3>
             <p className="text-slate-500 mb-8 max-w-md leading-relaxed">
-              Upload your massive PDF textbooks and we'll split them securely into readable, bite-sized pieces for you to study anywhere.
+              {subjectFilter 
+                ? `Administrators have not uploaded any textbooks for ${subjectFilter}.`
+                : "Upload your massive PDF textbooks and we'll split them securely into readable, bite-sized pieces for you to study anywhere."
+              }
             </p>
             {isAdminUser(user) && (
               <button 

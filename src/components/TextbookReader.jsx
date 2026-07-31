@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { useChunkManager } from './useChunkManager';
 import ReaderToolbar from './ReaderToolbar';
 import ChapterSidebar from './ChapterSidebar';
+import AiStudySidebar from './AiStudySidebar';
 import ReaderCanvas from './ReaderCanvas';
 
 export default function TextbookReader({ bookId, user, onNavigate }) {
@@ -15,6 +16,7 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
   const [showHUD, setShowHUD] = useState(false);
   const hudTimeoutRef = useRef(null);
 
@@ -154,9 +156,17 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
          isFullscreen={isFullscreen}
          onToggleFullscreen={toggleFullscreen}
          sidebarOpen={sidebarOpen}
-         onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+         onToggleSidebar={() => {
+           setSidebarOpen(!sidebarOpen);
+           if (!sidebarOpen) setAiSidebarOpen(false); // only one sidebar open on mobile usually, but fine for desktop
+         }}
          mode={mode}
          setMode={setMode}
+         aiSidebarOpen={aiSidebarOpen}
+         onToggleAiSidebar={() => {
+           setAiSidebarOpen(!aiSidebarOpen);
+           if (!aiSidebarOpen && window.innerWidth < 768) setSidebarOpen(false); // Close chapter sidebar if opening AI on mobile
+         }}
        />
        <div className="flex-1 flex overflow-hidden relative">
          <ChapterSidebar 
@@ -175,6 +185,16 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
            currentPage={currentPage}
            onPageChange={setCurrentPage}
            mode={mode}
+         />
+
+         <AiStudySidebar
+           isOpen={aiSidebarOpen}
+           onClose={() => setAiSidebarOpen(false)}
+           currentPage={currentPage}
+           onAction={(action) => {
+             console.log('AI Action triggered:', action);
+             // TODO: implement AI tool logic
+           }}
          />
 
          {/* Floating HUD (Page Number Overlay) */}

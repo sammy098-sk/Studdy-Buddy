@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, ZoomIn, ZoomOut, Maximize, Minimize, Sidebar, MoreVertical, Settings, Columns, Moon } from 'lucide-react';
+import { ArrowLeft, ZoomIn, ZoomOut, Maximize, Minimize, Sidebar, MoreVertical, Settings, Columns, Moon, Bot } from 'lucide-react';
 
 export default function ReaderToolbar({ 
   bookMeta, 
@@ -18,7 +18,9 @@ export default function ReaderToolbar({
   sidebarOpen,
   onToggleSidebar,
   mode,
-  setMode
+  setMode,
+  aiSidebarOpen,
+  onToggleAiSidebar
 }) {
   const [inputPage, setInputPage] = useState(currentPage);
   const [zoomInput, setZoomInput] = useState(Math.round(zoom * 100).toString());
@@ -75,6 +77,9 @@ export default function ReaderToolbar({
            </button>
            <button onClick={onToggleSidebar} className={`hidden sm:flex p-2 rounded-lg transition-colors ${sidebarOpen ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-100 text-slate-600'}`} title="Toggle Chapters">
              <Sidebar size={18} />
+           </button>
+           <button onClick={onToggleAiSidebar} className={`hidden sm:flex p-2 rounded-lg transition-colors ${aiSidebarOpen ? 'bg-blue-50 text-blue-600' : 'hover:bg-slate-100 text-slate-600'}`} title="StudyBuddy AI Tools">
+             <Bot size={18} />
            </button>
            <div className="hidden md:block overflow-hidden">
              <h1 className="font-semibold text-sm text-slate-800 truncate max-w-[200px] lg:max-w-[300px]" title={bookMeta?.title}>
@@ -184,6 +189,9 @@ export default function ReaderToolbar({
                  <div className="px-4 pt-2 border-t md:hidden" style={{ borderColor: '#E2E8F0' }}>
                    <button onClick={() => { onToggleSidebar(); setMenuOpen(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 ${sidebarOpen ? 'text-blue-600 bg-blue-50' : 'text-slate-600 hover:bg-slate-50'}`}>
                      <Sidebar size={14} /> Toggle Chapters
+                   </button>
+                   <button onClick={() => { onToggleAiSidebar(); setMenuOpen(false); }} className={`w-full mt-1 text-left px-2 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 ${aiSidebarOpen ? 'text-blue-600 bg-blue-50' : 'text-slate-600 hover:bg-slate-50'}`}>
+                     <Bot size={14} /> StudyBuddy AI
                    </button>
                    <button onClick={() => { onToggleFullscreen(); setMenuOpen(false); }} className="w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 flex items-center gap-2 mt-1">
                      {isFullscreen ? <Minimize size={14} /> : <Maximize size={14} />} {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}

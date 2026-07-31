@@ -5,7 +5,7 @@ import { isAdminUser } from '../config';
 export default function MobileMenuDrawer({ onClose, onNavigate, currentPage, user }) {
   const items = [
     { key: "study", label: "Home", icon: Home },
-    { key: "reader", label: "Library", icon: BookOpen },
+    { key: "library", label: "Library", icon: BookOpen },
     { key: "sessions", label: "History", icon: History },
     { key: "profile", label: "Profile", icon: User },
     { key: "notifications", label: "Notifications", icon: Bell },
