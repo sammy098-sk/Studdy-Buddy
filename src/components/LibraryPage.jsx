@@ -1,3 +1,5 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabase';
 import { BookOpen, Trash2, Plus, FileText, Calendar, Clock, ChevronLeft } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isAdminUser } from '../config';
