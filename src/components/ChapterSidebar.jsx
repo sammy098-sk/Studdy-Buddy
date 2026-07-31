@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X, Book } from 'lucide-react';
 
 export default function ChapterSidebar({ chapters = [], isOpen, onClose, currentPage, onPageChange }) {
+  const activeRef = useRef(null);
+
   if (!isOpen) return null;
 
   // Find active chapter by finding the last chapter whose page_number <= currentPage
@@ -12,6 +14,12 @@ export default function ChapterSidebar({ chapters = [], isOpen, onClose, current
       break;
     }
   }
+
+  useEffect(() => {
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [activeChapterId]);
 
   return (
     <div className="absolute inset-y-0 left-0 w-64 bg-slate-50 border-r flex flex-col z-20 shadow-xl md:shadow-none md:relative transition-all" style={{ borderColor: '#E2E8F0' }}>
@@ -42,6 +50,7 @@ export default function ChapterSidebar({ chapters = [], isOpen, onClose, current
                 return (
                   <button 
                     key={ch.id || idx}
+                    ref={isActive ? activeRef : null}
                     onClick={() => {
                        onPageChange(ch.page_number);
                        if (window.innerWidth < 768) onClose();

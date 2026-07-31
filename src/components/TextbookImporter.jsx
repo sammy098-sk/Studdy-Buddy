@@ -128,28 +128,34 @@ export default function TextbookImporter({ onNavigate, user }) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
             
-            let maxFontSize = 0;
-            let headingText = "";
-            for (const item of textContent.items) {
-               const fontSize = item.transform[0];
-               if (fontSize > 20 && fontSize > maxFontSize) {
-                  maxFontSize = fontSize;
-                  headingText = item.str.trim();
-               }
-            }
-            if (!headingText) {
+            let itemsText = textContent.items.map(it => it.str.trim()).filter(Boolean);
+            let fullText = itemsText.join(" ");
+            
+            let possibleHeading = "";
+            // Look for "Chapter X" or "Section X" followed by an optional title
+            const chapMatch = fullText.match(/(?:Chapter|Section)\s+\d+(?:[\:\-\s]+([A-Z][^\.\n]{2,60}))?/i);
+            
+            if (chapMatch) {
+               possibleHeading = chapMatch[0].trim();
+            } else {
+               // Fallback: largest font that is short
+               let maxFontSize = 0;
                for (const item of textContent.items) {
-                 if (item.str && /^(chapter|section)\s+\d+/i.test(item.str.trim())) {
-                    headingText = item.str.trim();
-                    break;
+                 const fontSize = item.transform[0];
+                 if (fontSize > 20 && fontSize > maxFontSize) {
+                    const text = item.str.trim();
+                    if (text.length > 2 && text.length < 60 && text.split(" ").length < 10) {
+                      maxFontSize = fontSize;
+                      possibleHeading = text;
+                    }
                  }
                }
             }
             
-            if (headingText && headingText.length > 2 && headingText.length < 80) {
+            if (possibleHeading && possibleHeading.length > 2 && possibleHeading.length < 80) {
                extractedChapters.push({
                   id: crypto.randomUUID(),
-                  title: headingText,
+                  title: possibleHeading,
                   page_number: i,
                   level: 0,
                   parent_id: null,
@@ -158,6 +164,38 @@ export default function TextbookImporter({ onNavigate, user }) {
             }
           }
         }
+        
+        // Post-processing cleanup
+        if (extractedChapters.length > 0) {
+           setStatusText('Cleaning up table of contents...');
+           
+           // 1. Filter out obvious fluff/front-matter
+           const ignoreRegex = /^(featured figures|brief contents|supplements|detailed contents|acknowledgments|about the author|title page|copyright|dedication|half title)$/i;
+           extractedChapters = extractedChapters.filter(ch => !ignoreRegex.test(ch.title.trim()));
+           
+           // 2. Remove exact duplicates (same page AND title)
+           const seen = new Set();
+           extractedChapters = extractedChapters.filter(ch => {
+              const key = `${ch.page_number}-${ch.title.trim().toLowerCase()}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+           });
+           
+           // 3. Sort strictly by page number, then by level
+           extractedChapters.sort((a, b) => {
+              if (a.page_number === b.page_number) {
+                 return (a.level || 0) - (b.level || 0);
+              }
+              return a.page_number - b.page_number;
+           });
+           
+           // 4. Re-assign order_index based on final sorted flat list
+           extractedChapters.forEach((ch, idx) => {
+              ch.order_index = idx;
+           });
+        }
+        
       } catch (err) {
         console.warn("Failed to extract outline:", err);
       }
