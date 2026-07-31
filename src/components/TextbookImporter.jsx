@@ -152,60 +152,64 @@ export default function TextbookImporter({ onNavigate, user }) {
           const pagesToScan = Math.min(pdf.numPages, 100);
           let orderIdx = 0;
           for (let i = 1; i <= pagesToScan; i++) {
-            const page = await pdf.getPage(i);
-            const textContent = await page.getTextContent();
-            
-            let textItems = textContent.items.map(it => ({ str: it.str.trim(), fontSize: it.transform[0], y: Math.round(it.transform[5]) })).filter(it => it.str);
-            
-            // Build fullText with \n for different Y coordinates to preserve visual structure
-            let fullText = "";
-            let lastY = null;
-            for (const item of textItems) {
-               if (lastY !== null && Math.abs(item.y - lastY) > 5) {
-                  fullText += "\n";
-               } else if (fullText.length > 0 && !fullText.endsWith("\n")) {
-                  fullText += " ";
-               }
-               fullText += item.str;
-               lastY = item.y;
-            }
-            
-            // Re-join hyphenated words across newlines (e.g. Chemi-\ncal)
-            fullText = fullText.replace(/-\n/g, "");
-            
-            let possibleHeading = "";
-            let currentLevel = 0;
-            
-            // Look for "Chapter X" or "Unit X" stopping at double-newline or period
-            const chapMatch = fullText.match(/(?:Chapter|Unit|Part)\s+\d+(?:[\:\-\.\s]+([A-Za-z](?:(?!\n\n|\.).)*))?/i);
-            
-            if (chapMatch) {
-               possibleHeading = chapMatch[0].replace(/\n/g, " ").trim();
-               currentLevel = 0;
-            } else {
-               // Look for "Concept X.Y" or "Section X.Y"
-               const conceptMatch = fullText.match(/(?:Concept|Section)\s+\d+\.\d+(?:[\:\-\.\s]+([A-Za-z](?:(?!\n\n|\.).)*))?/i);
-               if (conceptMatch) {
-                  possibleHeading = conceptMatch[0].replace(/\n/g, " ").trim();
-                  currentLevel = 1;
-               }
-            }
-            
-            if (possibleHeading) {
-               // Strip trailing standalone numbers (likely page numbers)
-               possibleHeading = possibleHeading.replace(/\s+\d+$/, "").trim();
-               if (possibleHeading.length > 100) {
-                 possibleHeading = possibleHeading.substring(0, 100) + "...";
+            try {
+               const page = await pdf.getPage(i);
+               const textContent = await page.getTextContent();
+               
+               let textItems = textContent.items.map(it => ({ str: it.str.trim(), fontSize: it.transform[0], y: Math.round(it.transform[5]) })).filter(it => it.str);
+               
+               // Build fullText with \n for different Y coordinates to preserve visual structure
+               let fullText = "";
+               let lastY = null;
+               for (const item of textItems) {
+                  if (lastY !== null && Math.abs(item.y - lastY) > 5) {
+                     fullText += "\n";
+                  } else if (fullText.length > 0 && !fullText.endsWith("\n")) {
+                     fullText += " ";
+                  }
+                  fullText += item.str;
+                  lastY = item.y;
                }
                
-               extractedChapters.push({
-                  id: crypto.randomUUID(),
-                  title: possibleHeading,
-                  page_number: i,
-                  level: currentLevel,
-                  parent_id: null,
-                  order_index: orderIdx++
-               });
+               // Re-join hyphenated words across newlines (e.g. Chemi-\ncal)
+               fullText = fullText.replace(/-\n/g, "");
+               
+               let possibleHeading = "";
+               let currentLevel = 0;
+               
+               // Look for "Chapter X" or "Unit X" stopping at double-newline or period
+               const chapMatch = fullText.match(/(?:Chapter|Unit|Part)\s+\d+(?:[\:\-\.\s]+([A-Za-z](?:(?!\n\n|\.).)*))?/i);
+               
+               if (chapMatch) {
+                  possibleHeading = chapMatch[0].replace(/\n/g, " ").trim();
+                  currentLevel = 0;
+               } else {
+                  // Look for "Concept X.Y" or "Section X.Y"
+                  const conceptMatch = fullText.match(/(?:Concept|Section)\s+\d+\.\d+(?:[\:\-\.\s]+([A-Za-z](?:(?!\n\n|\.).)*))?/i);
+                  if (conceptMatch) {
+                     possibleHeading = conceptMatch[0].replace(/\n/g, " ").trim();
+                     currentLevel = 1;
+                  }
+               }
+               
+               if (possibleHeading) {
+                  // Strip trailing standalone numbers (likely page numbers)
+                  possibleHeading = possibleHeading.replace(/\s+\d+$/, "").trim();
+                  if (possibleHeading.length > 100) {
+                    possibleHeading = possibleHeading.substring(0, 100) + "...";
+                  }
+                  
+                  extractedChapters.push({
+                     id: crypto.randomUUID(),
+                     title: possibleHeading,
+                     page_number: i,
+                     level: currentLevel,
+                     parent_id: null,
+                     order_index: orderIdx++
+                  });
+               }
+            } catch (pageErr) {
+               console.warn(`Failed to process page ${i} during fallback scan:`, pageErr);
             }
           }
         }
