@@ -158,55 +158,97 @@ export default function TextbookImporter({ onNavigate, user }) {
                
                let textItems = textContent.items.map(it => ({ str: it.str.trim(), fontSize: it.transform[0], y: Math.round(it.transform[5]) })).filter(it => it.str);
                
-               // Build fullText with \n for different Y coordinates to preserve visual structure
-               let fullText = "";
-               let lastY = null;
+               // Group into lines by Y coordinate
+               let lines = [];
+               let currentLine = null;
+               
                for (const item of textItems) {
-                  if (lastY !== null && Math.abs(item.y - lastY) > 5) {
-                     fullText += "\n";
-                  } else if (fullText.length > 0 && !fullText.endsWith("\n")) {
-                     fullText += " ";
+                  if (!currentLine) {
+                     currentLine = { text: item.str, y: item.y, fontSize: item.fontSize };
+                  } else if (Math.abs(item.y - currentLine.y) <= 5) {
+                     currentLine.text += " " + item.str;
+                     currentLine.fontSize = Math.max(currentLine.fontSize, item.fontSize);
+                  } else {
+                     if (currentLine.text.endsWith("-")) {
+                        currentLine.text = currentLine.text.slice(0, -1) + item.str;
+                        currentLine.y = item.y; 
+                     } else {
+                        lines.push(currentLine);
+                        currentLine = { text: item.str, y: item.y, fontSize: item.fontSize };
+                     }
                   }
-                  fullText += item.str;
-                  lastY = item.y;
                }
+               if (currentLine) lines.push(currentLine);
                
-               // Re-join hyphenated words across newlines (e.g. Chemi-\ncal)
-               fullText = fullText.replace(/-\n/g, "");
+               const maxFontSize = lines.length > 0 ? Math.max(...lines.map(l => l.fontSize)) : 0;
+               const pageText = lines.map(l => l.text).join('\n');
+               const hasKeyConcepts = /(^|\n)Key Concepts/i.test(pageText);
                
-               let possibleHeading = "";
-               let currentLevel = 0;
-               
-               // Look for "Chapter X" or "Unit X" stopping at double-newline or period
-               const chapMatch = fullText.match(/(?:Chapter|Unit|Part)\s+\d+(?:[\:\-\.\s]+([A-Za-z](?:(?!\n\n|\.).)*))?/i);
-               
-               if (chapMatch) {
-                  possibleHeading = chapMatch[0].replace(/\n/g, " ").trim();
-                  currentLevel = 0;
-               } else {
-                  // Look for "Concept X.Y" or "Section X.Y"
-                  const conceptMatch = fullText.match(/(?:Concept|Section)\s+\d+\.\d+(?:[\:\-\.\s]+([A-Za-z](?:(?!\n\n|\.).)*))?/i);
-                  if (conceptMatch) {
-                     possibleHeading = conceptMatch[0].replace(/\n/g, " ").trim();
+               for (let l = 0; l < lines.length; l++) {
+                  const line = lines[l];
+                  const cleanText = line.text.replace(/\s+\d+$/, "").trim(); // Strip trailing page numbers
+                  if (cleanText.length < 3) continue;
+                  
+                  let score = 0;
+                  let type = 'chapter';
+                  let currentLevel = 1;
+                  
+                  // Positive signals
+                  if (/^UNIT\s+[A-Za-z0-9]+$/i.test(cleanText) || /^UNIT\s+[A-Za-z0-9]+[:\-.]?\s+.+/i.test(cleanText)) {
+                     score += 60;
+                     type = 'unit';
+                     currentLevel = 0;
+                  } else if (/^(Chapter|Part)\s+\d+/i.test(cleanText)) {
+                     score += 50;
+                     type = 'chapter';
                      currentLevel = 1;
-                  }
-               }
-               
-               if (possibleHeading) {
-                  // Strip trailing standalone numbers (likely page numbers)
-                  possibleHeading = possibleHeading.replace(/\s+\d+$/, "").trim();
-                  if (possibleHeading.length > 100) {
-                    possibleHeading = possibleHeading.substring(0, 100) + "...";
+                  } else if (/^(Concept|Section)\s+\d+\.\d+/i.test(cleanText)) {
+                     score += 50;
+                     type = 'concept';
+                     currentLevel = 2;
+                  } else if (/^(Preface|Foreword|Introduction|About the Authors?|Acknowledgements|Contents|Table of Contents|Appendix|Glossary|Credits|References|Bibliography|Index|Answer Key|Solutions)/i.test(cleanText)) {
+                     score += 40;
+                     // type will be set during Tree Construction
                   }
                   
-                  extractedChapters.push({
-                     id: crypto.randomUUID(),
-                     title: possibleHeading,
-                     page_number: i,
-                     level: currentLevel,
-                     parent_id: null,
-                     order_index: orderIdx++
-                  });
+                  if (line.fontSize >= maxFontSize && maxFontSize > 0) score += 20;
+                  if (cleanText.length < 50) score += 15;
+                  
+                  // Negative signals
+                  if (cleanText.endsWith(".")) score -= 30;
+                  if (/\b(explains|describes|provides|introduces|discusses|shows|demonstrates|illustrates|see|in)\b/i.test(cleanText)) score -= 40;
+                  if (cleanText.length > 100) score -= 40;
+                  
+                  // Key concepts list rejection (assuming Y goes down, but PDF transform[5] usually goes up from bottom left. Wait, Y is higher at top of page typically in PDF, but we'll just check if it's a list item)
+                  if (hasKeyConcepts && /^\d+\.\d+/.test(cleanText)) {
+                     score -= 50; 
+                  }
+                  
+                  if (score >= 40) {
+                     let finalTitle = cleanText;
+                     // Merge next line if it's just "Chapter 3" or "UNIT ONE"
+                     if (l + 1 < lines.length && /^(Chapter|Part|UNIT)\s+[A-Za-z0-9]+$/i.test(cleanText)) {
+                        const nextLine = lines[l + 1].text.replace(/\s+\d+$/, "").trim();
+                        if (nextLine.length > 2 && nextLine.length < 60 && !nextLine.endsWith(".")) {
+                           finalTitle += " " + nextLine;
+                           l++; 
+                        }
+                     }
+                     
+                     if (finalTitle.length > 100) {
+                       finalTitle = finalTitle.substring(0, 100) + "...";
+                     }
+                     
+                     extractedChapters.push({
+                        id: crypto.randomUUID(),
+                        title: finalTitle,
+                        page_number: i,
+                        level: currentLevel,
+                        parent_id: null,
+                        type: type,
+                        order_index: orderIdx++
+                     });
+                  }
                }
             } catch (pageErr) {
                console.warn(`Failed to process page ${i} during fallback scan:`, pageErr);
@@ -245,7 +287,7 @@ export default function TextbookImporter({ onNavigate, user }) {
               return a.page_number - b.page_number;
            });
            
-           // 4. Build Hierarchy (Front Matter -> Chapters -> Back Matter)
+           // 4. Build Hierarchy (Front Matter -> Unit -> Chapter -> Concept -> Back Matter)
            let finalChapters = [];
            let frontMatterId = crypto.randomUUID();
            let hasFrontMatter = false;
@@ -253,64 +295,90 @@ export default function TextbookImporter({ onNavigate, user }) {
            let backMatterId = crypto.randomUUID();
            let hasBackMatter = false;
            
+           let currentUnitId = null;
            let currentChapterId = null;
+           
            let mainContentStarted = false;
+           let backMatterStarted = false;
            
            let orderIdx = 0;
            
            for (const ch of extractedChapters) {
-              const titleLower = ch.title.toLowerCase();
-              const isFrontType = /^(preface|foreword|acknowledgements|about the authors?|copyright|table of contents|dedication)/i.test(ch.title);
-              const isBackType = /^(appendix|glossary|credits|references|bibliography|index|solutions|answers)/i.test(ch.title);
-              const isChapter = /^(chapter|unit|part)\s+\d+/i.test(ch.title);
+              const isFrontType = /^(preface|foreword|acknowledgements|about the authors?|copyright|table of contents|dedication|how to use this book|introduction)/i.test(ch.title);
+              const isBackType = /^(appendix|glossary|credits|references|bibliography|index|solutions|answers|answer key)/i.test(ch.title);
+              const isUnit = /^unit\s+[a-z0-9]+/i.test(ch.title);
+              const isChapter = /^(chapter|part)\s+\d+/i.test(ch.title);
               const isSection = /^(concept|section)\s+\d+\.\d+/i.test(ch.title);
               
-              if (isChapter) mainContentStarted = true;
+              if (isUnit || isChapter || isSection) {
+                 mainContentStarted = true;
+              }
               
-              if (!mainContentStarted && isFrontType) {
+              if (mainContentStarted && isBackType) {
+                 backMatterStarted = true;
+              }
+              
+              if (!mainContentStarted && !backMatterStarted && isFrontType) {
                  if (!hasFrontMatter) {
-                    finalChapters.push({ id: frontMatterId, title: "Front Matter", page_number: ch.page_number, level: 0, parent_id: null, order_index: orderIdx++ });
+                    finalChapters.push({ id: frontMatterId, title: "Front Matter", page_number: ch.page_number, level: 0, parent_id: null, type: 'frontMatter', order_index: orderIdx++ });
                     hasFrontMatter = true;
                  }
                  ch.parent_id = frontMatterId;
                  ch.level = 1;
+                 ch.type = 'frontMatter';
                  ch.order_index = orderIdx++;
                  finalChapters.push(ch);
               } 
-              else if (mainContentStarted && isBackType) {
+              else if (backMatterStarted || (mainContentStarted && isBackType)) {
                  if (!hasBackMatter) {
-                    finalChapters.push({ id: backMatterId, title: "Back Matter", page_number: ch.page_number, level: 0, parent_id: null, order_index: orderIdx++ });
+                    finalChapters.push({ id: backMatterId, title: "Back Matter", page_number: ch.page_number, level: 0, parent_id: null, type: 'backMatter', order_index: orderIdx++ });
                     hasBackMatter = true;
                  }
                  ch.parent_id = backMatterId;
                  ch.level = 1;
+                 ch.type = 'backMatter';
                  ch.order_index = orderIdx++;
                  finalChapters.push(ch);
               }
-              else if (isChapter) {
+              else if (isUnit) {
                  ch.parent_id = null;
                  ch.level = 0;
+                 ch.type = 'unit';
+                 ch.order_index = orderIdx++;
+                 currentUnitId = ch.id;
+                 currentChapterId = null; // Reset chapter when a new unit starts
+                 finalChapters.push(ch);
+              }
+              else if (isChapter) {
+                 ch.parent_id = currentUnitId || null;
+                 ch.level = currentUnitId ? 1 : 0;
+                 ch.type = 'chapter';
                  ch.order_index = orderIdx++;
                  currentChapterId = ch.id;
                  finalChapters.push(ch);
               }
               else if (isSection && currentChapterId) {
                  ch.parent_id = currentChapterId;
-                 ch.level = 1;
+                 ch.level = currentUnitId ? 2 : 1;
+                 ch.type = 'concept';
                  ch.order_index = orderIdx++;
                  finalChapters.push(ch);
               }
               else {
-                 // Unknown/fallback mapping: if outline provided a parent_id, keep it (Stage 1 fallback)
+                 // Fallback node mapping if outline provided parent_id
                  if (!ch.parent_id) {
                     if (currentChapterId) {
                        ch.parent_id = currentChapterId;
+                       ch.level = currentUnitId ? 2 : 1;
+                    } else if (currentUnitId) {
+                       ch.parent_id = currentUnitId;
                        ch.level = 1;
                     } else {
                        ch.parent_id = null;
                        ch.level = 0;
                     }
                  }
+                 ch.type = ch.type || 'chapter';
                  ch.order_index = orderIdx++;
                  finalChapters.push(ch);
               }
@@ -541,6 +609,7 @@ export default function TextbookImporter({ onNavigate, user }) {
               page_number: ch.page_number,
               level: ch.level,
               parent_id: ch.parent_id,
+              type: ch.type || 'chapter',
               order_index: ch.order_index
             }));
             const { error: chapterErr } = await supabase.from('textbook_chapters').insert(chaptersToInsert);

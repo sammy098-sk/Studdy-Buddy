@@ -1,10 +1,18 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { X, Book, ChevronRight, ChevronDown } from 'lucide-react';
 
-const TreeNode = ({ node, level, expandedNodes, toggleExpand, onNavigate, activeRef, activeChapterId }) => {
+const TreeNode = ({ node, level, expandedNodes, toggleExpand, onNavigate, activeRef, activeChapterId, activePath }) => {
    const hasChildren = node.children && node.children.length > 0;
    const isExpanded = expandedNodes.has(node.id);
    const isNodeActive = node.id === activeChapterId;
+   const isInActivePath = activePath && activePath.has(node.id);
+   
+   let btnClass = 'hover:bg-slate-200 text-slate-700';
+   if (isNodeActive) {
+      btnClass = 'bg-blue-100 text-blue-700 font-semibold';
+   } else if (isInActivePath) {
+      btnClass = 'bg-slate-100 text-blue-600 font-medium';
+   }
    
    return (
      <div className="flex flex-col w-full">
@@ -25,7 +33,7 @@ const TreeNode = ({ node, level, expandedNodes, toggleExpand, onNavigate, active
            <button 
              ref={isNodeActive ? activeRef : null}
              onClick={() => onNavigate(node)}
-             className={`flex-1 text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${isNodeActive ? 'bg-blue-100 text-blue-700 font-semibold' : 'hover:bg-slate-200 text-slate-700'}`}
+             className={`flex-1 text-left px-2 py-1.5 rounded-lg text-sm transition-colors ${btnClass}`}
              style={{ lineHeight: '1.3' }}
            >
              {node.title}
@@ -43,6 +51,7 @@ const TreeNode = ({ node, level, expandedNodes, toggleExpand, onNavigate, active
                    onNavigate={onNavigate} 
                    activeRef={activeRef} 
                    activeChapterId={activeChapterId}
+                   activePath={activePath}
                  />
               ))}
            </div>
@@ -87,7 +96,20 @@ export default function ChapterSidebar({ chapters = [], isOpen, onClose, current
      return activeId;
   }, [chapters, currentPage]);
 
-  // 3. Auto-expand parents of the active chapter
+  // 3. Compute active path (active node + all ancestors)
+  const activePath = useMemo(() => {
+     const path = new Set();
+     let currentId = activeChapterId;
+     while (currentId) {
+        path.add(currentId);
+        const node = chapters.find(c => c.id === currentId);
+        if (!node) break;
+        currentId = node.parent_id;
+     }
+     return path;
+  }, [activeChapterId, chapters]);
+
+  // 4. Auto-expand parents of the active chapter
   useEffect(() => {
      if (activeChapterId) {
         setExpandedNodes(prev => {
@@ -95,9 +117,6 @@ export default function ChapterSidebar({ chapters = [], isOpen, onClose, current
            let currentId = activeChapterId;
            let changed = false;
            
-           // If the active node itself has children, we might want to auto-expand it too, 
-           // but normally we only expand its parents so it is visible.
-           // However, Google Play Books often expands the active chapter.
            const activeNode = chapters.find(c => c.id === currentId);
            if (activeNode) {
               const childrenCount = chapters.filter(c => c.parent_id === activeNode.id).length;
@@ -122,7 +141,7 @@ export default function ChapterSidebar({ chapters = [], isOpen, onClose, current
      }
   }, [activeChapterId, chapters]);
 
-  // 4. Auto-scroll to active node
+  // 5. Auto-scroll to active node
   useEffect(() => {
     if (activeRef.current) {
       activeRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -184,6 +203,7 @@ export default function ChapterSidebar({ chapters = [], isOpen, onClose, current
                    onNavigate={handleNavigate}
                    activeRef={activeRef}
                    activeChapterId={activeChapterId}
+                   activePath={activePath}
                 />
              ))}
            </div>
