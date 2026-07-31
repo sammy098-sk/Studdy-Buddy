@@ -136,36 +136,54 @@ export default function TextbookImporter({ onNavigate, user }) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
             
-            let itemsText = textContent.items.map(it => it.str.trim()).filter(Boolean);
-            let fullText = itemsText.join(" ");
+            let textItems = textContent.items.map(it => ({ str: it.str.trim(), fontSize: it.transform[0], y: Math.round(it.transform[5]) })).filter(it => it.str);
+            
+            // Build fullText with \n for different Y coordinates to preserve visual structure
+            let fullText = "";
+            let lastY = null;
+            for (const item of textItems) {
+               if (lastY !== null && Math.abs(item.y - lastY) > 5) {
+                  fullText += "\n";
+               } else if (fullText.length > 0 && !fullText.endsWith("\n")) {
+                  fullText += " ";
+               }
+               fullText += item.str;
+               lastY = item.y;
+            }
+            
+            // Re-join hyphenated words across newlines (e.g. Chemi-\ncal)
+            fullText = fullText.replace(/-\n/g, "");
             
             let possibleHeading = "";
-            // Look for "Chapter X" or "Section X" followed by an optional title
-            const chapMatch = fullText.match(/(?:Chapter|Section)\s+\d+(?:[\:\-\s]+([A-Z][^\.\n]{2,60}))?/i);
+            let currentLevel = 0;
+            
+            // Look for "Chapter X" or "Unit X" stopping at double-newline or period
+            const chapMatch = fullText.match(/(?:Chapter|Unit|Part)\s+\d+(?:[\:\-\.\s]+([A-Za-z](?:(?!\n\n|\.).)*))?/i);
             
             if (chapMatch) {
-               possibleHeading = chapMatch[0].trim();
+               possibleHeading = chapMatch[0].replace(/\n/g, " ").trim();
+               currentLevel = 0;
             } else {
-               // Fallback: largest font that is short
-               let maxFontSize = 0;
-               for (const item of textContent.items) {
-                 const fontSize = item.transform[0];
-                 if (fontSize > 20 && fontSize > maxFontSize) {
-                    const text = item.str.trim();
-                    if (text.length > 2 && text.length < 60 && text.split(" ").length < 10) {
-                      maxFontSize = fontSize;
-                      possibleHeading = text;
-                    }
-                 }
+               // Look for "Concept X.Y" or "Section X.Y"
+               const conceptMatch = fullText.match(/(?:Concept|Section)\s+\d+\.\d+(?:[\:\-\.\s]+([A-Za-z](?:(?!\n\n|\.).)*))?/i);
+               if (conceptMatch) {
+                  possibleHeading = conceptMatch[0].replace(/\n/g, " ").trim();
+                  currentLevel = 1;
                }
             }
             
-            if (possibleHeading && possibleHeading.length > 2 && possibleHeading.length < 80) {
+            if (possibleHeading) {
+               // Strip trailing standalone numbers (likely page numbers)
+               possibleHeading = possibleHeading.replace(/\s+\d+$/, "").trim();
+               if (possibleHeading.length > 100) {
+                 possibleHeading = possibleHeading.substring(0, 100) + "...";
+               }
+               
                extractedChapters.push({
                   id: crypto.randomUUID(),
                   title: possibleHeading,
                   page_number: i,
-                  level: 0,
+                  level: currentLevel,
                   parent_id: null,
                   order_index: orderIdx++
                });
@@ -181,12 +199,20 @@ export default function TextbookImporter({ onNavigate, user }) {
            const ignoreRegex = /^(featured figures|brief contents|supplements|detailed contents|acknowledgments|about the author|title page|copyright|dedication|half title)$/i;
            extractedChapters = extractedChapters.filter(ch => !ignoreRegex.test(ch.title.trim()));
            
-           // 2. Remove exact duplicates (same page AND title)
-           const seen = new Set();
+           // 2. Strict Deduplication by prefix (e.g. only one "Chapter 2" allowed)
+           const seenPrefixes = new Map();
            extractedChapters = extractedChapters.filter(ch => {
-              const key = `${ch.page_number}-${ch.title.trim().toLowerCase()}`;
-              if (seen.has(key)) return false;
-              seen.add(key);
+              let key = ch.title.trim().toLowerCase();
+              const prefixMatch = key.match(/^(chapter|unit|part|concept|section)\s+\d+(\.\d+)?/i);
+              if (prefixMatch) {
+                 key = prefixMatch[0]; // e.g. "chapter 2" or "concept 2.1"
+              }
+              
+              if (seenPrefixes.has(key)) {
+                 // Keep the one that appears earlier (the first match is usually the actual chapter start, not a later running header)
+                 return false;
+              }
+              seenPrefixes.set(key, ch.page_number);
               return true;
            });
            
