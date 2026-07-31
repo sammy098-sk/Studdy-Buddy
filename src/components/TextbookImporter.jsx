@@ -186,44 +186,67 @@ export default function TextbookImporter({ onNavigate, user }) {
                for (let l = 0; l < lines.length; l++) {
                   const line = lines[l];
                   const cleanText = line.text.replace(/\s+\d+$/, "").trim(); // Strip trailing page numbers
-                  if (cleanText.length < 3) continue;
+                  if (cleanText.length < 3 || cleanText.length > 120) continue;
                   
                   let score = 0;
                   let type = 'chapter';
                   let currentLevel = 1;
+                  let isStructural = false;
                   
-                  // Positive signals
+                  // 1. Primary Structural Signals (Keywords or unambiguous numbering)
                   if (/^UNIT\s+[A-Za-z0-9]+$/i.test(cleanText) || /^UNIT\s+[A-Za-z0-9]+[:\-.]?\s+.+/i.test(cleanText)) {
                      score += 60;
                      type = 'unit';
                      currentLevel = 0;
+                     isStructural = true;
                   } else if (/^(Chapter|Part)\s+\d+/i.test(cleanText)) {
                      score += 50;
                      type = 'chapter';
                      currentLevel = 1;
+                     isStructural = true;
                   } else if (/^(Concept|Section)\s+\d+\.\d+/i.test(cleanText)) {
                      score += 50;
                      type = 'concept';
                      currentLevel = 2;
-                  } else if (/^(Preface|Foreword|Introduction|About the Authors?|Acknowledgements|Contents|Table of Contents|Appendix|Glossary|Credits|References|Bibliography|Index|Answer Key|Solutions)/i.test(cleanText)) {
+                     isStructural = true;
+                  } else if (/^\d+\.\d+(?:\.\d+)?\s+[A-Za-z]/.test(cleanText)) {
+                     // Standalone section/concept without explicit word (e.g. "1.1 Standards of Length")
+                     score += 45;
+                     type = 'concept';
+                     currentLevel = 2;
+                     isStructural = true;
+                  } else if (/^\d+[\:\-\.\s]+[A-Z][^\.]{2,60}$/.test(cleanText) && line.fontSize >= maxFontSize - 1 && maxFontSize > 10) {
+                     // Standalone major chapter without explicit word (e.g. "1 Introduction", must be prominently sized)
                      score += 40;
-                     // type will be set during Tree Construction
+                     type = 'chapter';
+                     currentLevel = 1;
+                     isStructural = true;
+                  } else if (/^(Preface|Foreword|Introduction|About the Authors?|Acknowledgements|Contents|Table of Contents|Appendix|Glossary|Credits|References|Bibliography|Index|Answer Key|Solutions)/i.test(cleanText)) {
+                     score += 45;
+                     isStructural = true;
                   }
                   
+                  // Ignore ordinary sentence noise: Only proceed if structural OR literally the biggest title font on the page
+                  if (!isStructural && line.fontSize < maxFontSize) {
+                     continue;
+                  }
+                  
+                  // Typography and formatting bonuses (amplification only)
                   if (line.fontSize >= maxFontSize && maxFontSize > 0) score += 20;
-                  if (cleanText.length < 50) score += 15;
+                  if (cleanText.length < 50 && isStructural) score += 15;
                   
-                  // Negative signals
-                  if (cleanText.endsWith(".")) score -= 30;
-                  if (/\b(explains|describes|provides|introduces|discusses|shows|demonstrates|illustrates|see|in)\b/i.test(cleanText)) score -= 40;
-                  if (cleanText.length > 100) score -= 40;
+                  // Negative signals (penalize paragraphs and citations)
+                  if (cleanText.endsWith(".")) score -= 40;
+                  if (/\b(explains|describes|provides|introduces|discusses|shows|demonstrates|illustrates|see|in)\b/i.test(cleanText)) score -= 50;
+                  if (cleanText.length > 85) score -= 40;
                   
+                  // Key concepts list rejection
                   if (hasKeyConcepts && /^\d+\.\d+/.test(cleanText)) {
                      score -= 50; 
                   }
                   
-                  // Store ALL candidates that have any positive signal for diagnostic/fallback
-                  if (score > 0) {
+                  // Save candidate if it maintains a positive score
+                  if (score > 10) {
                      let finalTitle = cleanText;
                      // Merge next line if it's just "Chapter 3" or "UNIT ONE"
                      if (l + 1 < lines.length && /^(Chapter|Part|UNIT)\s+[A-Za-z0-9]+$/i.test(cleanText)) {
@@ -263,7 +286,7 @@ export default function TextbookImporter({ onNavigate, user }) {
           console.groupEnd();
           
           let orderIdx = 0;
-          let threshold = 40;
+          let threshold = 45;
           let fallbackUsed = false;
           
           const processCandidates = (minScore) => {
@@ -286,12 +309,12 @@ export default function TextbookImporter({ onNavigate, user }) {
           
           extractedChapters = processCandidates(threshold);
           
-          // Sanity check
-          const foundChaptersOrUnits = extractedChapters.filter(c => c.type === 'chapter' || c.type === 'unit');
-          if (foundChaptersOrUnits.length === 0 && pdf.numPages > 100) {
-             console.warn("TOC extraction failed. Reason: No chapter hierarchy detected with strict threshold. Retrying with relaxed heading detection.");
+          // Improved sanity check: trigger fallback if fewer than 3 actual chapters are found in a substantial textbook
+          const foundChapters = extractedChapters.filter(c => c.type === 'chapter');
+          if (foundChapters.length < 3 && pdf.numPages > 50) {
+             console.warn("TOC extraction failed to detect a sufficient chapter hierarchy. Retrying with relaxed heading detection.");
              fallbackUsed = true;
-             threshold = 15; // Relax threshold
+             threshold = 25; // Safe fallback threshold since noise is already filtered
              orderIdx = 0;
              extractedChapters = processCandidates(threshold);
           }
