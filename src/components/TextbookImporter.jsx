@@ -221,7 +221,9 @@ export default function TextbookImporter({ onNavigate, user }) {
        throw new Error(`Validation failed: Part ${index + 1} size mismatch in storage. Expected ${chunk.size_bytes}, got ${uploadedFileMeta?.metadata?.size || 'unknown'}.`);
     }
 
-    // 5. Insert chunk metadata into database
+    // 5. Insert chunk metadata into database (Idempotent cleanup)
+    await supabase.from('textbook_chunks').delete().eq('book_id', bookId).eq('part_number', chunk.part_number);
+    
     const { error: dbErr } = await supabase.from('textbook_chunks').insert({
       book_id: bookId,
       part_number: chunk.part_number,
