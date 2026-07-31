@@ -68,7 +68,8 @@ function MainApp() {
         name: data?.full_name || userMeta.full_name || session.user.email.split("@")[0], 
         email: session.user.email,
         favorite_subjects: data?.favorite_subjects || [],
-        daily_goal: data?.daily_goal || "30"
+        daily_goal: data?.daily_goal || "30",
+        role: data?.role || 'student'
       });
 
       // Fetch today's completed topics
@@ -205,12 +206,14 @@ function MainApp() {
             >
               <BookOpen size={15} /> My Library
             </button>
-            <button
-              onClick={() => navigate('/upload')}
-              className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50"
-            >
-              <Plus size={15} /> Upload
-            </button>
+            {user.role === 'admin' && (
+              <button
+                onClick={() => navigate('/upload')}
+                className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors text-slate-600 hover:bg-slate-50"
+              >
+                <Plus size={15} /> Upload
+              </button>
+            )}
             <button
               onClick={() => navigate('/profile')}
               className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg transition-colors text-slate-600 hover:bg-slate-50"

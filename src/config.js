@@ -81,7 +81,6 @@ export const SUBJECT_ICONS = {
 };
 
 export const isAdminUser = (user) => {
-  if (!user || !user.email) return false;
-  const adminEmails = ['samsonijie66@gmail.com', 'ijiesamson66@gmail.com', 'admin@studybuddy.com'];
-  return adminEmails.includes(user.email.toLowerCase()) || user.email.toLowerCase().includes('admin');
+  if (!user) return false;
+  return user.role === 'admin';
 };

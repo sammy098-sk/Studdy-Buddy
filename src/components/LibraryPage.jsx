@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 import { BookOpen, Trash2, Plus, FileText, Calendar, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { isAdminUser } from '../config';
 
 export default function LibraryPage({ user, onNavigate }) {
   const [books, setBooks] = useState([]);
@@ -117,16 +118,18 @@ export default function LibraryPage({ user, onNavigate }) {
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 mb-1">My Library</h1>
-            <p className="text-slate-500">Access and manage your uploaded textbooks</p>
+            <h1 className="text-2xl font-bold text-slate-800 mb-1">Library</h1>
+            <p className="text-slate-500">Access and manage published textbooks</p>
           </div>
-          <button 
-            onClick={() => navigate('/upload')} 
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
-          >
-            <Plus size={18} />
-            Add Textbook
-          </button>
+          {isAdminUser(user) && (
+            <button 
+              onClick={() => navigate('/upload')} 
+              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <Plus size={18} />
+              Add Textbook
+            </button>
+          )}
         </div>
 
         {error && (
@@ -144,13 +147,15 @@ export default function LibraryPage({ user, onNavigate }) {
             <p className="text-slate-500 mb-8 max-w-md leading-relaxed">
               Upload your massive PDF textbooks and we'll split them securely into readable, bite-sized pieces for you to study anywhere.
             </p>
-            <button 
-              onClick={() => navigate('/upload')} 
-              className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              <Plus size={18} />
-              Upload First Book
-            </button>
+            {isAdminUser(user) && (
+              <button 
+                onClick={() => navigate('/upload')} 
+                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <Plus size={18} />
+                Upload First Book
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -197,13 +202,15 @@ export default function LibraryPage({ user, onNavigate }) {
                         {lastPage ? `Continue (Pg ${lastPage})` : 'Start Reading'}
                       </button>
 
-                      <button 
-                        onClick={() => handleDelete(book.id, book.title)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors -mr-2"
-                        title="Delete Book"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      {isAdminUser(user) && (
+                        <button 
+                          onClick={() => handleDelete(book.id, book.title)}
+                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors -mr-2"
+                          title="Delete Book"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
