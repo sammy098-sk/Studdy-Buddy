@@ -125,9 +125,28 @@ export default function TextbookImporter({ onNavigate, user }) {
         if (outline && outline.length > 0) {
           setStatusText('Extracting nested table of contents...');
           await processOutline(outline);
-        } 
+          
+          console.log("Outline found");
+          console.log("Top-level bookmarks:", outline.length);
+          console.log("Recursive bookmarks:", extractedChapters.length);
+        } else {
+          console.log("Outline found: false");
+        }
         
-        if (extractedChapters.length < 3) {
+        // 1. Only ignore the PDF Outline if it is completely empty, or contains only a single root item with no children.
+        // 2. If it contains 2 or more meaningful entries recursively, keep it!
+        let useOutline = extractedChapters.length >= 2;
+        
+        console.log("Using PDF Outline:", useOutline);
+        console.log("Fallback scanner executed:", !useOutline);
+        
+        if (!useOutline) {
+          if (extractedChapters.length > 0) {
+            console.log("Reason for fallback: Outline only contains a single root item with no children.");
+          } else {
+            console.log("Reason for fallback: Outline is completely empty or missing.");
+          }
+          
           extractedChapters = [];
           setStatusText('Scanning for chapter headings...');
           const pagesToScan = Math.min(pdf.numPages, 100);
@@ -191,25 +210,23 @@ export default function TextbookImporter({ onNavigate, user }) {
           }
         }
         
-        // Post-processing cleanup
+        // Post-processing cleanup and Tree construction
         if (extractedChapters.length > 0) {
            setStatusText('Cleaning up table of contents...');
            
-           // 1. Filter out obvious fluff/front-matter
-           const ignoreRegex = /^(featured figures|brief contents|supplements|detailed contents|acknowledgments|about the author|title page|copyright|dedication|half title)$/i;
+           // 1. Filter out obvious fluff
+           const ignoreRegex = /^(featured figures|brief contents|supplements|detailed contents|title page|half title)$/i;
            extractedChapters = extractedChapters.filter(ch => !ignoreRegex.test(ch.title.trim()));
            
-           // 2. Strict Deduplication by prefix (e.g. only one "Chapter 2" allowed)
+           // 2. Strict Deduplication by prefix
            const seenPrefixes = new Map();
            extractedChapters = extractedChapters.filter(ch => {
               let key = ch.title.trim().toLowerCase();
               const prefixMatch = key.match(/^(chapter|unit|part|concept|section)\s+\d+(\.\d+)?/i);
               if (prefixMatch) {
-                 key = prefixMatch[0]; // e.g. "chapter 2" or "concept 2.1"
+                 key = prefixMatch[0]; 
               }
-              
               if (seenPrefixes.has(key)) {
-                 // Keep the one that appears earlier (the first match is usually the actual chapter start, not a later running header)
                  return false;
               }
               seenPrefixes.set(key, ch.page_number);
@@ -224,10 +241,78 @@ export default function TextbookImporter({ onNavigate, user }) {
               return a.page_number - b.page_number;
            });
            
-           // 4. Re-assign order_index based on final sorted flat list
-           extractedChapters.forEach((ch, idx) => {
-              ch.order_index = idx;
-           });
+           // 4. Build Hierarchy (Front Matter -> Chapters -> Back Matter)
+           let finalChapters = [];
+           let frontMatterId = crypto.randomUUID();
+           let hasFrontMatter = false;
+           
+           let backMatterId = crypto.randomUUID();
+           let hasBackMatter = false;
+           
+           let currentChapterId = null;
+           let mainContentStarted = false;
+           
+           let orderIdx = 0;
+           
+           for (const ch of extractedChapters) {
+              const titleLower = ch.title.toLowerCase();
+              const isFrontType = /^(preface|foreword|acknowledgements|about the authors?|copyright|table of contents|dedication)/i.test(ch.title);
+              const isBackType = /^(appendix|glossary|credits|references|bibliography|index|solutions|answers)/i.test(ch.title);
+              const isChapter = /^(chapter|unit|part)\s+\d+/i.test(ch.title);
+              const isSection = /^(concept|section)\s+\d+\.\d+/i.test(ch.title);
+              
+              if (isChapter) mainContentStarted = true;
+              
+              if (!mainContentStarted && isFrontType) {
+                 if (!hasFrontMatter) {
+                    finalChapters.push({ id: frontMatterId, title: "Front Matter", page_number: ch.page_number, level: 0, parent_id: null, order_index: orderIdx++ });
+                    hasFrontMatter = true;
+                 }
+                 ch.parent_id = frontMatterId;
+                 ch.level = 1;
+                 ch.order_index = orderIdx++;
+                 finalChapters.push(ch);
+              } 
+              else if (mainContentStarted && isBackType) {
+                 if (!hasBackMatter) {
+                    finalChapters.push({ id: backMatterId, title: "Back Matter", page_number: ch.page_number, level: 0, parent_id: null, order_index: orderIdx++ });
+                    hasBackMatter = true;
+                 }
+                 ch.parent_id = backMatterId;
+                 ch.level = 1;
+                 ch.order_index = orderIdx++;
+                 finalChapters.push(ch);
+              }
+              else if (isChapter) {
+                 ch.parent_id = null;
+                 ch.level = 0;
+                 ch.order_index = orderIdx++;
+                 currentChapterId = ch.id;
+                 finalChapters.push(ch);
+              }
+              else if (isSection && currentChapterId) {
+                 ch.parent_id = currentChapterId;
+                 ch.level = 1;
+                 ch.order_index = orderIdx++;
+                 finalChapters.push(ch);
+              }
+              else {
+                 // Unknown/fallback mapping: if outline provided a parent_id, keep it (Stage 1 fallback)
+                 if (!ch.parent_id) {
+                    if (currentChapterId) {
+                       ch.parent_id = currentChapterId;
+                       ch.level = 1;
+                    } else {
+                       ch.parent_id = null;
+                       ch.level = 0;
+                    }
+                 }
+                 ch.order_index = orderIdx++;
+                 finalChapters.push(ch);
+              }
+           }
+           
+           extractedChapters = finalChapters;
         }
         
       } catch (err) {
