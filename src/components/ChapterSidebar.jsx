@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { X, Book, ChevronRight, ChevronDown } from 'lucide-react';
+import { filterJunkBookmarks } from '../utils/tocCleaner';
 
 const TreeNode = ({ node, level, expandedNodes, toggleExpand, onNavigate, activeRef, activeChapterId, activePath }) => {
    const hasChildren = node.children && node.children.length > 0;
@@ -60,7 +61,8 @@ const TreeNode = ({ node, level, expandedNodes, toggleExpand, onNavigate, active
    );
 };
 
-export default function ChapterSidebar({ chapters = [], isOpen, onClose, currentPage, onPageChange }) {
+export default function ChapterSidebar({ chapters: rawChapters = [], isOpen, onClose, currentPage, onPageChange }) {
+  const chapters = useMemo(() => filterJunkBookmarks(rawChapters), [rawChapters]);
   const activeRef = useRef(null);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
 

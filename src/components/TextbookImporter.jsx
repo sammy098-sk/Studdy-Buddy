@@ -3,6 +3,7 @@ import { Upload, FileText, CheckCircle2, AlertCircle, Server, RefreshCw, BookOpe
 import { SUBJECTS } from '../config';
 import { supabase } from '../supabase';
 import BackToHomeButton from './BackToHomeButton';
+import { filterJunkBookmarks } from '../utils/tocCleaner';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
@@ -328,7 +329,7 @@ export default function TextbookImporter({ onNavigate, user }) {
         // EVIDENCE MERGING & DEDUPLICATION ENGINE
         // ---------------------------------------------------------
         setStatusText('Merging extraction sources and deduplicating hierarchy...');
-        let allEvidence = [...outlineEvidence, ...printedTocEvidence, ...typographyEvidence];
+        let allEvidence = filterJunkBookmarks([...outlineEvidence, ...printedTocEvidence, ...typographyEvidence]);
         
         // Sort primarily by page number ascending, then confidence descending
         allEvidence.sort((a, b) => {
