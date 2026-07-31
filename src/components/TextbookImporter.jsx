@@ -96,11 +96,14 @@ export default function TextbookImporter({ onNavigate, user }) {
             if (typeof dest === 'string') {
               dest = await pdf.getDestination(dest);
             }
+            
+            let id = crypto.randomUUID();
+            let validEntry = false;
+            
             if (dest) {
               const pageRef = dest[0];
               const pageIndex = await pdf.getPageIndex(pageRef).catch(() => -1);
               if (pageIndex !== -1) {
-                const id = crypto.randomUUID();
                 extractedChapters.push({
                   id,
                   title: item.title,
@@ -109,10 +112,12 @@ export default function TextbookImporter({ onNavigate, user }) {
                   parent_id: parentId,
                   order_index: i
                 });
-                if (item.items && item.items.length > 0) {
-                  await processOutline(item.items, level + 1, id);
-                }
+                validEntry = true;
               }
+            }
+            
+            if (item.items && item.items.length > 0) {
+              await processOutline(item.items, validEntry ? level + 1 : level, validEntry ? id : parentId);
             }
           }
         }
@@ -120,7 +125,10 @@ export default function TextbookImporter({ onNavigate, user }) {
         if (outline && outline.length > 0) {
           setStatusText('Extracting nested table of contents...');
           await processOutline(outline);
-        } else {
+        } 
+        
+        if (extractedChapters.length < 3) {
+          extractedChapters = [];
           setStatusText('Scanning for chapter headings...');
           const pagesToScan = Math.min(pdf.numPages, 100);
           let orderIdx = 0;
