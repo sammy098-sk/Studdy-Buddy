@@ -147,11 +147,10 @@ export default function TextbookImporter({ onNavigate, user }) {
             console.log("Reason for fallback: Outline is completely empty or missing.");
           }
           
-          extractedChapters = [];
-          setStatusText('Scanning for chapter headings...');
-          const pagesToScan = Math.min(pdf.numPages, 100);
-          let orderIdx = 0;
-          for (let i = 1; i <= pagesToScan; i++) {
+          let rawCandidates = [];
+          setStatusText(`Scanning document for chapters (0 of ${pdf.numPages})...`);
+          
+          for (let i = 1; i <= pdf.numPages; i++) {
             try {
                const page = await pdf.getPage(i);
                const textContent = await page.getTextContent();
@@ -219,12 +218,12 @@ export default function TextbookImporter({ onNavigate, user }) {
                   if (/\b(explains|describes|provides|introduces|discusses|shows|demonstrates|illustrates|see|in)\b/i.test(cleanText)) score -= 40;
                   if (cleanText.length > 100) score -= 40;
                   
-                  // Key concepts list rejection (assuming Y goes down, but PDF transform[5] usually goes up from bottom left. Wait, Y is higher at top of page typically in PDF, but we'll just check if it's a list item)
                   if (hasKeyConcepts && /^\d+\.\d+/.test(cleanText)) {
                      score -= 50; 
                   }
                   
-                  if (score >= 40) {
+                  // Store ALL candidates that have any positive signal for diagnostic/fallback
+                  if (score > 0) {
                      let finalTitle = cleanText;
                      // Merge next line if it's just "Chapter 3" or "UNIT ONE"
                      if (l + 1 < lines.length && /^(Chapter|Part|UNIT)\s+[A-Za-z0-9]+$/i.test(cleanText)) {
@@ -239,21 +238,70 @@ export default function TextbookImporter({ onNavigate, user }) {
                        finalTitle = finalTitle.substring(0, 100) + "...";
                      }
                      
-                     extractedChapters.push({
-                        id: crypto.randomUUID(),
+                     rawCandidates.push({
                         title: finalTitle,
                         page_number: i,
                         level: currentLevel,
-                        parent_id: null,
                         type: type,
-                        order_index: orderIdx++
+                        score: score
                      });
                   }
                }
             } catch (pageErr) {
                console.warn(`Failed to process page ${i} during fallback scan:`, pageErr);
             }
+            
+            // Keep UI responsive and update status every 10 pages
+            if (i % 10 === 0) {
+               setStatusText(`Scanning document for chapters (${i} of ${pdf.numPages})...`);
+               await new Promise(r => setTimeout(r, 0)); // Yield to React render cycle
+            }
           }
+          
+          console.groupCollapsed("TOC Extraction Diagnostics: Raw Candidates");
+          console.table(rawCandidates);
+          console.groupEnd();
+          
+          let orderIdx = 0;
+          let threshold = 40;
+          let fallbackUsed = false;
+          
+          const processCandidates = (minScore) => {
+             let results = [];
+             for (const c of rawCandidates) {
+                if (c.score >= minScore) {
+                   results.push({
+                      id: crypto.randomUUID(),
+                      title: c.title,
+                      page_number: c.page_number,
+                      level: c.level,
+                      parent_id: null,
+                      type: c.type,
+                      order_index: orderIdx++
+                   });
+                }
+             }
+             return results;
+          };
+          
+          extractedChapters = processCandidates(threshold);
+          
+          // Sanity check
+          const foundChaptersOrUnits = extractedChapters.filter(c => c.type === 'chapter' || c.type === 'unit');
+          if (foundChaptersOrUnits.length === 0 && pdf.numPages > 100) {
+             console.warn("TOC extraction failed. Reason: No chapter hierarchy detected with strict threshold. Retrying with relaxed heading detection.");
+             fallbackUsed = true;
+             threshold = 15; // Relax threshold
+             orderIdx = 0;
+             extractedChapters = processCandidates(threshold);
+          }
+          
+          window._tocDiagnostics = {
+             pagesScanned: pdf.numPages,
+             rawCandidatesCount: rawCandidates.length,
+             rejectedCandidatesCount: rawCandidates.filter(c => c.score < threshold).length,
+             fallbackUsed: fallbackUsed
+          };
         }
         
         // Post-processing cleanup and Tree construction
@@ -385,8 +433,27 @@ export default function TextbookImporter({ onNavigate, user }) {
            }
            
            extractedChapters = finalChapters;
+           
+           if (window._tocDiagnostics) {
+              const u = extractedChapters.filter(c => c.type === 'unit').length;
+              const ch = extractedChapters.filter(c => c.type === 'chapter').length;
+              const co = extractedChapters.filter(c => c.type === 'concept').length;
+              const fm = extractedChapters.filter(c => c.type === 'frontMatter').length;
+              const bm = extractedChapters.filter(c => c.type === 'backMatter').length;
+              
+              console.group("TOC Extraction Diagnostics: Final Report");
+              console.log(`Pages scanned: ${window._tocDiagnostics.pagesScanned}`);
+              console.log(`Units found: ${u}`);
+              console.log(`Chapters found: ${ch}`);
+              console.log(`Concepts found: ${co}`);
+              console.log(`Front Matter items: ${fm}`);
+              console.log(`Back Matter items: ${bm}`);
+              console.log(`Outline entries: ${useOutline ? extractedChapters.length : 0}`);
+              console.log(`Fallback used: ${window._tocDiagnostics.fallbackUsed}`);
+              console.log(`Rejected heading candidates: ${window._tocDiagnostics.rejectedCandidatesCount}`);
+              console.groupEnd();
+           }
         }
-        
       } catch (err) {
         console.warn("Failed to extract outline:", err);
       }
