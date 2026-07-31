@@ -52,7 +52,7 @@ export function useChunkManager(bookId, user) {
           .from('textbook_chapters')
           .select('*')
           .eq('book_id', bookId)
-          .order('page_number', { ascending: true });
+          .order('order_index', { ascending: true });
         if (chapErr) console.warn("Failed to load chapters:", chapErr);
 
         // 4. Fetch Reading Progress
