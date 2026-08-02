@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Loader2, Plus } from 'lucide-react';
-import { callClaude, parseJsonLoose } from '../utils/api';
-import { STUDYBUDDY_PERSONA } from '../config';
+import { ChevronLeft, Loader2, Plus, Sparkles, Database, CheckCircle2 } from 'lucide-react';
+import { studyToolsService } from '../services/StudyToolsService';
 
-export default function QuestionnairePanel({ subject, topic, onBack }) {
+export default function QuestionnairePanel({ subject = "General Subject", topic = "Topic Chapter", bookId, pageNumber, onBack }) {
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
   const [error, setError] = useState(null);
   const [loadingBatch, setLoadingBatch] = useState(true);
+  const [isCached, setIsCached] = useState(false);
   const MAX_QUESTIONS = 50;
   const BATCH_SIZE = 10;
 
@@ -15,15 +15,20 @@ export default function QuestionnairePanel({ subject, topic, onBack }) {
     setLoadingBatch(true);
     setError(null);
     try {
-      const raw = await callClaude(
-        `You are a JAMB question-bank writer. Respond ONLY with a valid JSON array of ${BATCH_SIZE} short-answer practice question strings on the given topic — no prose, no markdown fences, no numbering inside the strings. Vary difficulty from easy to hard. Do not repeat any question in this exclude list: ${JSON.stringify(excludeList)}`,
-        [{ role: "user", content: `Subject: ${subject}\nTopic: ${topic}\nGenerate ${BATCH_SIZE} practice questions.` }],
-        1200
-      );
-      const parsed = parseJsonLoose(raw);
-      if (Array.isArray(parsed)) setQuestions((prev) => [...prev, ...parsed]);
+      const res = await studyToolsService.generateQuestions({
+        bookId,
+        pageNumber,
+        subject,
+        topic,
+        count: BATCH_SIZE,
+        excludeList
+      });
+      if (Array.isArray(res.questions)) {
+        setQuestions((prev) => [...prev, ...res.questions]);
+        setIsCached(Boolean(res.isCached));
+      }
     } catch (e) {
-      setError("Couldn't load questions — check your connection and try again.");
+      setError("Couldn't load practice questions right now — " + (e.message || "try again later."));
     } finally {
       setLoadingBatch(false);
     }
@@ -32,8 +37,9 @@ export default function QuestionnairePanel({ subject, topic, onBack }) {
   useEffect(() => {
     setQuestions([]);
     setAnswers({});
+    setIsCached(false);
     fetchBatch([]);
-  }, [subject, topic]);
+  }, [subject, topic, bookId, pageNumber]);
 
   const updateAnswer = (idx, field, value) => {
     setAnswers((prev) => ({ ...prev, [idx]: { ...prev[idx], [field]: value } }));
@@ -44,14 +50,14 @@ export default function QuestionnairePanel({ subject, topic, onBack }) {
     if (!studentAnswer) return;
     updateAnswer(idx, "checking", true);
     try {
-      const feedback = await callClaude(
-        STUDYBUDDY_PERSONA + `\n\n### Task\nA student just answered a practice question. Give brief (2-3 sentences), peer-tone feedback: say whether they're right, partly right, or off track, and why. If wrong, guide them toward the right idea without just stating the answer outright first.`,
-        [{ role: "user", content: `Topic: ${topic}\nQuestion: ${question}\nStudent's answer: ${studentAnswer}` }],
-        300
-      );
+      const feedback = await studyToolsService.checkAnswer({
+        topic: topic || `Page ${pageNumber}`,
+        question,
+        studentAnswer
+      });
       updateAnswer(idx, "feedback", feedback);
     } catch (e) {
-      updateAnswer(idx, "feedback", "Couldn't check that just now — try again in a moment.");
+      updateAnswer(idx, "feedback", "Couldn't evaluate answer right now — try again in a moment.");
     } finally {
       updateAnswer(idx, "checking", false);
     }
@@ -61,67 +67,82 @@ export default function QuestionnairePanel({ subject, topic, onBack }) {
   const canLoadMore = questions.length < MAX_QUESTIONS && !loadingBatch;
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6">
+    <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 w-full">
       <div className="max-w-2xl mx-auto">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm mb-5" style={{ color: "#5A6B8C" }}>
-          <ChevronLeft size={16} /> {subject} topics
-        </button>
+        {onBack && (
+          <button onClick={onBack} className="flex items-center gap-1 text-sm mb-5 hover:text-blue-600 transition-colors font-medium" style={{ color: "#5A6B8C" }}>
+            <ChevronLeft size={16} /> Back to Study Tools
+          </button>
+        )}
 
-        <div className="inline-flex items-center gap-2 mb-2 px-2.5 py-1 rounded-md" style={{ background: "#E8F1FE" }}>
-          <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#2954E5", fontFamily: "'IBM Plex Mono', monospace" }}>
-            Questionnaire
-          </span>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border shadow-2xs" style={{ background: "#E8F1FE", borderColor: "#D4E5FA" }}>
+            <Sparkles size={12} className="text-blue-600" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#2954E5", fontFamily: "'IBM Plex Mono', monospace" }}>
+              {pageNumber ? `Page ${pageNumber} Practice` : 'Questionnaire'}
+            </span>
+          </div>
+
+          {isCached && (
+            <div title="Served instantly from browser session cache" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-medium">
+              <Database size={11} />
+              <span>Cached</span>
+            </div>
+          )}
         </div>
-        <h2 className="text-2xl font-semibold mb-1" style={{ color: "#101C34", fontFamily: "'Montserrat', sans-serif" }}>
+
+        <h2 className="text-xl sm:text-2xl font-semibold mb-1" style={{ color: "#101C34", fontFamily: "'Montserrat', sans-serif" }}>
           {topic}
         </h2>
-        <p className="text-sm mb-6" style={{ color: "#8493B0" }}>{questions.length} of up to {MAX_QUESTIONS} questions loaded</p>
+        <p className="text-sm mb-6" style={{ color: "#8493B0" }}>{questions.length} practice items prepared for your interactive revision</p>
 
-        {error && <div className="text-sm px-4 py-3 rounded-lg mb-4" style={{ background: "#FEF2F2", color: "#B91C1C" }}>{error}</div>}
+        {error && <div className="text-sm px-4 py-3 rounded-xl border mb-4" style={{ background: "#FEF2F2", borderColor: "#FECACA", color: "#B91C1C" }}>{error}</div>}
 
         <div className="flex flex-col gap-4 mb-6">
           {questions.map((q, idx) => (
-            <div key={idx} className="rounded-xl border p-4" style={{ borderColor: "#D8E3F8", background: "#FAFBFF" }}>
-              <p className="text-[14px] font-medium mb-3" style={{ color: "#101C34" }}>
+            <div key={idx} className="rounded-2xl border p-5 shadow-2xs transition-all hover:shadow-xs" style={{ borderColor: "#D8E3F8", background: "#FFFFFF" }}>
+              <p className="text-[14px] font-semibold mb-3.5 leading-snug" style={{ color: "#101C34" }}>
                 {idx + 1}. {q}
               </p>
               <div className="flex items-end gap-2">
                 <textarea
-                  rows={1}
+                  rows={2}
                   value={answers[idx]?.text || ""}
                   onChange={(e) => updateAnswer(idx, "text", e.target.value)}
-                  placeholder="Type your answer..."
-                  className="flex-1 resize-none px-3 py-2 rounded-lg text-sm outline-none border"
-                  style={{ borderColor: "#D8E3F8", color: "#101C34", background: "#FFFFFF" }}
+                  placeholder="Type your explanation or calculation..."
+                  className="flex-1 resize-none px-3.5 py-2.5 rounded-xl text-sm outline-none border transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                  style={{ borderColor: "#D8E3F8", color: "#101C34", background: "#FAFBFF" }}
                 />
                 <button
                   onClick={() => checkAnswer(idx, q)}
                   disabled={answers[idx]?.checking || !answers[idx]?.text?.trim()}
-                  className="px-3 py-2 rounded-lg text-xs font-medium text-white disabled:opacity-40 shrink-0"
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white transition-all shadow-2xs disabled:opacity-40 shrink-0 hover:opacity-90 active:scale-95"
                   style={{ background: "#2954E5" }}
                 >
-                  {answers[idx]?.checking ? <Loader2 size={14} className="animate-spin" /> : "Check"}
+                  {answers[idx]?.checking ? <Loader2 size={15} className="animate-spin" /> : "Check Answer"}
                 </button>
               </div>
               {answers[idx]?.feedback && (
-                <p className="text-sm mt-3 px-3 py-2 rounded-lg" style={{ background: "#E8F1FE", color: "#101C34" }}>
-                  {answers[idx].feedback}
-                </p>
+                <div className="mt-3.5 p-3.5 rounded-xl text-sm bg-blue-50/70 border border-blue-100 flex items-start gap-2.5 text-blue-950">
+                  <CheckCircle2 size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                  <div className="leading-relaxed">{answers[idx].feedback}</div>
+                </div>
               )}
             </div>
           ))}
         </div>
 
         {loadingBatch && (
-          <div className="flex items-center gap-2 text-sm py-4 justify-center" style={{ color: "#8493B0" }}>
-            <Loader2 size={16} className="animate-spin" /> Generating questions...
+          <div className="flex flex-col items-center gap-2 text-sm py-10 justify-center text-slate-500">
+            <Loader2 size={24} className="animate-spin text-blue-600" /> 
+            <span>Generating practice questions from study context...</span>
           </div>
         )}
 
         {canLoadMore && questions.length > 0 && (
           <button
             onClick={loadMore}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium border"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold border transition-all shadow-2xs hover:bg-blue-50/50"
             style={{ borderColor: "#D8E3F8", color: "#2954E5" }}
           >
             <Plus size={16} /> Load {Math.min(BATCH_SIZE, MAX_QUESTIONS - questions.length)} more questions

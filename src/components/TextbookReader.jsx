@@ -246,10 +246,9 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
            isOpen={aiSidebarOpen}
            onClose={() => setAiSidebarOpen(false)}
            currentPage={currentPage}
-           onAction={(action) => {
-             console.log('AI Action triggered:', action);
-             // TODO: implement AI tool logic
-           }}
+           bookId={bookId}
+           bookTitle={bookMeta?.title || 'Textbook'}
+           user={user}
          />
 
          {/* Floating HUD (Page Number Overlay) */}
