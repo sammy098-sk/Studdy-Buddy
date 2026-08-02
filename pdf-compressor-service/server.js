@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
@@ -10,16 +11,31 @@ import { ServerOCRPipeline } from './src/ServerOCRPipeline.js';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ─── CORS ──────────────────────────────────────────────────────────────────
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-  next();
-});
+// ─── CORS Configuration ────────────────────────────────────────────────────
+const allowedOrigins = [
+  'https://studdy-buddy-akvm.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, server-to-server, or same-origin)
+    if (!origin || allowedOrigins.some(o => origin === o || origin.startsWith(o))) {
+      return callback(null, true);
+    }
+    // Automatically trust Vercel preview/production deployments and local network dev URLs
+    if (origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    console.warn(`[CORS] Blocked cross-origin request from origin: ${origin}`);
+    return callback(new Error('Not allowed by CORS policy'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS', 'DELETE', 'PUT'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
 
 app.use(express.json({ limit: '250mb' }));
 app.use(express.urlencoded({ limit: '250mb', extended: true }));
