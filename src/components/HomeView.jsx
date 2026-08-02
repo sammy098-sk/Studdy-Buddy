@@ -1,22 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  BookOpen, 
-  Search, 
-  Sparkles, 
-  Clock3, 
-  ArrowRight, 
-  Award, 
-  Loader2, 
-  Play, 
-  CheckCircle2, 
-  ChevronRight, 
-  Compass, 
-  GraduationCap, 
-  BookMarked, 
-  Flame, 
-  Timer, 
-  Bookmark,
-  CircleUser
+  BookOpen, Search, Sparkles, Clock3, ArrowRight, Award, Loader2, Play, 
+  CheckCircle2, ChevronRight, Compass, GraduationCap, BookMarked, Flame, 
+  Timer, Bookmark, CircleUser, Calendar, Target, Zap, TrendingUp, BarChart3, Check
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { SUBJECT_ICONS } from '../config';
@@ -282,365 +268,543 @@ export default function HomeView({ user, onNavigate }) {
   const displayCompleted = `${completedCount} completed`;
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 flex flex-col justify-between">
-      <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-8 space-y-10 sm:space-y-12">
+    <div className="flex-1 overflow-y-auto bg-slate-50/70 flex flex-col justify-between">
+      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10">
         
-        {/* 1. Desktop-Only Greeting Section (Completely Hidden on Mobile to Avoid Duplication) */}
-        <div className="hidden md:flex flex-col space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-100/80 text-blue-700 rounded-full text-xs font-bold w-fit tracking-wide uppercase shadow-2xs">
-            <Sparkles size={14} strokeWidth={2} className="text-blue-600 animate-pulse" />
-            <span>Study Dashboard</span>
+        {/* 1. Desktop & Tablet Dashboard Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs">
+          <div className="space-y-1.5 min-w-0">
+            <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100/80 rounded-lg text-[11px] font-bold tracking-wider uppercase font-mono shadow-2xs">
+              <Sparkles size={13} strokeWidth={2.5} className="text-blue-600 animate-pulse" />
+              <span>Study Dashboard</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+              {getTimeGreeting()}, {user?.name || 'Student'} 👋
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm font-medium">
+              Your academic library, continuous progress tracking, and AI revision tools in one unified space.
+            </p>
           </div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            {getTimeGreeting()}, {user?.name || 'Student'} 👋
-          </h1>
-          <p className="text-slate-500 text-base font-medium">
-            Ready to continue learning and crush your exam goals today?
-          </p>
+          <button 
+            onClick={() => onNavigate('library')} 
+            className="hidden sm:inline-flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 active:translate-y-0 shrink-0 group"
+          >
+            <BookOpen size={16} />
+            <span>Open Full Library</span>
+            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
 
-        {/* 2. Statistics Cards Grid (Appears immediately at top on Mobile) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          
+        {/* 2. Improved Statistics Cards Grid (2x2 on mobile, 4 columns on large monitors with balanced proportions) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
           {/* Stat 1: Continue Reading Progress */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3.5 transition-all hover:border-slate-300">
-            <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <BookMarked size={24} strokeWidth={1.75} />
+          <div title="Textbooks currently open and in progress" className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-3.5 group">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <BookMarked size={22} strokeWidth={2} />
             </div>
-            <div className="min-w-0">
-              <div className="text-sm sm:text-base font-bold text-slate-800 truncate">{displayInProgress}</div>
-              <div className="text-xs font-medium text-slate-400 truncate">Continue Reading</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm sm:text-lg font-extrabold text-slate-800 truncate leading-tight">{displayInProgress}</div>
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-400 truncate mt-0.5">In Progress</div>
             </div>
           </div>
 
           {/* Stat 2: Reading Streak */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3.5 transition-all hover:border-slate-300">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-              <Flame size={24} strokeWidth={1.75} />
+          <div title="Consecutive daily study streak" className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-amber-300/80 transition-all duration-200 flex items-center gap-3.5 group">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+              <Flame size={22} strokeWidth={2} />
             </div>
-            <div className="min-w-0">
-              <div className="text-sm sm:text-base font-bold text-slate-800 truncate">{displayStreak}</div>
-              <div className="text-xs font-medium text-slate-400 truncate">Reading Streak</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm sm:text-lg font-extrabold text-slate-800 truncate leading-tight">{displayStreak}</div>
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-400 truncate mt-0.5">Reading Streak</div>
             </div>
           </div>
 
           {/* Stat 3: Hours Studied */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3.5 transition-all hover:border-slate-300">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <Timer size={24} strokeWidth={1.75} />
+          <div title="Cumulative recorded hours studying" className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-300/80 transition-all duration-200 flex items-center gap-3.5 group">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <Timer size={22} strokeWidth={2} />
             </div>
-            <div className="min-w-0">
-              <div className="text-sm sm:text-base font-bold text-slate-800 truncate">{displayHours}</div>
-              <div className="text-xs font-medium text-slate-400 truncate">Hours Studied</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm sm:text-lg font-extrabold text-slate-800 truncate leading-tight">{displayHours}</div>
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-400 truncate mt-0.5">Hours Studied</div>
             </div>
           </div>
 
           {/* Stat 4: Books Completed */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center gap-3.5 transition-all hover:border-slate-300">
-            <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-              <CheckCircle2 size={24} strokeWidth={1.75} />
+          <div title="Total textbooks finished end-to-end" className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300/80 transition-all duration-200 flex items-center gap-3.5 group">
+            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <CheckCircle2 size={22} strokeWidth={2} />
             </div>
-            <div className="min-w-0">
-              <div className="text-sm sm:text-base font-bold text-slate-800 truncate">{displayCompleted}</div>
-              <div className="text-xs font-medium text-slate-400 truncate">Books Completed</div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm sm:text-lg font-extrabold text-slate-800 truncate leading-tight">{displayCompleted}</div>
+              <div className="text-[11px] sm:text-xs font-semibold text-slate-400 truncate mt-0.5">Books Completed</div>
             </div>
-          </div>
-
-        </div>
-
-        {/* 3. Search Bar & Category Chips */}
-        <div className="space-y-4">
-          <div className="relative max-w-2xl">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-              <Search size={20} strokeWidth={2} />
-            </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search textbooks by title, subject, or author..."
-              className="w-full h-12 pl-12 pr-4 bg-white border border-slate-200 rounded-2xl shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-sm sm:text-base transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-bold text-slate-400 hover:text-slate-600"
-              >
-                Clear
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Filter:</span>
-            {['Popular', 'Recently Added', 'Exam Prep', 'WAEC', 'JAMB'].map((chip) => {
-              const isSelected = selectedGoalChip === chip;
-              const IconComponent = CHIP_ICONS[chip] || Sparkles;
-              return (
-                <button
-                  key={chip}
-                  onClick={() => handleChipClick(chip)}
-                  className={`h-10 px-3.5 rounded-full text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border shadow-2xs ${
-                    isSelected 
-                      ? 'bg-slate-900 text-white border-slate-900' 
-                      : 'bg-white text-slate-700 border-slate-200/80 hover:bg-slate-50 hover:border-slate-300'
-                  }`}
-                >
-                  <IconComponent size={15} strokeWidth={2} className={isSelected ? 'text-blue-400' : 'text-slate-500'} />
-                  <span>{chip}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
-        {/* LIVE SEARCH RESULTS VIEW */}
-        {isSearching ? (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <span>Search Results</span>
-                <span className="px-2.5 py-0.5 bg-blue-100 text-blue-700 rounded-md text-xs font-extrabold">{filteredBooks.length} found</span>
-              </h2>
-              <button
-                onClick={() => { setSearchQuery(''); setSelectedGoalChip(null); }}
-                className="text-xs font-bold text-blue-600 hover:underline"
-              >
-                Reset filter
-              </button>
-            </div>
-
-            {filteredBooks.length === 0 ? (
-              <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 border-dashed">
-                <Compass size={36} strokeWidth={1.5} className="mx-auto text-slate-300 mb-3" />
-                <h3 className="text-base font-bold text-slate-700 mb-1">No textbooks match your criteria</h3>
-                <p className="text-sm text-slate-500 max-w-sm mx-auto">
-                  Try adjusting your search keywords or removing active filter badges.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {filteredBooks.map(book => (
-                  <div 
-                    key={book.id}
-                    onClick={() => onNavigate('reader', { bookId: book.id })}
-                    className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
+        {/* 3. MULTI-COLUMN DASHBOARD LAYOUT (Desktop reorganizes into columns; Mobile keeps a clean vertical stack) */}
+        <div className="lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start space-y-8 lg:space-y-0">
+          
+          {/* LEFT / MAIN CONTENT AREA (8 Columns on Desktop) */}
+          <div className="lg:col-span-8 space-y-8 sm:space-y-10 min-w-0">
+            
+            {/* Search Bar & Goal Filter Chips */}
+            <div className="space-y-3.5 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                  <Search size={18} strokeWidth={2.5} />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter textbooks by title, subject, or topic..."
+                  className="w-full h-11 pl-11 pr-20 bg-slate-50 border border-slate-200/80 rounded-xl hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-sm transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-bold text-slate-400 hover:text-slate-700"
                   >
-                    <div className={`h-32 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-3.5 flex flex-col justify-between relative overflow-hidden`}>
-                      <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-black/20 border-r border-white/10" />
-                      <span className="ml-2 px-1.5 py-0.5 bg-black/30 backdrop-blur-md rounded text-[9px] font-bold text-white uppercase w-fit tracking-wider">
-                        {book.subject}
-                      </span>
-                      <p className="text-white font-bold text-xs line-clamp-1 ml-2 drop-shadow-xs">{book.title}</p>
-                    </div>
-                    <div className="p-3.5">
-                      <div className="text-xs font-bold text-blue-600 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                        <span>Open textbook</span>
-                        <ArrowRight size={14} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    Clear
+                  </button>
+                )}
               </div>
-            )}
-          </div>
-        ) : (
-          <>
-            {/* 4. CONTINUE READING HERO WIDGET */}
-            {activeBook && (
-              <div className="space-y-3">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 pl-1">
-                  <BookMarked size={16} strokeWidth={2} className="text-blue-600" />
-                  <span>Continue Reading</span>
-                </h2>
 
-                <div 
-                  onClick={() => onNavigate('reader', { bookId: activeBook.id })}
-                  className={`bg-gradient-to-br ${getSubjectColor(activeBook.subject)} rounded-2xl p-6 sm:p-8 text-white shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer relative overflow-hidden group border border-white/10`}
-                >
-                  <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-                  <BookOpen className="absolute right-6 sm:right-10 top-1/2 -translate-y-1/2 w-36 h-36 sm:w-48 sm:h-48 text-white/10 rotate-12 pointer-events-none group-hover:scale-105 transition-transform duration-500" />
-                  <div className="absolute left-0 top-0 bottom-0 w-4 bg-black/25 border-r border-white/15" />
-
-                  <div className="relative z-10 pl-3 sm:pl-5 max-w-2xl">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/30 backdrop-blur-md border border-white/20 rounded-lg text-xs font-bold tracking-wide uppercase mb-3 shadow-2xs">
-                      <BookOpen size={13} strokeWidth={2} />
-                      <span>{activeBook.subject || 'Textbook'}</span>
-                    </div>
-
-                    <h3 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white leading-tight mb-1.5 group-hover:text-blue-200 transition-colors">
-                      {activeBook.title}
-                    </h3>
-                    {activeBook.author && (
-                      <p className="text-white/80 font-medium text-sm sm:text-base mb-6">
-                        By {activeBook.author}
-                      </p>
-                    )}
-
-                    {activeBook.progress && activeBook.progress.current_page ? (
-                      <div className="space-y-2.5 mb-6">
-                        <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-white/90">
-                          <span className="flex items-center gap-1.5">
-                            <Clock3 size={15} strokeWidth={2} className="text-blue-300" />
-                            <span>Page {activeBook.progress.current_page} of {activeBook.total_pages || '?'}</span>
-                          </span>
-                          <span className="text-blue-200 font-extrabold">
-                            {Math.min(100, Math.round((activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}% Complete
-                          </span>
-                        </div>
-                        <div className="w-full h-2.5 bg-black/30 backdrop-blur-sm rounded-full overflow-hidden p-0.5 border border-white/10">
-                          <div 
-                            className="h-full bg-gradient-to-r from-blue-400 to-emerald-400 rounded-full transition-all duration-1000"
-                            style={{ width: `${Math.min(100, Math.max(5, (activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs sm:text-sm text-blue-200 font-semibold mb-6 flex items-center gap-2">
-                        <Play size={14} fill="currentColor" />
-                        Ready for your first reading session!
-                      </p>
-                    )}
-
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onNavigate('reader', { bookId: activeBook.id });
-                      }}
-                      className="h-12 px-6 bg-white text-slate-900 font-bold text-sm sm:text-base rounded-xl shadow-md hover:bg-slate-100 active:scale-95 transition-all inline-flex items-center gap-2.5 group/btn"
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Topic Filter:</span>
+                {['Popular', 'Recently Added', 'Exam Prep', 'WAEC', 'JAMB'].map((chip) => {
+                  const isSelected = selectedGoalChip === chip;
+                  const IconComponent = CHIP_ICONS[chip] || Sparkles;
+                  return (
+                    <button
+                      key={chip}
+                      onClick={() => handleChipClick(chip)}
+                      className={`h-9 px-3.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 border shadow-2xs ${
+                        isSelected 
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20' 
+                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'
+                      }`}
                     >
-                      <Play size={16} fill="currentColor" className="text-blue-600" />
-                      <span>{activeBook.progress?.current_page ? 'Continue Reading' : 'Start Reading'}</span>
-                      <ArrowRight size={18} strokeWidth={2} className="group-hover/btn:translate-x-1 transition-transform text-slate-400" />
+                      <IconComponent size={14} strokeWidth={2.2} className={isSelected ? 'text-white' : 'text-blue-500'} />
+                      <span>{chip}</span>
                     </button>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            )}
-
-            {/* 5. COMPACT SUBJECTS GRID */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pl-1">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <GraduationCap size={17} strokeWidth={2} className="text-purple-600" />
-                  <span>Subjects & Curriculum</span>
-                </h2>
-                <button 
-                  onClick={() => onNavigate('library')} 
-                  className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
-                >
-                  <span>View full library</span>
-                  <ChevronRight size={16} strokeWidth={2} />
-                </button>
-              </div>
-
-              {loading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 size={26} strokeWidth={2} className="animate-spin text-slate-400" />
-                </div>
-              ) : subjects.length === 0 ? (
-                <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-500 font-medium text-sm">
-                  No published subjects available yet. Ask an admin to upload textbooks!
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-                  {subjects.map((s) => {
-                    const IconComponent = SUBJECT_ICONS[s.name] || BookOpen;
-                    const pastelStyle = getSubjectPastel(s.name);
-                    const iconStyle = getSubjectIconColor(s.name);
-                    
-                    return (
-                      <div
-                        key={s.name}
-                        onClick={() => onNavigate('library', { subject: s.name })}
-                        className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] cursor-pointer shadow-2xs group flex flex-col justify-between h-full min-h-[6.5rem]`}
-                      >
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${iconStyle}`}>
-                            <IconComponent size={20} strokeWidth={2} />
-                          </div>
-                          <span className="font-bold text-sm sm:text-[15px] truncate leading-tight">{s.name}</span>
-                        </div>
-                        
-                        <div className="flex items-center justify-between text-xs font-bold pt-2.5 border-t border-black/5 opacity-80">
-                          <span>{s.count} {s.count === 1 ? 'book' : 'books'}</span>
-                          <span className="group-hover:translate-x-1 transition-transform flex items-center gap-1 text-slate-800 font-extrabold">
-                            <span>Open</span>
-                            <ArrowRight size={13} strokeWidth={2.5} />
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
 
-            {/* 6. RECENTLY ADDED (Horizontal Carousel) */}
-            {books.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between pl-1">
-                  <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                    <Sparkles size={16} strokeWidth={2} className="text-amber-500" />
-                    <span>Recently Added</span>
+            {/* LIVE SEARCH RESULTS VIEW */}
+            {isSearching ? (
+              <div className="space-y-6 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base sm:text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                    <span>Search & Filter Results</span>
+                    <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg text-xs font-extrabold">{filteredBooks.length} found</span>
                   </h2>
-                  <button 
-                    onClick={() => onNavigate('library')}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+                  <button
+                    onClick={() => { setSearchQuery(''); setSelectedGoalChip(null); }}
+                    className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
                   >
-                    <span>See all ({books.length})</span>
-                    <ChevronRight size={16} strokeWidth={2} />
+                    <span>Reset filters</span>
                   </button>
                 </div>
 
-                <div className="flex overflow-x-auto gap-3 sm:gap-4 pb-4 snap-x snap-mandatory no-scrollbar">
-                  {books.slice(0, 6).map((book) => {
-                    const isProcessing = book.status !== 'ready';
-                    return (
-                      <div
+                {filteredBooks.length === 0 ? (
+                  <div className="p-12 text-center bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
+                    <Compass size={36} strokeWidth={1.5} className="mx-auto text-slate-300 mb-3" />
+                    <h3 className="text-base font-bold text-slate-700 mb-1">No textbooks match your criteria</h3>
+                    <p className="text-sm text-slate-500 max-w-sm mx-auto">
+                      Try adjusting your search keywords or clearing active filter badges.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4">
+                    {filteredBooks.map(book => (
+                      <div 
                         key={book.id}
-                        onClick={() => !isProcessing && onNavigate('reader', { bookId: book.id })}
-                        className="w-44 sm:w-48 shrink-0 snap-start bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-md transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer flex flex-col group"
+                        onClick={() => onNavigate('reader', { bookId: book.id })}
+                        className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-md hover:-translate-y-1 transition-all duration-200 cursor-pointer group flex flex-col justify-between"
                       >
-                        <div className={`h-32 sm:h-36 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-3 flex flex-col justify-between relative overflow-hidden shrink-0`}>
-                          <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-black/20 border-r border-white/10 z-10" />
-                          <div className="relative z-20 pl-1.5">
-                            <span className="inline-block px-2 py-0.5 bg-black/30 backdrop-blur-md rounded text-[9px] font-bold text-white uppercase tracking-wider">
-                              {book.subject || 'Book'}
-                            </span>
-                          </div>
-                          <div className="relative z-20 pl-1.5 mt-auto">
-                            <div className="w-6 h-0.5 bg-white/40 rounded-full mb-1"></div>
-                            <p className="text-white text-[11px] font-bold line-clamp-1 uppercase tracking-tight opacity-95">{book.title}</p>
-                          </div>
+                        <div className={`h-36 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-3.5 flex flex-col justify-between relative overflow-hidden shrink-0`}>
+                          <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-black/20 border-r border-white/10" />
+                          <span className="ml-1.5 px-2 py-0.5 bg-black/30 backdrop-blur-md rounded-md text-[9px] font-extrabold text-white uppercase w-fit tracking-wider">
+                            {book.subject}
+                          </span>
+                          <p className="text-white font-extrabold text-[13px] line-clamp-2 ml-1.5 leading-tight drop-shadow-sm">{book.title}</p>
                         </div>
-
-                        <div className="p-3.5 flex-1 flex flex-col justify-between bg-white">
-                          <div>
-                            <h3 className="text-[13px] sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug mb-1 min-h-[2.4rem]" title={book.title}>
-                              {book.title}
-                            </h3>
-                            <p className="text-xs text-slate-400 font-medium truncate mb-3">
-                              {book.author || 'Academic Press'}
-                            </p>
-                          </div>
-                          
-                          <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
-                            <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
-                            <span className="group-hover:translate-x-1 transition-transform flex items-center gap-1">
-                              <span>Read</span>
-                              <ArrowRight size={12} strokeWidth={2.5} />
-                            </span>
+                        <div className="p-3.5 bg-white">
+                          <div className="text-xs font-extrabold text-blue-600 flex items-center justify-between group-hover:text-blue-700 transition-colors">
+                            <span>Open textbook</span>
+                            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* 4. CONTINUE READING HERO WIDGET */}
+                {activeBook && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h2 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-2 font-mono">
+                        <BookMarked size={16} strokeWidth={2.2} className="text-blue-600" />
+                        <span>Continue Reading</span>
+                      </h2>
+                      <button onClick={() => onNavigate('sessions')} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+                        <span>View reading sessions</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+
+                    <div 
+                      onClick={() => onNavigate('reader', { bookId: activeBook.id })}
+                      className={`bg-gradient-to-br ${getSubjectColor(activeBook.subject)} rounded-3xl p-6 sm:p-8 text-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer relative overflow-hidden group border border-white/15 hover:-translate-y-0.5`}
+                    >
+                      <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+                      <BookOpen className="absolute right-6 sm:right-10 top-1/2 -translate-y-1/2 w-36 h-36 sm:w-52 sm:h-52 text-white/10 rotate-12 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
+                      <div className="absolute left-0 top-0 bottom-0 w-4 bg-black/25 border-r border-white/15" />
+
+                      <div className="relative z-10 pl-3 sm:pl-5 max-w-2xl">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/30 backdrop-blur-md border border-white/20 rounded-xl text-xs font-extrabold tracking-wide uppercase mb-3.5 shadow-2xs">
+                          <BookOpen size={13} strokeWidth={2.5} className="text-blue-300" />
+                          <span>{activeBook.subject || 'Textbook'}</span>
+                        </div>
+
+                        <h3 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight mb-2 group-hover:text-blue-200 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                          {activeBook.title}
+                        </h3>
+                        {activeBook.author && (
+                          <p className="text-white/80 font-medium text-sm sm:text-base mb-6">
+                            By {activeBook.author}
+                          </p>
+                        )}
+
+                        {activeBook.progress && activeBook.progress.current_page ? (
+                          <div className="space-y-2.5 mb-6">
+                            <div className="flex items-center justify-between text-xs sm:text-sm font-bold text-white/90">
+                              <span className="flex items-center gap-1.5">
+                                <Clock3 size={15} strokeWidth={2.5} className="text-blue-300" />
+                                <span>Page {activeBook.progress.current_page} of {activeBook.total_pages || '?'}</span>
+                              </span>
+                              <span className="text-blue-200 font-extrabold">
+                                {Math.min(100, Math.round((activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}% Complete
+                              </span>
+                            </div>
+                            <div className="w-full h-3 bg-black/40 backdrop-blur-sm rounded-full overflow-hidden p-0.5 border border-white/15">
+                              <div 
+                                className="h-full bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400 rounded-full transition-all duration-1000 shadow-sm"
+                                style={{ width: `${Math.min(100, Math.max(5, (activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%` }}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-xs sm:text-sm text-blue-200 font-bold mb-6 flex items-center gap-2">
+                            <Play size={14} fill="currentColor" />
+                            Ready for your first interactive reading session!
+                          </p>
+                        )}
+
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate('reader', { bookId: activeBook.id });
+                          }}
+                          className="h-12 px-6 bg-white text-slate-900 font-extrabold text-sm sm:text-base rounded-2xl shadow-lg hover:bg-slate-100 active:scale-95 transition-all inline-flex items-center gap-2.5 group/btn border border-slate-200"
+                        >
+                          <Play size={16} fill="currentColor" className="text-blue-600" />
+                          <span>{activeBook.progress?.current_page ? 'Continue Reading' : 'Start Reading'}</span>
+                          <ArrowRight size={18} strokeWidth={2.5} className="group-hover/btn:translate-x-1 transition-transform text-slate-400" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. SUBJECTS & CURRICULUM GRID */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-1">
+                    <h2 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-2 font-mono">
+                      <GraduationCap size={17} strokeWidth={2.2} className="text-purple-600" />
+                      <span>Subjects & Curriculum</span>
+                    </h2>
+                    <button 
+                      onClick={() => onNavigate('library')} 
+                      className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors hover:underline"
+                    >
+                      <span>View full library</span>
+                      <ChevronRight size={15} strokeWidth={2.5} />
+                    </button>
+                  </div>
+
+                  {loading ? (
+                    <div className="flex justify-center py-12 bg-white rounded-3xl border border-slate-200/80">
+                      <Loader2 size={26} strokeWidth={2} className="animate-spin text-blue-600" />
+                    </div>
+                  ) : subjects.length === 0 ? (
+                    <div className="p-8 text-center bg-white rounded-3xl border border-slate-200/80 text-slate-500 font-medium text-sm">
+                      No published subjects available yet. Ask an admin to upload textbooks!
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4">
+                      {subjects.map((s) => {
+                        const IconComponent = SUBJECT_ICONS[s.name] || BookOpen;
+                        const pastelStyle = getSubjectPastel(s.name);
+                        const iconStyle = getSubjectIconColor(s.name);
+                        
+                        return (
+                          <div
+                            key={s.name}
+                            onClick={() => onNavigate('library', { subject: s.name })}
+                            className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl border transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[7rem]`}
+                          >
+                            <div className="flex items-center gap-3 mb-4 min-w-0">
+                              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
+                                <IconComponent size={22} strokeWidth={2} />
+                              </div>
+                              <span className="font-extrabold text-sm sm:text-[15.5px] truncate leading-tight" style={{ fontFamily: "'Montserrat', sans-serif" }}>{s.name}</span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-xs font-extrabold pt-3 border-t border-black/5 opacity-90">
+                              <span>{s.count} {s.count === 1 ? 'book' : 'books'}</span>
+                              <span className="group-hover:translate-x-1.5 transition-transform flex items-center gap-1 text-slate-900">
+                                <span>Explore</span>
+                                <ArrowRight size={13} strokeWidth={2.5} />
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* 6. RECENTLY ADDED BOOKS */}
+                {books.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <h2 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-2 font-mono">
+                        <Sparkles size={16} strokeWidth={2.2} className="text-amber-500" />
+                        <span>Recently Added Books</span>
+                      </h2>
+                      <button 
+                        onClick={() => onNavigate('library')}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors hover:underline"
+                      >
+                        <span>See all ({books.length})</span>
+                        <ChevronRight size={15} strokeWidth={2.5} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4">
+                      {books.slice(0, 6).map((book) => {
+                        const isProcessing = book.status !== 'ready';
+                        return (
+                          <div
+                            key={book.id}
+                            onClick={() => !isProcessing && onNavigate('reader', { bookId: book.id })}
+                            className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-lg transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer flex flex-col group justify-between"
+                          >
+                            <div className={`h-36 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-3.5 flex flex-col justify-between relative overflow-hidden shrink-0`}>
+                              <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-black/20 border-r border-white/10 z-10" />
+                              <div className="relative z-20 pl-1.5">
+                                <span className="inline-block px-2 py-0.5 bg-black/30 backdrop-blur-md rounded-md text-[9px] font-extrabold text-white uppercase tracking-wider">
+                                  {book.subject || 'Book'}
+                                </span>
+                              </div>
+                              <div className="relative z-20 pl-1.5 mt-auto">
+                                <div className="w-6 h-0.5 bg-white/40 rounded-full mb-1"></div>
+                                <p className="text-white text-[12px] font-extrabold line-clamp-2 uppercase tracking-tight opacity-95 leading-tight">{book.title}</p>
+                              </div>
+                            </div>
+
+                            <div className="p-4 flex-1 flex flex-col justify-between bg-white">
+                              <div>
+                                <h3 className="text-[13px] sm:text-sm font-bold text-slate-800 line-clamp-2 leading-snug mb-1 min-h-[2.4rem]" title={book.title}>
+                                  {book.title}
+                                </h3>
+                                <p className="text-xs text-slate-400 font-medium truncate mb-3">
+                                  {book.author || 'Academic Press'}
+                                </p>
+                              </div>
+                              
+                              <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-blue-600">
+                                <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
+                                <span className="group-hover:translate-x-1.5 transition-transform flex items-center gap-1 text-blue-700">
+                                  <span>Read</span>
+                                  <ArrowRight size={13} strokeWidth={2.5} />
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* RIGHT INFORMATION PANEL (4 Columns on Desktop ONLY - Completely hidden on mobile/tablet) */}
+          <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 sticky top-6">
+            
+            {/* Widget 1: Daily Study Goal & Streak */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-800 font-extrabold text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100/80">
+                    <Target size={18} strokeWidth={2.5} />
+                  </div>
+                  <span>Daily Study Goal</span>
+                </div>
+                <span className="text-xs font-bold bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200/60 font-mono">
+                  30 mins / day
+                </span>
+              </div>
+
+              <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 rounded-2xl p-5 text-white shadow-md relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-28 h-28 bg-white/15 rounded-full blur-lg pointer-events-none" />
+                <div className="flex items-center justify-between mb-3 relative z-10">
+                  <div>
+                    <div className="text-[11px] font-extrabold uppercase tracking-wider text-amber-100">Current Streak</div>
+                    <div className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-1.5 mt-0.5">
+                      <Flame size={24} className="text-yellow-300 fill-yellow-300 animate-bounce" />
+                      <span>{streakDays || 0} Days Active</span>
+                    </div>
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-black/20 backdrop-blur-md flex items-center justify-center text-amber-100 font-bold text-xs border border-white/20">
+                    🏆
+                  </div>
+                </div>
+                <div className="space-y-1.5 pt-2 border-t border-white/15">
+                  <div className="flex justify-between text-xs font-extrabold text-amber-50">
+                    <span>Today's Progress</span>
+                    <span>{hoursStudied ? Math.min(100, Math.round((hoursStudied / 0.5) * 100)) : 10}%</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-black/25 rounded-full overflow-hidden p-0.5 border border-white/10">
+                    <div className="h-full bg-gradient-to-r from-yellow-300 to-emerald-300 rounded-full transition-all duration-500" style={{ width: `${hoursStudied ? Math.min(100, Math.round((hoursStudied / 0.5) * 100)) : 10}%` }} />
+                  </div>
                 </div>
               </div>
-            )}
-          </>
-        )}
+
+              <p className="text-xs text-slate-500 font-medium leading-relaxed text-center px-1">
+                🔥 Keep reading daily! Consistent 30-minute sessions increase exam recall by up to 3.5x.
+              </p>
+            </div>
+
+            {/* Widget 2: Weekly Consistency Calendar */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-800 font-extrabold text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/80">
+                    <Calendar size={18} strokeWidth={2.2} />
+                  </div>
+                  <span>This Week's Consistency</span>
+                </div>
+                <span className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer" onClick={() => onNavigate('sessions')}>
+                  History
+                </span>
+              </div>
+
+              <div className="grid grid-cols-7 gap-2 pt-1">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => {
+                  const todayIdx = (new Date().getDay() + 6) % 7; // Monday = 0
+                  const isToday = idx === todayIdx;
+                  const isPastOrToday = idx <= todayIdx;
+
+                  return (
+                    <div key={day} className="flex flex-col items-center gap-1.5">
+                      <span className={`text-[10px] font-extrabold uppercase font-mono ${isToday ? 'text-blue-600 font-black' : 'text-slate-400'}`}>
+                        {day}
+                      </span>
+                      <div className={`w-9 h-11 rounded-xl flex flex-col items-center justify-center font-extrabold text-xs transition-transform ${
+                        isToday 
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 scale-105 border border-blue-600' 
+                          : isPastOrToday 
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' 
+                          : 'bg-slate-50 text-slate-300 border border-slate-150'
+                      }`}>
+                        {isPastOrToday ? <Check size={16} strokeWidth={3} className={isToday ? 'text-white' : 'text-emerald-600'} /> : '·'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70 flex items-center justify-between text-xs font-semibold text-slate-600">
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
+                  <span>On track for Weekly Honors badge</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Widget 3: Quick Study Prompts & Exam Readiness */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+              <div className="flex items-center gap-2 text-slate-800 font-extrabold text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100/80">
+                  <Zap size={18} strokeWidth={2.2} />
+                </div>
+                <span>Exam Readiness Tools</span>
+              </div>
+
+              <div className="flex flex-col gap-2.5">
+                <button 
+                  onClick={() => handleChipClick('WAEC')}
+                  className="w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-50 to-indigo-50/50 hover:from-blue-50/70 hover:to-indigo-100/60 border border-slate-200/80 hover:border-blue-300 rounded-2xl text-left transition-all group shadow-2xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                      W
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-blue-900 transition-colors">WAEC Past Questions & Prep</div>
+                      <div className="text-[11px] font-medium text-slate-400 mt-0.5">Filtered curriculum guides</div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                </button>
+
+                <button 
+                  onClick={() => handleChipClick('JAMB')}
+                  className="w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-50 to-amber-50/50 hover:from-amber-50/80 hover:to-orange-100/50 border border-slate-200/80 hover:border-amber-300 rounded-2xl text-left transition-all group shadow-2xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                      J
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-amber-950 transition-colors">JAMB 2026 Syllabus Picks</div>
+                      <div className="text-[11px] font-medium text-slate-400 mt-0.5">High-frequency topics</div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-300 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                </button>
+
+                <button 
+                  onClick={() => onNavigate('sessions')}
+                  className="w-full flex items-center justify-between p-3.5 bg-white hover:bg-slate-50 border border-slate-200/80 hover:border-slate-300 rounded-2xl text-left transition-all group shadow-2xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 shadow-2xs font-extrabold">
+                      <BarChart3 size={17} strokeWidth={2.2} />
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs sm:text-[13px] text-slate-800">Review AI Diagnostic Sessions</div>
+                      <div className="text-[11px] font-medium text-slate-400 mt-0.5">Check past test evaluations</div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
       {/* Responsive Application Footer */}
