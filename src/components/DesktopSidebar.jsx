@@ -63,13 +63,17 @@ export default function DesktopSidebar({ user, currentPath, onNavigate }) {
     if (user?.id) {
       (async () => {
         try {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('reading_progress')
             .select('book_id, current_page, textbooks(title, subject)')
             .eq('user_id', user.id)
             .order('updated_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+          if (error) {
+            console.error("Supabase reading_progress query failed in DesktopSidebar:", error.message);
+            return null;
+          }
           if (data) setContinueReadingBook(data);
         } catch (err) {
           console.warn('Could not fetch sidebar reading progress:', err);

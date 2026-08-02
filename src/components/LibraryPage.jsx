@@ -43,10 +43,12 @@ export default function LibraryPage({ user, onNavigate }) {
         .select('*')
         .eq('user_id', user.id);
 
-      if (progressError) throw progressError;
+      if (progressError) {
+        console.error("Supabase Request Failed in LibraryPage:", progressError.message);
+      }
 
       const progressMap = {};
-      if (progressData) {
+      if (progressData && !progressError) {
         progressData.forEach(p => {
           progressMap[p.book_id] = p;
         });

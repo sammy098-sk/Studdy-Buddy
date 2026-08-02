@@ -57,24 +57,29 @@ export function useChunkManager(bookId, user) {
 
         // 4. Fetch Reading Progress
         if (user) {
-          const { data: progressData } = await supabase
-          .from('reading_progress')
-          .select('current_page, zoom_level, view_mode, fit_mode')
-          .eq('user_id', user.id)
-          .eq('book_id', bookId)
-          .maybeSingle();
+          const { data: progressData, error: progressError } = await supabase
+            .from('reading_progress')
+            .select('current_page, zoom_level, view_mode, fit_mode')
+            .eq('user_id', user.id)
+            .eq('book_id', bookId)
+            .maybeSingle();
           
-        if (progressData) {
-          setInitialPage(progressData.current_page || 1);
-          setInitialZoom(progressData.zoom_level || 1.0);
-          setInitialViewMode(progressData.view_mode || 'continuous');
-          setInitialFitMode(progressData.fit_mode !== false);
-        } else {
-          setInitialPage(1);
-          setInitialZoom(1.0);
-          setInitialViewMode('continuous');
-          setInitialFitMode(true);
-        }  }
+          if (progressError) {
+            console.error("Supabase Request Failed in useChunkManager:", progressError.message);
+          }
+
+          if (progressData && !progressError) {
+            setInitialPage(progressData.current_page || 1);
+            setInitialZoom(progressData.zoom_level || 1.0);
+            setInitialViewMode(progressData.view_mode || 'continuous');
+            setInitialFitMode(progressData.fit_mode !== false);
+          } else {
+            setInitialPage(1);
+            setInitialZoom(1.0);
+            setInitialViewMode('continuous');
+            setInitialFitMode(true);
+          }
+        }
 
         if (isMounted) {
           setBookMeta(book);

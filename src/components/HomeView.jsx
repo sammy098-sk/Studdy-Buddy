@@ -94,13 +94,15 @@ export default function HomeView({ user, onNavigate }) {
         let computedHours = null;
 
         if (user?.id) {
-          const { data: progressData } = await supabase
+          const { data: progressData, error: progressError } = await supabase
             .from('reading_progress')
             .select('*')
             .eq('user_id', user.id)
             .order('updated_at', { ascending: false });
 
-          if (progressData && progressData.length > 0) {
+          if (progressError) {
+            console.error("Supabase reading_progress query failed in HomeView:", progressError.message);
+          } else if (progressData && progressData.length > 0) {
             progressData.forEach(p => {
               progressMap[p.book_id] = p;
             });

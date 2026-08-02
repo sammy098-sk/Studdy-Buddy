@@ -187,6 +187,45 @@ class ReaderPreferencesService {
   }
 
   /**
+   * Get current study scope for a book immediately from local cache or defaults.
+   */
+  getScope(userId, bookId) {
+    const key = this.#getCacheKey(userId, bookId);
+    const cached = this.#readLocalCache(key);
+    return cached?.study_scope || cached?.studyScope || this.getDefaults().study_scope;
+  }
+
+  /**
+   * Set and persist the study scope for a book (updates cache immediately and synchronizes to cloud).
+   */
+  async setScope(userId, bookId, scope) {
+    return this.savePreference({
+      userId,
+      bookId,
+      key: 'study_scope',
+      value: scope,
+      updates: { study_scope: scope, studyScope: scope }
+    });
+  }
+
+  /**
+   * Asynchronously synchronizes reader preferences with Supabase cloud source of truth.
+   */
+  async syncPreferences(userId, bookId) {
+    if (!userId || !bookId) return this.getDefaults();
+    try {
+      const prefs = await this.initPreferences({ userId, bookId });
+      return {
+        ...prefs,
+        studyScope: prefs.study_scope || prefs.studyScope || 'page'
+      };
+    } catch (e) {
+      console.warn('[ReaderPreferences] Sync warning:', e.message);
+      return { ...this.getDefaults(), studyScope: 'page' };
+    }
+  }
+
+  /**
    * Clear all cached reader preferences for a specific user upon logout.
    * Prevents leaking reading preferences between multiple users on shared devices.
    */
