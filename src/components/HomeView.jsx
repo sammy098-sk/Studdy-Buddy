@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  BookOpen, Search, Sparkles, Clock3, ArrowRight, Award, Loader2, Play, 
-  CheckCircle2, ChevronRight, Compass, GraduationCap, BookMarked, Flame, 
-  Timer, Bookmark, CircleUser, Calendar, Target, Zap, TrendingUp, BarChart3, Check
+  BookOpen, Search, Sparkles, Clock3, ArrowRight, Loader2, Play, 
+  CheckCircle2, ChevronRight, Compass, GraduationCap, BookMarked, 
+  Timer, Bookmark
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { SUBJECT_ICONS } from '../config';
@@ -54,10 +54,9 @@ const getSubjectColor = (subject) => {
 };
 
 const CHIP_ICONS = {
-  'Popular': Flame,
+  'Popular': Sparkles,
   'Recently Added': Sparkles,
   'Exam Prep': GraduationCap,
-  'WAEC': BookOpen,
   'JAMB': Bookmark
 };
 
@@ -372,8 +371,8 @@ export default function HomeView({ user, onNavigate }) {
               </div>
 
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Topic Filter:</span>
-                {['Popular', 'Recently Added', 'Exam Prep', 'WAEC', 'JAMB'].map((chip) => {
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Filter:</span>
+                {['Popular', 'Recently Added', 'Exam Prep', 'JAMB'].map((chip) => {
                   const isSelected = selectedGoalChip === chip;
                   const IconComponent = CHIP_ICONS[chip] || Sparkles;
                   return (
@@ -649,159 +648,149 @@ export default function HomeView({ user, onNavigate }) {
             )}
           </div>
 
-          {/* RIGHT INFORMATION PANEL (4 Columns on Desktop ONLY - Completely hidden on mobile/tablet) */}
-          <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 sticky top-6">
-            
-            {/* Widget 1: Daily Study Goal & Streak */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-800 font-extrabold text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                  <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100/80">
-                    <Target size={18} strokeWidth={2.5} />
+          {/* RIGHT INFORMATION PANEL (Desktop ONLY — real data, no gamification) */}
+          <div className="hidden lg:flex lg:col-span-4 flex-col gap-5 sticky top-6">
+
+            {/* Widget 1: Daily Study Goal — only shown when real session data exists */}
+            {hoursStudied !== null && (
+              <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                      <Timer size={17} strokeWidth={2} />
+                    </div>
+                    <span className="text-sm font-extrabold text-slate-800" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                      Daily Study Goal
+                    </span>
                   </div>
-                  <span>Daily Study Goal</span>
+                  <span className="text-xs font-bold text-slate-500 font-mono">30 min / day</span>
                 </div>
-                <span className="text-xs font-bold bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full border border-amber-200/60 font-mono">
-                  30 mins / day
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                    <span>Studied today</span>
+                    <span className="font-bold text-slate-800">
+                      {hoursStudied !== null ? `${Math.round(hoursStudied * 60)} min` : '--'}
+                    </span>
+                  </div>
+                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 rounded-full transition-all duration-700"
+                      style={{
+                        width: hoursStudied !== null
+                          ? `${Math.min(100, Math.round((hoursStudied / 0.5) * 100))}%`
+                          : '0%'
+                      }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    {hoursStudied !== null && hoursStudied >= 0.5
+                      ? 'Goal reached for today.'
+                      : `${Math.max(0, Math.round((0.5 - (hoursStudied || 0)) * 60))} minutes remaining to reach today's goal.`
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Widget 2: Reading Stats — all values from real DB */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                  <BookMarked size={17} strokeWidth={2} />
+                </div>
+                <span className="text-sm font-extrabold text-slate-800" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  Reading Summary
                 </span>
               </div>
 
-              <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 rounded-2xl p-5 text-white shadow-md relative overflow-hidden">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-28 h-28 bg-white/15 rounded-full blur-lg pointer-events-none" />
-                <div className="flex items-center justify-between mb-3 relative z-10">
-                  <div>
-                    <div className="text-[11px] font-extrabold uppercase tracking-wider text-amber-100">Current Streak</div>
-                    <div className="text-2xl font-extrabold text-white tracking-tight flex items-center gap-1.5 mt-0.5">
-                      <Flame size={24} className="text-yellow-300 fill-yellow-300 animate-bounce" />
-                      <span>{streakDays || 0} Days Active</span>
-                    </div>
+              {[
+                {
+                  label: 'Books in progress',
+                  value: books.filter(b => b.progress && b.progress.current_page > 0 && !(b.total_pages > 0 && b.progress.current_page >= b.total_pages)).length,
+                  show: true,
+                },
+                {
+                  label: 'Books completed',
+                  value: books.filter(b => b.progress && b.total_pages > 0 && b.progress.current_page >= b.total_pages).length,
+                  show: true,
+                },
+                {
+                  label: 'Hours studied',
+                  value: hoursStudied !== null ? `${hoursStudied} hrs` : null,
+                  show: hoursStudied !== null,
+                },
+                {
+                  label: 'Reading streak',
+                  value: streakDays > 0 ? `${streakDays} ${streakDays === 1 ? 'day' : 'days'}` : null,
+                  show: streakDays > 0,
+                },
+              ].map(({ label, value, show }) =>
+                show ? (
+                  <div key={label} className="flex items-center justify-between py-1">
+                    <span className="text-xs font-medium text-slate-500">{label}</span>
+                    <span className="text-xs font-extrabold text-slate-800">
+                      {value !== null && value !== undefined ? value : '--'}
+                    </span>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-black/20 backdrop-blur-md flex items-center justify-center text-amber-100 font-bold text-xs border border-white/20">
-                    🏆
-                  </div>
-                </div>
-                <div className="space-y-1.5 pt-2 border-t border-white/15">
-                  <div className="flex justify-between text-xs font-extrabold text-amber-50">
-                    <span>Today's Progress</span>
-                    <span>{hoursStudied ? Math.min(100, Math.round((hoursStudied / 0.5) * 100)) : 10}%</span>
-                  </div>
-                  <div className="w-full h-2.5 bg-black/25 rounded-full overflow-hidden p-0.5 border border-white/10">
-                    <div className="h-full bg-gradient-to-r from-yellow-300 to-emerald-300 rounded-full transition-all duration-500" style={{ width: `${hoursStudied ? Math.min(100, Math.round((hoursStudied / 0.5) * 100)) : 10}%` }} />
-                  </div>
-                </div>
-              </div>
+                ) : null
+              )}
 
-              <p className="text-xs text-slate-500 font-medium leading-relaxed text-center px-1">
-                🔥 Keep reading daily! Consistent 30-minute sessions increase exam recall by up to 3.5x.
-              </p>
-            </div>
-
-            {/* Widget 2: Weekly Consistency Calendar */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-slate-800 font-extrabold text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100/80">
-                    <Calendar size={18} strokeWidth={2.2} />
-                  </div>
-                  <span>This Week's Consistency</span>
-                </div>
-                <span className="text-[11px] font-bold text-blue-600 hover:underline cursor-pointer" onClick={() => onNavigate('sessions')}>
-                  History
-                </span>
-              </div>
-
-              <div className="grid grid-cols-7 gap-2 pt-1">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => {
-                  const todayIdx = (new Date().getDay() + 6) % 7; // Monday = 0
-                  const isToday = idx === todayIdx;
-                  const isPastOrToday = idx <= todayIdx;
-
-                  return (
-                    <div key={day} className="flex flex-col items-center gap-1.5">
-                      <span className={`text-[10px] font-extrabold uppercase font-mono ${isToday ? 'text-blue-600 font-black' : 'text-slate-400'}`}>
-                        {day}
-                      </span>
-                      <div className={`w-9 h-11 rounded-xl flex flex-col items-center justify-center font-extrabold text-xs transition-transform ${
-                        isToday 
-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 scale-105 border border-blue-600' 
-                          : isPastOrToday 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80' 
-                          : 'bg-slate-50 text-slate-300 border border-slate-150'
-                      }`}>
-                        {isPastOrToday ? <Check size={16} strokeWidth={3} className={isToday ? 'text-white' : 'text-emerald-600'} /> : '·'}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/70 flex items-center justify-between text-xs font-semibold text-slate-600">
-                <span className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                  <span>On track for Weekly Honors badge</span>
-                </span>
-              </div>
-            </div>
-
-            {/* Widget 3: Quick Study Prompts & Exam Readiness */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-              <div className="flex items-center gap-2 text-slate-800 font-extrabold text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100/80">
-                  <Zap size={18} strokeWidth={2.2} />
-                </div>
-                <span>Exam Readiness Tools</span>
-              </div>
-
-              <div className="flex flex-col gap-2.5">
-                <button 
-                  onClick={() => handleChipClick('WAEC')}
-                  className="w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-50 to-indigo-50/50 hover:from-blue-50/70 hover:to-indigo-100/60 border border-slate-200/80 hover:border-blue-300 rounded-2xl text-left transition-all group shadow-2xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                      W
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-blue-900 transition-colors">WAEC Past Questions & Prep</div>
-                      <div className="text-[11px] font-medium text-slate-400 mt-0.5">Filtered curriculum guides</div>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-                </button>
-
-                <button 
-                  onClick={() => handleChipClick('JAMB')}
-                  className="w-full flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-50 to-amber-50/50 hover:from-amber-50/80 hover:to-orange-100/50 border border-slate-200/80 hover:border-amber-300 rounded-2xl text-left transition-all group shadow-2xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                      J
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-xs sm:text-[13px] text-slate-800 group-hover:text-amber-950 transition-colors">JAMB 2026 Syllabus Picks</div>
-                      <div className="text-[11px] font-medium text-slate-400 mt-0.5">High-frequency topics</div>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-300 group-hover:text-amber-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
-                </button>
-
-                <button 
+              <div className="pt-2">
+                <button
                   onClick={() => onNavigate('sessions')}
-                  className="w-full flex items-center justify-between p-3.5 bg-white hover:bg-slate-50 border border-slate-200/80 hover:border-slate-300 rounded-2xl text-left transition-all group shadow-2xs"
+                  className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors py-2 rounded-xl hover:bg-blue-50 border border-transparent hover:border-blue-100"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 shadow-2xs font-extrabold">
-                      <BarChart3 size={17} strokeWidth={2.2} />
-                    </div>
-                    <div>
-                      <div className="font-extrabold text-xs sm:text-[13px] text-slate-800">Review AI Diagnostic Sessions</div>
-                      <div className="text-[11px] font-medium text-slate-400 mt-0.5">Check past test evaluations</div>
-                    </div>
-                  </div>
-                  <ChevronRight size={16} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition-all shrink-0 ml-2" />
+                  <span>View reading history</span>
+                  <ChevronRight size={14} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
+
+            {/* Widget 3: JAMB Resources — navigates to library with JAMB filter */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-3">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                  <GraduationCap size={17} strokeWidth={2} />
+                </div>
+                <span className="text-sm font-extrabold text-slate-800" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  Exam Preparation
+                </span>
+              </div>
+
+              <button
+                onClick={() => handleChipClick('JAMB')}
+                className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-xl text-left transition-all group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-xs font-extrabold shrink-0">
+                    J
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 transition-colors">JAMB Textbooks</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Filter library by exam</div>
+                  </div>
+                </div>
+                <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500 transition-colors shrink-0" />
+              </button>
+
+              <button
+                onClick={() => onNavigate('library')}
+                className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-xl text-left transition-all group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-700 flex items-center justify-center shrink-0 transition-colors">
+                    <BookOpen size={15} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-800 group-hover:text-blue-700 transition-colors">Browse Full Library</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">All subjects & textbooks</div>
+                  </div>
+                </div>
+                <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500 transition-colors shrink-0" />
+              </button>
+            </div>
+
           </div>
 
         </div>
