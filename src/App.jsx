@@ -257,7 +257,7 @@ function MainApp() {
           {/* Legacy route kept for backward compatibility if needed */}
           <Route path="/legacy-study" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />
           <Route path="/sessions" element={<SessionsPage userId={user.id} onNavigate={navigateTo} onResume={handleResume} />} />
-          <Route path="/notifications" element={<NotificationsPage onNavigate={navigateTo} />} />
+          <Route path="/notifications" element={<NotificationsPage user={user} onNavigate={navigateTo} />} />
           <Route path="/profile" element={
             <ProfilePage
               user={user}
