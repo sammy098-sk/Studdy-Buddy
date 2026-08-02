@@ -8,6 +8,40 @@ import { supabase } from '../supabase';
 class StudyToolsService {
   constructor() {
     this.cache = new Map();
+    this.pageProviders = new Map(); // { bookId | 'active': getPageFn }
+    this.bookMetaCache = new Map(); // { bookId: { title } }
+  }
+
+  /**
+   * Register a dynamic PDF page getter function from an active viewer session.
+   */
+  registerPageProvider(bookId, getPageFn, bookTitle = null) {
+    if (bookId && typeof getPageFn === 'function') {
+      this.pageProviders.set(bookId, getPageFn);
+      this.pageProviders.set('active', getPageFn);
+    }
+    if (bookId && bookTitle) {
+      this.bookMetaCache.set(bookId, { title: bookTitle });
+    }
+  }
+
+  /**
+   * Proactively cache OCR text extracted during live page renders.
+   */
+  cacheExtractedText(bookId, pageNumber, text) {
+    if (!text) return;
+    const readableText = text.replace(/[^a-zA-Z0-9]/g, '');
+    if (readableText.length < 30) return; // ignore incomplete or unreadable OCR extracts
+
+    const cacheKey = `extracted_text_${bookId}_${pageNumber}`;
+    const existing = this.cache.get(cacheKey) || {};
+    this.cache.set(cacheKey, {
+      text: text.trim(),
+      chapterTitle: existing.chapterTitle || `Chapter (Page ${pageNumber})`,
+      sectionTitle: existing.sectionTitle || '',
+      isEmpty: false,
+      source: "PDF OCR Layer"
+    });
   }
 
   /**
@@ -35,15 +69,16 @@ class StudyToolsService {
    *
    * @param {string} bookId - UUID of the textbook
    * @param {number} pageNumber - Current reader page
-   * @returns {Promise<{ text: string, chapterTitle: string, source: string }>}
+   * @returns {Promise<{ text: string, chapterTitle: string, sectionTitle: string, isEmpty: boolean, source: string }>}
    */
-  async extractPageText(bookId, pageNumber = 1) {
+  async extractPageText(bookId, pageNumber = 1, forceRefresh = false) {
     const cacheKey = `extracted_text_${bookId}_${pageNumber}`;
-    if (this.cache.has(cacheKey)) {
+    if (!forceRefresh && this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey);
     }
 
-    let chapterTitle = `Chapter Section (Page ${pageNumber})`;
+    let chapterTitle = `Chapter (Page ${pageNumber})`;
+    let sectionTitle = '';
     let extractedText = '';
 
     if (bookId) {
@@ -51,26 +86,61 @@ class StudyToolsService {
         // Find chapter covering this page
         const { data: chapters } = await supabase
           .from('textbook_chapters')
-          .select('title, start_page, end_page')
+          .select('title, start_page, end_page, page_number, level, type')
           .eq('book_id', bookId)
-          .lte('start_page', pageNumber)
-          .order('start_page', { ascending: false })
-          .limit(1);
+          .lte('page_number', pageNumber)
+          .order('page_number', { ascending: false });
 
         if (chapters && chapters.length > 0) {
-          chapterTitle = chapters[0].title;
+          const sectionObj = chapters.find(c => c.level > 1 || c.type === 'concept');
+          const chapterObj = chapters.find(c => c.level === 1 || c.type === 'chapter' || c.type === 'frontMatter') || chapters[0];
+          if (chapterObj) chapterTitle = chapterObj.title;
+          if (sectionObj && sectionObj.title !== chapterTitle) sectionTitle = sectionObj.title;
         }
       } catch (err) {
         console.warn(`[StudyToolsService] Could not lookup chapter for book ${bookId} page ${pageNumber}:`, err);
       }
     }
 
-    // Default rich context fallback for Phase 1 architecture testing when OCR text chunks aren't cached locally
-    if (!extractedText) {
-      extractedText = `[Textbook Content Excerpt - Page ${pageNumber} of ${chapterTitle}]:\nThis section establishes fundamental theoretical principles, core formulas, and practical problem-solving methodologies. Key emphasis is placed on vocabulary retention and systematic resolution of practice examination scenarios.`;
+    // Dynamic OCR extraction via registered PDF page provider
+    const getPageFn = this.pageProviders.get(bookId) || this.pageProviders.get('active');
+    if (getPageFn) {
+      try {
+        const pageProxy = await getPageFn(pageNumber);
+        if (pageProxy && typeof pageProxy.getTextContent === 'function') {
+          const textContent = await pageProxy.getTextContent();
+          extractedText = (textContent.items || [])
+            .map(item => item.str || '')
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+      } catch (err) {
+        console.warn(`[StudyToolsService] Could not dynamically extract OCR text for book ${bookId}, page ${pageNumber}:`, err);
+      }
     }
 
-    const payload = { text: extractedText, chapterTitle, source: bookId ? "Textbook Database" : "Reader Memory" };
+    const readableText = extractedText.replace(/[^a-zA-Z0-9]/g, '');
+    const isEmpty = readableText.length < 30;
+
+    if (import.meta.env?.DEV || import.meta.env?.MODE === 'development') {
+      console.log(`[StudyToolsService] Page ${pageNumber} Extraction — Book: ${bookId || 'N/A'}, Chapter: "${chapterTitle}", Section: "${sectionTitle || 'N/A'}", Extracted Chars: ${extractedText.length}, Readable Chars: ${readableText.length}`);
+      if (!isEmpty) {
+        console.log(`[StudyToolsService] First 300 characters of extracted text:`, extractedText.slice(0, 300));
+      } else {
+        console.warn(`[StudyToolsService] Page ${pageNumber} extraction returned insufficient readable text (empty, unreadable, or image-only).`);
+      }
+    }
+
+    const payload = { 
+      text: extractedText, 
+      chapterTitle, 
+      sectionTitle, 
+      isEmpty, 
+      source: getPageFn ? "PDF OCR Extraction" : "Textbook Database" 
+    };
+    
+    // Cache result only if we found readable text or completed checks
     this.cache.set(cacheKey, payload);
     return payload;
   }
@@ -116,16 +186,30 @@ class StudyToolsService {
   }
 
   /**
-   * Ask an AI question about Page N.
+   * Ask an AI question about Page N with context grounding verification.
    */
-  async askAI({ prompt, bookId, pageNumber, contextText = '' }) {
+  async askAI({ prompt, bookId, pageNumber, contextText = '', bookTitle = '' }) {
     const provider = getAIProvider();
     const contextObj = await this.extractPageText(bookId, pageNumber);
-    
+    const textToUse = contextText || contextObj.text || '';
+    const readableText = textToUse.replace(/[^a-zA-Z0-9]/g, '');
+
+    // Stop AI request if extraction fails or returns very little readable text (image-only, empty, unreadable)
+    if (readableText.length < 30) {
+      return "There's not enough readable text on this page for me to answer accurately.";
+    }
+
+    const cachedMeta = this.bookMetaCache.get(bookId);
+    const finalBookTitle = bookTitle || cachedMeta?.title || 'Textbook';
+
     return await provider.ask({
       prompt,
       pageNumber,
-      context: contextText || contextObj.text,
+      bookId,
+      bookTitle: finalBookTitle,
+      chapterTitle: contextObj.chapterTitle,
+      sectionTitle: contextObj.sectionTitle,
+      context: textToUse,
     });
   }
 

@@ -307,7 +307,7 @@ export default function TextbookImporter({ onNavigate, user }) {
                     usesConcepts: countConcepts > 0,
                     headingFont: avgChFont,
                     sectionFont: avgSecFont,
-                    publisher: countConcepts > 0 ? "Pearson / Campbell Style" : "OpenStax / Standard Academic"
+                    publisher: countConcepts > 0 ? "Structured Academic / Modular Style" : "OpenStax / Standard Academic"
                  };
                  console.log("Adaptive Extractor Learned Book Profile:", bookProfile);
               }
@@ -914,11 +914,11 @@ export default function TextbookImporter({ onNavigate, user }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                     <div>
                       <label className="block text-sm font-medium mb-1.5" style={{ color: '#334155' }}>Textbook Title</label>
-                      <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} disabled={isProcessing} className="w-full px-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }} placeholder="e.g., Campbell Biology" />
+                      <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} disabled={isProcessing} className="w-full px-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }} placeholder="e.g., OpenStax College Algebra" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1.5" style={{ color: '#334155' }}>Author(s)</label>
-                      <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} disabled={isProcessing} className="w-full px-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }} placeholder="e.g., Neil A. Campbell" />
+                      <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} disabled={isProcessing} className="w-full px-4 py-2.5 rounded-xl border focus:ring-2 focus:ring-blue-500 outline-none transition-shadow" style={{ borderColor: '#E2E8F0', background: '#F8FAFC' }} placeholder="e.g., OpenStax Editorial Board" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1.5" style={{ color: '#334155' }}>Subject / Category</label>

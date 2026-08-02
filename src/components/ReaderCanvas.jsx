@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import studyToolsService from '../services/StudyToolsService';
 
-const PageRenderer = React.memo(({ pageNum, getPage, zoom, fitWidth, containerWidth }) => {
+const PageRenderer = React.memo(({ pageNum, getPage, zoom, fitWidth, containerWidth, bookId }) => {
   const canvasRef = useRef(null);
   const [renderTask, setRenderTask] = useState(null);
   const [pageProxy, setPageProxy] = useState(null);
@@ -9,13 +10,23 @@ const PageRenderer = React.memo(({ pageNum, getPage, zoom, fitWidth, containerWi
 
   useEffect(() => {
     let active = true;
-    getPage(pageNum).then(p => {
-      if (active) setPageProxy(p);
+    getPage(pageNum).then(async p => {
+      if (!active) return;
+      setPageProxy(p);
+      if (bookId && typeof p.getTextContent === 'function') {
+        try {
+          const textContent = await p.getTextContent();
+          const text = (textContent.items || []).map(i => i.str || '').join(' ').replace(/\s+/g, ' ').trim();
+          studyToolsService.cacheExtractedText(bookId, pageNum, text);
+        } catch (e) {
+          /* ignore OCR failures in viewer rendering */
+        }
+      }
     }).catch(err => {
       if (active) setError(err.message);
     });
     return () => { active = false; };
-  }, [pageNum, getPage]);
+  }, [pageNum, getPage, bookId]);
 
   useEffect(() => {
     if (!pageProxy || !canvasRef.current) return;
@@ -79,7 +90,7 @@ const PageRenderer = React.memo(({ pageNum, getPage, zoom, fitWidth, containerWi
   );
 });
 
-export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, onZoomChange, fitWidth, currentPage, onPageChange, mode }) {
+export default function ReaderCanvas({ bookId, totalGlobalPages, getPage, zoom, onZoomChange, fitWidth, currentPage, onPageChange, mode }) {
   const containerRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [visiblePages, setVisiblePages] = useState([]);
@@ -221,6 +232,7 @@ export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, onZoomCh
                style={{ top: `${(p - 1) * (fitWidth ? ((containerWidth - 16) * 1.3) + 8 : (1000 * zoom) + 8)}px` }}
              >
                <PageRenderer 
+                 bookId={bookId}
                  pageNum={p} 
                  getPage={getPage} 
                  zoom={zoom} 
@@ -232,6 +244,7 @@ export default function ReaderCanvas({ totalGlobalPages, getPage, zoom, onZoomCh
          </div>
        ) : (
          <PageRenderer 
+           bookId={bookId}
            pageNum={currentPage} 
            getPage={getPage} 
            zoom={zoom} 

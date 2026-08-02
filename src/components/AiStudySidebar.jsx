@@ -114,6 +114,7 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
         {activeView === 'ask' && (
           <AskAiView 
             bookId={bookId} 
+            bookTitle={bookTitle}
             currentPage={currentPage} 
             onBack={() => setActiveView('menu')} 
           />
@@ -181,7 +182,7 @@ function AiActionBtn({ icon: Icon, label, desc, onClick, highlight = false }) {
 /**
  * Subview: Ask AI Q&A Scoped to Page N
  */
-function AskAiView({ bookId, currentPage, onBack }) {
+function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -196,12 +197,24 @@ function AskAiView({ bookId, currentPage, onBack }) {
         const ctx = await studyToolsService.extractPageText(bookId, currentPage);
         if (active) {
           setPageContext(ctx);
-          setMessages([
-            { sender: 'ai', text: `Hello! I have extracted the context for Page ${currentPage} (${ctx.chapterTitle}). What question can I answer about this material?` }
-          ]);
+          if (ctx.isEmpty) {
+            setMessages([
+              { sender: 'ai', text: `⚠️ There's not enough readable text on this page for me to answer accurately (the page may be blank, image-only, or have an OCR failure). Try navigating to a page with selectable text!` }
+            ]);
+          } else {
+            const sectionDisplay = ctx.sectionTitle ? ` · ${ctx.sectionTitle}` : '';
+            setMessages([
+              { sender: 'ai', text: `Hello! I have extracted and verified the context for Page ${currentPage} (${ctx.chapterTitle}${sectionDisplay}). What question can I answer about this material?` }
+            ]);
+          }
         }
       } catch (e) {
-        if (active) setPageContext({ chapterTitle: `Page ${currentPage}`, text: 'No specific OCR text available.' });
+        if (active) {
+          setPageContext({ chapterTitle: `Page ${currentPage}`, text: '', isEmpty: true });
+          setMessages([
+            { sender: 'ai', text: `⚠️ There's not enough readable text on this page for me to answer accurately.` }
+          ]);
+        }
       } finally {
         if (active) setContextLoading(false);
       }
@@ -222,6 +235,7 @@ function AskAiView({ bookId, currentPage, onBack }) {
       const reply = await studyToolsService.askAI({
         prompt: userMsg,
         bookId,
+        bookTitle,
         pageNumber: currentPage,
         contextText: pageContext?.text
       });
@@ -246,11 +260,17 @@ function AskAiView({ bookId, currentPage, onBack }) {
       </div>
 
       {/* Context preview banner */}
-      <div className="p-3 bg-blue-50/80 border-b border-blue-100 text-xs text-blue-900 shrink-0 flex items-center justify-between">
+      <div className={`p-3 border-b text-xs shrink-0 flex items-center justify-between ${
+        pageContext?.isEmpty ? 'bg-amber-50/80 border-amber-200 text-amber-900' : 'bg-blue-50/80 border-blue-100 text-blue-900'
+      }`}>
         <div className="flex items-center gap-2 overflow-hidden">
-          <Info size={14} className="text-blue-600 shrink-0" />
+          <Info size={14} className={pageContext?.isEmpty ? 'text-amber-600 shrink-0' : 'text-blue-600 shrink-0'} />
           <span className="font-medium truncate">
-            {contextLoading ? 'Extracting page content...' : `Scoped to: ${pageContext?.chapterTitle || `Page ${currentPage}`}`}
+            {contextLoading ? 'Extracting page content...' : (
+              pageContext?.isEmpty 
+                ? `Page ${currentPage}: Insufficient readable text` 
+                : `Scoped to: ${pageContext?.chapterTitle || `Page ${currentPage}`}${pageContext?.sectionTitle ? ` (${pageContext.sectionTitle})` : ''}`
+            )}
           </span>
         </div>
       </div>

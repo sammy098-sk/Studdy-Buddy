@@ -6,6 +6,8 @@ import {
   Loader2, AlertCircle, Bookmark, BookmarkCheck, ArrowLeft,
 } from 'lucide-react';
 import { supabase } from '../supabase';
+import studyToolsService from '../services/StudyToolsService';
+
 
 // ─── Worker: bundled locally — never loaded from CDN ────────────────────────
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
@@ -45,7 +47,7 @@ function injectStyles() {
 }
 
 // ─── Individual page renderer ────────────────────────────────────────────────
-function PdfPage({ pageNum, pdfDoc, scale, onBecomeVisible }) {
+function PdfPage({ pageNum, pdfDoc, scale, onBecomeVisible, bookId }) {
   const wrapRef      = useRef(null);
   const canvasRef    = useRef(null);
   const textRef      = useRef(null);
@@ -78,6 +80,10 @@ function PdfPage({ pageNum, pdfDoc, scale, onBecomeVisible }) {
       // Text layer — enables text selection
       if (textRef.current) {
         const textContent = await page.getTextContent();
+        const textStr = (textContent.items || []).map(i => i.str || '').join(' ').replace(/\s+/g, ' ').trim();
+        if (bookId) {
+          studyToolsService.cacheExtractedText(bookId, pageNum, textStr);
+        }
         textRef.current.innerHTML = '';
         const tl = pdfjsLib.renderTextLayer({
           textContentSource: textContent,
@@ -240,6 +246,7 @@ export default function StreamingPdfViewer({ textbook, onBack }) {
         p1.cleanup();
 
         setPdfDoc(doc);
+        studyToolsService.registerPageProvider(textbook?.id || 'active', (n) => doc.getPage(n), textbook?.title || 'Textbook');
         setTotalPages(doc.numPages);
         setScale(bs * zoomFactor);
         setIsLoading(false);
@@ -440,6 +447,7 @@ export default function StreamingPdfViewer({ textbook, onBack }) {
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
               <PdfPage
                 key={`p${n}-z${zoomFactor.toFixed(2)}`}
+                bookId={textbook?.id}
                 pageNum={n}
                 pdfDoc={pdfDoc}
                 scale={scale}

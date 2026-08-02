@@ -30,7 +30,7 @@ export class OpenRouterProvider extends AIProvider {
   /**
    * Send a chat completion request to OpenRouter and extract text content.
    */
-  async #generate(systemInstruction, userPrompt) {
+  async #generate(systemInstruction, userPrompt, debugMeta = null) {
     if (!this.apiKey) {
       throw new Error('OpenRouter API key is not configured. Add VITE_OPENROUTER_API_KEY to your environment variables.');
     }
@@ -49,7 +49,7 @@ export class OpenRouterProvider extends AIProvider {
           { role: 'system', content: systemInstruction },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.7
+        temperature: 0.3
       })
     });
 
@@ -68,28 +68,67 @@ export class OpenRouterProvider extends AIProvider {
       throw new Error('Received empty or unexpected response format from OpenRouter.');
     }
 
-    return content.trim();
+    const trimmedResponse = content.trim();
+
+    // Section 5: Development Debugging Logging
+    if ((import.meta.env?.DEV || import.meta.env?.MODE === 'development') && debugMeta) {
+      console.group('🤖 [OpenRouter Debug] AI Grounded Request');
+      console.log('Current page number:', debugMeta.pageNumber || 'N/A');
+      console.log('Book ID:', debugMeta.bookId || 'N/A');
+      console.log('Chapter:', debugMeta.chapterTitle || 'N/A');
+      console.log('Section:', debugMeta.sectionTitle || 'N/A');
+      console.log('Characters extracted:', debugMeta.context ? debugMeta.context.length : 0);
+      console.log('First 300 characters of extracted text:', debugMeta.context ? debugMeta.context.slice(0, 300) : 'N/A');
+      console.log('AI provider:', this.name);
+      console.log('Model used:', data.model || this.modelName);
+      console.log('Prompt token count:', data.usage?.prompt_tokens ?? Math.ceil((systemInstruction.length + userPrompt.length) / 4));
+      console.log('Response token count:', data.usage?.completion_tokens ?? Math.ceil(trimmedResponse.length / 4));
+      console.groupEnd();
+    }
+
+    return trimmedResponse;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 1. Ask AI — Scoped Q&A about a page
+  // 1. Ask AI — Scoped Q&A strictly grounded in textbook page content
   // ─────────────────────────────────────────────────────────────────────────
-  async ask({ prompt, context = '', pageNumber = '' }) {
-    const system = `You are StudyBuddy AI, an expert academic tutor helping secondary school and university students prepare for JAMB and other major examinations.
+  async ask({ prompt, context = '', pageNumber = '', bookId = '', bookTitle = '', chapterTitle = '', sectionTitle = '' }) {
+    const readableText = (context || '').replace(/[^a-zA-Z0-9]/g, '');
+    if (!context || readableText.length < 30) {
+      return "There's not enough readable text on this page for me to answer accurately.";
+    }
 
-Your role:
-- Answer questions directly and clearly based directly on the provided textbook context.
-- Use simple, student-friendly language. Avoid jargon unless clearly explaining it.
-- When relevant, connect the answer to JAMB examination problem-solving techniques and concepts.
-- Keep responses concise — 2 to 4 short paragraphs maximum.
-- Do not fabricate facts outside of sound academic knowledge and the provided context.`;
+    const system = `You are StudyBuddy AI, an academic study mentor.
+Answer ONLY using the supplied textbook content.
+If the answer cannot be found in the supplied text, honestly state that the information is not available in the supplied textbook text.
+Do not rely on outside knowledge, assumptions, or hallucinated explanations.
+Do not provide generic study advice unless the page itself explicitly discusses study techniques.`;
 
-    const user = `Textbook context (Page ${pageNumber || 'current'}):
-${context || 'No extracted text available for this page.'}
+    const user = `Book:
+${bookTitle || 'Textbook'}
 
-Student question: ${prompt}`;
+Chapter:
+${chapterTitle || 'N/A'}
 
-    return await this.#generate(system, user);
+Section:
+${sectionTitle || 'N/A'}
+
+Page:
+${pageNumber || 'N/A'}
+
+Extracted Text:
+${context}
+
+Student Question:
+${prompt}`;
+
+    return await this.#generate(system, user, {
+      pageNumber,
+      bookId,
+      chapterTitle,
+      sectionTitle,
+      context
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────

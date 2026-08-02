@@ -5,6 +5,8 @@ import ReaderToolbar from './ReaderToolbar';
 import ChapterSidebar from './ChapterSidebar';
 import AiStudySidebar from './AiStudySidebar';
 import ReaderCanvas from './ReaderCanvas';
+import studyToolsService from '../services/StudyToolsService';
+
 
 export default function TextbookReader({ bookId, user, onNavigate }) {
   const { 
@@ -34,6 +36,13 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
       if (initialFitMode !== null) setFitWidth(initialFitMode);
     }
   }, [isLoading, initialPage, initialZoom, initialViewMode, initialFitMode]);
+
+  // Register dynamic OCR page getter with StudyToolsService for context grounding
+  useEffect(() => {
+    if (bookId && getPage) {
+      studyToolsService.registerPageProvider(bookId, getPage, bookMeta?.title);
+    }
+  }, [bookId, getPage, bookMeta]);
 
   // Handle Fullscreen toggle
   const toggleFullscreen = () => {
@@ -232,6 +241,7 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
            onPageChange={setCurrentPage}
          />
          <ReaderCanvas 
+           bookId={bookId}
            totalGlobalPages={bookMeta?.total_pages || 1}
            getPage={getPage}
            zoom={zoom}
