@@ -2,21 +2,23 @@ import { PlaceholderProvider } from './PlaceholderProvider';
 import { AnthropicProvider } from './AnthropicProvider';
 import { OpenAIProvider } from './OpenAIProvider';
 import { GeminiProvider } from './GeminiProvider';
+import { OpenRouterProvider } from './OpenRouterProvider';
 
 /**
  * AI Provider Registry & Factory.
- * Centralizes switching between Claude, GPT-4, Gemini, and offline placeholder simulation.
+ * Centralizes switching between OpenRouter, Claude, GPT-4, Gemini, and offline placeholder simulation.
  */
 const PROVIDERS = {
   placeholder: new PlaceholderProvider(),
   anthropic: new AnthropicProvider(),
   openai: new OpenAIProvider(),
   gemini: new GeminiProvider(),
+  openrouter: new OpenRouterProvider(),
 };
 
-// PHASE 2 ACTIVE: Gemini is the live AI provider.
-// To switch providers, call AIProviderFactory.setProvider('anthropic' | 'openai' | 'placeholder').
-let activeProviderKey = 'gemini';
+// PHASE 2 ACTIVE: OpenRouter is the live AI provider utilizing 'openrouter/free' by default.
+// To switch providers, call AIProviderFactory.setProvider('openrouter' | 'gemini' | 'anthropic' | 'openai' | 'placeholder').
+let activeProviderKey = 'openrouter';
 
 export const AIProviderFactory = {
   /**
