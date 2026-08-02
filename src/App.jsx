@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, useParams } from 'react-router-dom';
-import { Home, Bell, User, Menu, BookOpen, History, Plus } from 'lucide-react';
+import { Home, Bell, User, Menu, BookOpen, History, Plus, Search } from 'lucide-react';
 import { supabase } from './supabase';
 import DesktopLanding from './components/DesktopLanding';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -242,7 +242,7 @@ function MainApp() {
 
       <div className="flex-1 overflow-hidden relative flex flex-col">
         <Routes>
-          <Route path="/" element={<Navigate to="/library" replace />} />
+          <Route path="/" element={<Navigate to="/study" replace />} />
           <Route path="/library" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
           <Route path="/upload" element={<TextbookImporter onNavigate={navigateTo} user={user} />} />
           <Route path="/book/:id" element={<Navigate to="read" replace />} />
@@ -261,9 +261,71 @@ function MainApp() {
             />
           } />
           {/* Default fallback */}
-          <Route path="*" element={<Navigate to="/library" replace />} />
+          <Route path="*" element={<Navigate to="/study" replace />} />
         </Routes>
       </div>
+
+      {/* Persistent Native Mobile Bottom Navigation Bar */}
+      {!isReaderRoute && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+          <button
+            onClick={() => navigate('/study')}
+            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-colors ${
+              window.location.pathname === '/study' || window.location.pathname === '/' 
+                ? 'text-blue-600 font-bold' 
+                : 'text-slate-500 hover:text-slate-800 font-medium'
+            }`}
+            aria-label="Home"
+          >
+            <Home size={21} className={window.location.pathname === '/study' || window.location.pathname === '/' ? 'text-blue-600 fill-blue-50' : 'text-slate-500'} />
+            <span className="text-[10px] mt-1 tracking-tight">Home</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/library')}
+            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-colors ${
+              window.location.pathname === '/library' 
+                ? 'text-blue-600 font-bold' 
+                : 'text-slate-500 hover:text-slate-800 font-medium'
+            }`}
+            aria-label="Library"
+          >
+            <BookOpen size={21} className={window.location.pathname === '/library' ? 'text-blue-600 fill-blue-50' : 'text-slate-500'} />
+            <span className="text-[10px] mt-1 tracking-tight">Library</span>
+          </button>
+
+          <button
+            onClick={() => {
+              navigate('/study');
+              setTimeout(() => {
+                const searchInput = document.querySelector('input[placeholder*="Search textbooks"]');
+                if (searchInput) {
+                  searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  searchInput.focus();
+                }
+              }, 150);
+            }}
+            className="flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-colors text-slate-500 hover:text-blue-600 font-medium"
+            aria-label="Search"
+          >
+            <Search size={21} />
+            <span className="text-[10px] mt-1 tracking-tight">Search</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/profile')}
+            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-colors ${
+              window.location.pathname === '/profile' 
+                ? 'text-blue-600 font-bold' 
+                : 'text-slate-500 hover:text-slate-800 font-medium'
+            }`}
+            aria-label="Profile"
+          >
+            <User size={21} className={window.location.pathname === '/profile' ? 'text-blue-600 fill-blue-50' : 'text-slate-500'} />
+            <span className="text-[10px] mt-1 tracking-tight">Profile</span>
+          </button>
+        </div>
+      )}
 
       {!isReaderRoute && <NowPlayingBar />}
     </div>
