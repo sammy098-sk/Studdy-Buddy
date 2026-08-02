@@ -132,41 +132,51 @@ ${prompt}`;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 2. Summarize — Structured revision bullet points
   // ─────────────────────────────────────────────────────────────────────────
-  async summarize({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '' }) {
-    const system = `You are StudyBuddy AI, an academic study revision summarizer.
+  // 2. Summarize — Structured revision bullet points across study styles & scopes
+  // ─────────────────────────────────────────────────────────────────────────
+  async summarize({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', style = 'quick' }) {
+    const styleInstructions = {
+      quick: "Focus on quick revision: 2-3 high-yield subtopics with concise, easy-to-digest bullet points.",
+      detailed: "Provide a detailed summary: create comprehensive outlines covering all major arguments, proofs, and foundational logic in depth.",
+      exam_notes: "Format as Exam Revision Notes: focus strictly on JAMB syllabus alignment, examiner traps, and memorization checklists.",
+      definitions: "Format as Key Definitions: list all primary academic vocabulary terms, constants, and theoretical rules with clear definitions.",
+      formulas: "Highlight Important Formulas & Principles: focus on governing equations, theoretical variable relationships, and boundary conditions.",
+      concepts: "Focus on Key Concepts & Mental Models: explain foundational theoretical intuition and *why* phenomena occur rather than raw memorizable facts.",
+      frequent_topics: "Focus on Frequently Tested Topics: emphasize historic exam favorites, standard numerical problem architectures, and recurring theory drills."
+    }[style] || "Focus on high-yield revision summaries.";
+
+    const system = `You are StudyBuddy AI, an academic study revision mentor and examination strategist.
 
 Return ONLY a valid JSON object in this exact structure, with no markdown fences, no conversational preamble, and no explanation:
 {
   "subtopics": [
     {
-      "name": "Subtopic heading string",
+      "name": "Subtopic or section title",
       "points": ["bullet point string", "bullet point string", "bullet point string"]
     }
   ]
 }
 
 Rules:
-- Generate exactly 2 to 3 subtopics.
-- Each subtopic must contain 3 to 5 clear bullet points.
-- Highlight high-yield exam concepts, definitions, and essential relationships.
+- ${styleInstructions}
+- Generate exactly 2 to 4 subtopics appropriate for the requested study scope (${scope}).
+- Each subtopic must contain 3 to 5 actionable bullet points.
 - Format strictly as valid JSON.`;
 
     const user = `Subject: ${subject}
 Topic: ${topic}
-Page: ${pageNumber || 'N/A'}
+Scope: ${scope.toUpperCase()} ${pageNumber ? `(Page ${pageNumber})` : ''}
 
 Textbook content:
 ${text || 'No extracted text available.'}
 
-Summarize this content into structured revision notes formatted as JSON.`;
+Summarize this content according to the requested study style (${style}) as structured JSON.`;
 
     const raw = await this.#generate(system, user);
 
     try {
       const cleaned = raw.replace(/```json|```/g, '').trim();
-      // Find the first '{' and last '}' in case the provider wrapped text around it
       const firstBrace = cleaned.indexOf('{');
       const lastBrace = cleaned.lastIndexOf('}');
       if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
@@ -178,7 +188,7 @@ Summarize this content into structured revision notes formatted as JSON.`;
       return {
         subtopics: [
           {
-            name: `Summary of ${topic}`,
+            name: `${style.toUpperCase()} Summary of ${topic}`,
             points: raw.split('\n').filter(l => l.trim().length > 0).slice(0, 8)
           }
         ]
@@ -187,29 +197,43 @@ Summarize this content into structured revision notes formatted as JSON.`;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 3. Generate Questions — Diagnostic practice questions
+  // 3. Generate Questions — Interactive A–D JAMB Exam MCQs & diagnostic drills
   // ─────────────────────────────────────────────────────────────────────────
-  async generateQuestions({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', count = 5 }) {
-    const system = `You are StudyBuddy AI, an expert examination question architect for JAMB practice drills.
+  async generateQuestions({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', count = 5, examMode = true, excludeList = [] }) {
+    const system = `You are StudyBuddy AI, a premier JAMB examination question architect and pedagogical test designer.
 
-Return ONLY a valid JSON array of exactly ${count} question strings. No markdown formatting, no numbering prefixes inside strings, and no extra text.
-Example valid response:
-["What is the fundamental theoretical principle governing this process?", "How does boundary temperature influence the observed system behavior?", "Differentiate between the primary and secondary stages discussed in this chapter."]
+Return ONLY a valid JSON array of exactly ${count} multiple-choice practice question objects. No markdown formatting, no conversational preamble, and no extra text.
+
+Required JSON format for each question object:
+[
+  {
+    "question": "Clear, challenging question stem simulating JAMB examination phrasing...",
+    "options": [
+      { "id": "A", "text": "Plausible distractor testing common misconception", "isCorrect": false },
+      { "id": "B", "text": "The single accurate answer grounded in the reading", "isCorrect": true },
+      { "id": "C", "text": "Second distractor based on unit or procedural errors", "isCorrect": false },
+      { "id": "D", "text": "Third distractor", "isCorrect": false }
+    ],
+    "explanation": "Detailed educational feedback explaining why the correct option succeeds and why each distractor is incorrect."
+  }
+]
 
 Rules:
-- Questions must test mastery of the provided content.
-- Include a blend of conceptual definitions, analytical reasoning, and practical application.
-- Format strictly as a JSON array of strings.`;
+- Questions must strictly test concepts present in the provided textbook content (${scope} scope).
+- Exactly ONE option per question must have "isCorrect": true.
+- Distractors must be realistic and scientifically plausible to prepare students for actual examination traps.
+- Format strictly as a valid JSON array of objects.`;
 
     const user = `Subject: ${subject}
 Topic: ${topic}
-Page: ${pageNumber || 'N/A'}
+Scope: ${scope.toUpperCase()} ${pageNumber ? `(Page ${pageNumber})` : ''}
 Number of questions required: ${count}
+${excludeList.length ? `Do NOT duplicate previously tested topics or questions: ${JSON.stringify(excludeList.slice(-5))}` : ''}
 
 Textbook content:
 ${text || 'No extracted text available.'}
 
-Generate exactly ${count} practice questions as a JSON array.`;
+Generate exactly ${count} structured multiple-choice practice questions with options A–D and educational explanations as a JSON array.`;
 
     const raw = await this.#generate(system, user);
 
@@ -227,9 +251,18 @@ Generate exactly ${count} practice questions as a JSON array.`;
       console.warn('[OpenRouterProvider] generateQuestions() JSON parsing fallback:', raw);
     }
 
-    // Fallback line extractor
+    // Fallback if LLM returned simple string lines instead of JSON
     const lines = raw.split('\n').map(l => l.replace(/^\d+[\.\)]\s*/, '').trim()).filter(l => l.length > 10);
-    return lines.slice(0, count);
+    return lines.slice(0, count).map((qStr, i) => ({
+      question: qStr,
+      options: [
+        { id: "A", text: "True / Conceptually accurate as stated", isCorrect: true },
+        { id: "B", text: "False / Contradicts boundary conditions in text", isCorrect: false },
+        { id: "C", text: "Inconclusive without external laboratory tables", isCorrect: false },
+        { id: "D", text: "None of the above", isCorrect: false }
+      ],
+      explanation: "Verify foundational principles directly against the active reading passage."
+    }));
   }
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,8 @@
 import { getAIProvider, AIProviderFactory } from './ai/AIProviderFactory';
 import { supabase } from '../supabase';
+import { textbookRetrievalService } from './TextbookRetrievalService';
+import { readerPreferencesService } from './ReaderPreferencesService';
+
 
 /**
  * Reusable Study Tools Service interface.
@@ -10,6 +13,7 @@ class StudyToolsService {
     this.cache = new Map();
     this.pageProviders = new Map(); // { bookId | 'active': getPageFn }
     this.bookMetaCache = new Map(); // { bookId: { title } }
+    this.ocrCache = new Map(); // { bookId: Map<pageNum, text> }
   }
 
   /**
@@ -42,13 +46,30 @@ class StudyToolsService {
       isEmpty: false,
       source: "PDF OCR Layer"
     });
+
+    if (!this.ocrCache.has(bookId)) {
+      this.ocrCache.set(bookId, new Map());
+    }
+    this.ocrCache.get(bookId).set(pageNumber, text.trim());
   }
 
   /**
    * Generate a stable cache key for storing study materials per book & page.
    */
   #getCacheKey(bookId, pageNumber, action, extra = '') {
-    return `${bookId || 'global'}_page_${pageNumber}_${action}_${extra}`;
+    return `${bookId || 'global'}_p_${pageNumber}_${action}_${extra}`;
+  }
+
+  /**
+   * Helper to retrieve context text dynamically scoped to page, chapter, or textbook RAG index.
+   */
+  async getScopedContext({ bookId, scope = 'page', pageNumber = 1, query = '' }) {
+    if (scope === 'page') {
+      const p = await this.extractPageText(bookId, pageNumber);
+      return { text: p.text, title: p.chapterTitle, isEmpty: p.isEmpty };
+    }
+    const rag = await textbookRetrievalService.retrieveContext({ bookId, scope, currentPage: pageNumber, query });
+    return { text: rag.text, title: rag.title, isEmpty: rag.isEmpty };
   }
 
   /**
@@ -186,17 +207,16 @@ class StudyToolsService {
   }
 
   /**
-   * Ask an AI question about Page N with context grounding verification.
+   * Ask an AI question about current study scope (Page, Chapter, or Entire Book) with RAG grounding.
    */
-  async askAI({ prompt, bookId, pageNumber, contextText = '', bookTitle = '' }) {
+  async askAI({ prompt, bookId, pageNumber, scope = 'page', contextText = '', bookTitle = '' }) {
     const provider = getAIProvider();
-    const contextObj = await this.extractPageText(bookId, pageNumber);
-    const textToUse = contextText || contextObj.text || '';
+    const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: prompt });
+    const textToUse = contextText || scoped.text || '';
     const readableText = textToUse.replace(/[^a-zA-Z0-9]/g, '');
 
-    // Stop AI request if extraction fails or returns very little readable text (image-only, empty, unreadable)
-    if (readableText.length < 30) {
-      return "There's not enough readable text on this page for me to answer accurately.";
+    if (readableText.length < 30 && !contextText) {
+      return `There's not enough readable textbook text in this ${scope} scope for me to answer accurately without speculating.`;
     }
 
     const cachedMeta = this.bookMetaCache.get(bookId);
@@ -207,55 +227,62 @@ class StudyToolsService {
       pageNumber,
       bookId,
       bookTitle: finalBookTitle,
-      chapterTitle: contextObj.chapterTitle,
-      sectionTitle: contextObj.sectionTitle,
+      chapterTitle: scoped.title || `Scope: ${scope}`,
+      sectionTitle: '',
       context: textToUse,
+      scope
     });
   }
 
   /**
-   * Generate Summary for Page N or topic.
+   * Generate Summary for current study scope with selectable styling formats.
    */
-  async generateSummary({ bookId, pageNumber, subject = 'Subject', topic = 'Topic', contextText = '', forceRefresh = false }) {
+  async generateSummary({ bookId, pageNumber, scope = 'page', style = 'quick', subject = 'Subject', topic = 'Topic', contextText = '', forceRefresh = false }) {
     const provider = getAIProvider();
-    const cacheKey = this.#getCacheKey(bookId, pageNumber, 'summary', `${subject}_${topic}_${provider.name}`);
+    const cacheKey = this.#getCacheKey(bookId, pageNumber, `sum_${scope}_${style}`, `${subject}_${topic}_${provider.name}`);
 
     if (forceRefresh) {
       this.cache.delete(cacheKey);
     }
 
-    const contextObj = await this.extractPageText(bookId, pageNumber);
+    const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: `${style} summary of ${topic}` });
     const resultObj = await this.#withCache(cacheKey, async () => {
       return await provider.summarize({
         subject,
-        topic: topic || contextObj.chapterTitle,
-        text: contextText || contextObj.text,
-        pageNumber
+        topic: topic || scoped.title,
+        text: contextText || scoped.text,
+        pageNumber,
+        scope,
+        style
       });
     });
 
     return {
       summary: resultObj.result,
       isCached: resultObj.isCached,
-      providerName: provider.name
+      providerName: provider.name,
+      scope,
+      style
     };
   }
 
   /**
-   * Generate Practice Questions for Page N.
+   * Generate A-D JAMB Practice Questions for Current Page, Chapter, or Book.
    */
-  async generateQuestions({ bookId, pageNumber, subject = 'Subject', topic = 'Topic', count = 5, contextText = '', excludeList = [] }) {
+  async generateQuestions({ bookId, pageNumber, scope = 'page', examMode = true, subject = 'Subject', topic = 'Topic', count = 5, contextText = '', excludeList = [] }) {
     const provider = getAIProvider();
-    const cacheKey = this.#getCacheKey(bookId, pageNumber, `quiz_${count}`, `${subject}_${topic}_${provider.name}`);
+    const cacheKey = this.#getCacheKey(bookId, pageNumber, `quiz_${scope}_${examMode ? 'jamb' : 'std'}_${count}`, `${subject}_${topic}_${provider.name}`);
 
-    const contextObj = await this.extractPageText(bookId, pageNumber);
+    const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: `JAMB practice exam questions on ${topic}` });
     const resultObj = await this.#withCache(cacheKey, async () => {
       return await provider.generateQuestions({
         subject,
-        topic: topic || contextObj.chapterTitle,
-        text: contextText || contextObj.text,
+        topic: topic || scoped.title,
+        text: contextText || scoped.text,
         pageNumber,
+        scope,
         count,
+        examMode,
         excludeList
       });
     });
@@ -263,7 +290,8 @@ class StudyToolsService {
     return {
       questions: resultObj.result,
       isCached: resultObj.isCached,
-      providerName: provider.name
+      providerName: provider.name,
+      scope
     };
   }
 
@@ -276,25 +304,28 @@ class StudyToolsService {
   }
 
   /**
-   * Explain current textbook page in approachable terms.
+   * Explain current study scope in approachable, interactive teaching terms.
    */
-  async explainPage({ bookId, pageNumber, contextText = '' }) {
+  async explainPage({ bookId, pageNumber, scope = 'page', promptPill = '', contextText = '' }) {
     const provider = getAIProvider();
-    const cacheKey = this.#getCacheKey(bookId, pageNumber, 'explain', provider.name);
+    const cacheKey = this.#getCacheKey(bookId, pageNumber, `explain_${scope}_${promptPill.slice(0, 10)}`, provider.name);
 
-    const contextObj = await this.extractPageText(bookId, pageNumber);
+    const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: promptPill || `Explain ${scope}` });
     const resultObj = await this.#withCache(cacheKey, async () => {
       return await provider.explainPage({
-        text: contextText || contextObj.text,
-        pageNumber
+        text: contextText || scoped.text,
+        pageNumber,
+        scope,
+        promptPill
       });
     });
 
     return {
       explanation: resultObj.result,
       isCached: resultObj.isCached,
-      chapterTitle: contextObj.chapterTitle,
-      providerName: provider.name
+      chapterTitle: scoped.title,
+      providerName: provider.name,
+      scope
     };
   }
 

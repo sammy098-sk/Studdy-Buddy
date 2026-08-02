@@ -19,42 +19,82 @@ export class PlaceholderProvider extends AIProvider {
     return `[AI Provider Not Connected Yet]\n\nBased on Page ${pageNumber} of your current textbook chapter, here is a mock architectural explanation regarding "${prompt.slice(0, 50)}...":\n\n1. **Core Concept**: The primary theoretical foundation presented in this section revolves around progressive mastery and structured comprehension.\n2. **Application**: When applying this equation or methodology in examination scenarios, always verify unit normalization and boundary constraints.\n3. **Summary**: Keep reviewing the diagrammatic examples on Page ${pageNumber} for practical JAMB syllabus alignment.`;
   }
 
-  async summarize({ subject = 'General Study', topic = 'Current Page Section', pageNumber = 'N' }) {
+  async summarize({ subject = 'General Study', topic = 'Current Page Section', pageNumber = 'N', scope = 'page', style = 'quick' }) {
     await this.#delay(650);
+    const styleLabel = {
+      quick: "Quick Revision",
+      detailed: "Detailed Summary",
+      exam_notes: "Exam Revision Notes",
+      definitions: "Key Definitions",
+      formulas: "Important Formulas",
+      concepts: "Key Concepts",
+      frequent_topics: "Frequently Tested Topics"
+    }[style] || "Quick Revision";
+
     return {
       subtopics: [
         {
-          name: `Key Foundations of ${topic} (Page ${pageNumber})`,
+          name: `${styleLabel}: ${topic} (Scope: ${scope.toUpperCase()})`,
           points: [
-            "⚠️ [AI Provider Not Connected Yet] Displaying architectural test summary data.",
-            `Fundamental laws and vocabulary governing ${subject} as defined in chapter opening paragraphs.`,
-            "Critical mathematical or conceptual relationships frequently emphasized in standard examinations.",
-            "Summary check: Ensure all preliminary vocabulary definitions are memorized before proceeding to exercise sets."
+            "⚠️ [AI Provider Not Connected Yet] Displaying structured interactive study data.",
+            `Fundamental principles governing ${subject} across the active ${scope} study scope.`,
+            "Critical mathematical and conceptual relationships emphasized in JAMB examination testing.",
+            "Summary check: Master these core bullet points before transitioning to interactive practice drills."
           ]
         },
         {
-          name: "Examination Hot-Spots & Practical Examples",
+          name: "Examination Hot-Spots & Diagnostic Strategies",
           points: [
-            `Typical JAMB multi-choice diagnostic traps associated with ${topic}.`,
-            "Step-by-step resolution strategy for computational or analytical essay questions.",
-            `Cross-reference: Review corresponding diagrams and practical demonstration problems on Page ${pageNumber}.`
+            `Typical JAMB distractors and multiple-choice traps associated with ${topic}.`,
+            "Step-by-step reasoning strategy for resolving complex analytical scenario questions.",
+            `Cross-reference: Verify corresponding chapter charts and formulas from Page ${pageNumber}.`
           ]
         }
       ]
     };
   }
 
-  async generateQuestions({ topic = 'Current Chapter Section', pageNumber = 'N', count = 5 }) {
+  async generateQuestions({ topic = 'Current Chapter Section', pageNumber = 'N', count = 5, scope = 'page', examMode = true }) {
     await this.#delay(800);
     const mockQuestions = [
-      `[AI Offline Mock] What is the primary theoretical principle defined on Page ${pageNumber} regarding ${topic}?`,
-      `[AI Offline Mock] State the critical boundary conditions required when applying the formulas from this textbook section.`,
-      `[AI Offline Mock] Differentiate between the baseline observations and advanced experimental conclusions discussed on Page ${pageNumber}.`,
-      `[AI Offline Mock] How does the author characterize the real-world implications of ${topic} within standard course syllabuses?`,
-      `[AI Offline Mock] Summarize the step-by-step problem resolution method illustrated in the working examples of Page ${pageNumber}.`,
-      `[AI Offline Mock] Identify three common misconceptions when answering multiple-choice questions on ${topic}.`
+      {
+        question: `[JAMB Exam Mode] What is the primary foundational principle governing the observations discussed in ${topic}?`,
+        options: [
+          { id: "A", text: "Unregulated spontaneous phase transformation without equilibrium", isCorrect: false },
+          { id: "B", text: "Progressive systemic equilibrium governed by conservation laws", isCorrect: true },
+          { id: "C", text: "Linear dissipation of energy independently of external temperature", isCorrect: false },
+          { id: "D", text: "Reversible catalytic inversion under isothermal conditions exclusively", isCorrect: false }
+        ],
+        explanation: "Option B is correct because foundational theories in this textbook section explicitly rely on conservation laws and progressive systemic equilibrium. Option A is a distractor describing non-equilibrium chemistry, while C and D misrepresent standard temperature dependency in JAMB syllabuses."
+      },
+      {
+        question: `[JAMB Exam Mode] In standard laboratory experiments on ${topic}, why must boundary constraints be monitored constantly?`,
+        options: [
+          { id: "A", text: "To prevent external pressure variance from distorting volumetric measurements", isCorrect: true },
+          { id: "B", text: "Because glass apparatus expands logarithmically below zero degrees", isCorrect: false },
+          { id: "C", text: "To induce artificial supersaturation prior to titration", isCorrect: false },
+          { id: "D", text: "To eliminate gravitational acceleration effects from fluid dynamics", isCorrect: false }
+        ],
+        explanation: "Option A is correct: volumetric measurements are directly sensitive to ambient boundary pressure in experimental setups. Option B is factually inaccurate regarding thermal expansion, and Option C is an incorrect laboratory procedure."
+      },
+      {
+        question: `[JAMB Exam Mode] Which of the following relationships represents the correct formulaic deduction from Page ${pageNumber}?`,
+        options: [
+          { id: "A", text: "Rate is inversely proportional to the square root of active catalysts", isCorrect: false },
+          { id: "B", text: "Force remains constantly zero across non-inertial accelerating frames", isCorrect: false },
+          { id: "C", text: "Observed magnitude varies directly with primary variable intensity", isCorrect: true },
+          { id: "D", text: "Enthalpy shift is entirely independent of initial and final molecular states", isCorrect: false }
+        ],
+        explanation: "Option C correctly characterizes fundamental direct variation as explained in the reading text. Option D violates fundamental state function properties."
+      }
     ];
-    return mockQuestions.slice(0, count);
+    // Repeat or slice mock questions to match count
+    const result = [];
+    for (let i = 0; i < count; i++) {
+      const base = mockQuestions[i % mockQuestions.length];
+      result.push({ ...base, id: `mock_q_${i + 1}`, question: `${i >= mockQuestions.length ? `[Additional Drill #${i+1}] ` : ''}${base.question}` });
+    }
+    return result;
   }
 
   async evaluateAnswer({ topic, question, studentAnswer }) {

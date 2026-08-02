@@ -18,6 +18,7 @@ import ContactPage from './components/ContactPage';
 import MobileMenuDrawer from './components/MobileMenuDrawer';
 import NowPlayingBar from './components/NowPlayingBar';
 import DesktopSidebar from './components/DesktopSidebar';
+import { readerPreferencesService } from './services/ReaderPreferencesService';
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -139,6 +140,9 @@ function MainApp() {
   }
 
   const handleLogout = async () => {
+    if (user?.id) {
+      readerPreferencesService.clearUserCache(user.id);
+    }
     await supabase.auth.signOut();
   };
 

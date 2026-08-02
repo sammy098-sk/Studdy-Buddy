@@ -17,8 +17,8 @@ export class AIProvider {
   }
 
   /**
-   * Summarize educational textbook content or topic for quick revision.
-   * @param {Object} params - { text, topic, subject, pageNumber }
+   * Summarize educational textbook content or topic across user-selected scopes and styles.
+   * @param {Object} params - { text, topic, subject, pageNumber, scope, style }
    * @returns {Promise<Object>} - Structured summary { subtopics: [{ name, points: [] }] }
    */
   async summarize(params) {
@@ -26,9 +26,9 @@ export class AIProvider {
   }
 
   /**
-   * Generate practice questions for diagnostic testing.
-   * @param {Object} params - { text, topic, subject, pageNumber, count, excludeList }
-   * @returns {Promise<Array<string>>} - List of question strings
+   * Generate practice questions (A-D JAMB Exam MCQs or open questions) for diagnostic testing.
+   * @param {Object} params - { text, topic, subject, pageNumber, count, excludeList, scope, examMode }
+   * @returns {Promise<Array<Object | string>>} - List of structured MCQ objects or question strings
    */
   async generateQuestions(params) {
     throw new Error(`AIProvider [${this.name}]: generateQuestions() not implemented.`);

@@ -5,21 +5,41 @@ import {
   Pause, Play, Database, Check, Info, RefreshCw 
 } from 'lucide-react';
 import studyToolsService from '../services/StudyToolsService';
+import { readerPreferencesService } from '../services/ReaderPreferencesService';
 import SummaryPanel from './SummaryPanel';
 import QuestionnairePanel from './QuestionnairePanel';
+import ScopeSelector from './ScopeSelector';
 import useSpeech from '../hooks/useSpeech';
 
 export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, bookTitle = 'Textbook', user }) {
   const [activeView, setActiveView] = useState('menu'); // 'menu' | 'ask' | 'summary' | 'quiz' | 'explain'
   const [bookmarkedPages, setBookmarkedPages] = useState({});
   const [bookmarkMessage, setBookmarkMessage] = useState(null);
+  const [studyScope, setStudyScope] = useState(() => readerPreferencesService.getScope(user?.id, bookId) || 'page');
 
-  // Reset to menu when page changes or sidebar re-opens if desired, or let user stay on current tab
+  // Sync preference with authoritative cloud Supabase when sidebar opens or book/user changes
   useEffect(() => {
+    if (bookId) {
+      const current = readerPreferencesService.getScope(user?.id, bookId);
+      if (current !== studyScope) setStudyScope(current);
+      
+      if (user?.id && isOpen) {
+        readerPreferencesService.syncPreferences(user.id, bookId).then((prefs) => {
+          if (prefs && prefs.studyScope && prefs.studyScope !== studyScope) {
+            setStudyScope(prefs.studyScope);
+          }
+        }).catch(err => console.warn("Could not sync reader preferences:", err));
+      }
+    }
     if (!isOpen) {
       setBookmarkMessage(null);
     }
-  }, [isOpen]);
+  }, [isOpen, bookId, user?.id]);
+
+  const handleScopeChange = async (newScope) => {
+    setStudyScope(newScope);
+    await readerPreferencesService.setScope(user?.id, bookId, newScope);
+  };
 
   if (!isOpen) return null;
 
@@ -60,10 +80,12 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
                 {statusInfo.provider}
               </span>
             </h2>
-            <p className="text-[11px] text-slate-500 font-medium">Study Tools for Page {currentPage}</p>
+            <p className="text-[11px] text-slate-500 font-medium">
+              Active Scope: {studyScope === 'page' ? `Page ${currentPage}` : studyScope === 'chapter' ? 'Current Chapter' : 'Entire Book'}
+            </p>
           </div>
         </div>
-        <button onClick={onClose} aria-label="Close AI Sidebar" className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800 transition-colors">
+        <button onClick={onClose} aria-label="Close AI Sidebar" className="p-2 hover:bg-slate-100 rounded-xl text-slate-500 hover:text-slate-800 transition-colors cursor-pointer">
           <X size={18} />
         </button>
       </div>
@@ -73,15 +95,17 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
         {activeView === 'menu' && (
           <div className="p-5 flex-1 flex flex-col justify-between gap-6">
             <div>
+              <ScopeSelector scope={studyScope} onChange={handleScopeChange} />
+
               <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 px-1">
-                Select Interactive Tool (Page {currentPage})
+                Select Interactive Tool ({studyScope === 'page' ? `Page ${currentPage}` : studyScope.toUpperCase()})
               </div>
               
               <div className="flex flex-col gap-2.5">
-                <AiActionBtn icon={MessageSquare} label="Ask AI about this page" desc="Q&A scoped to current text" onClick={() => setActiveView('ask')} />
-                <AiActionBtn icon={FileText} label="Generate Summary" desc="Bulleted revision points" onClick={() => setActiveView('summary')} />
-                <AiActionBtn icon={BrainCircuit} label="Practice Questions" desc="Diagnostic test & answers" onClick={() => setActiveView('quiz')} />
-                <AiActionBtn icon={Lightbulb} label="Explain this page" desc="Plain English concept breakdown" onClick={() => setActiveView('explain')} />
+                <AiActionBtn icon={MessageSquare} label={`Ask AI (${studyScope})`} desc="Grounded conversational Q&A" onClick={() => setActiveView('ask')} />
+                <AiActionBtn icon={FileText} label="Generate Summary" desc="7 Revision styles & key points" onClick={() => setActiveView('summary')} />
+                <AiActionBtn icon={BrainCircuit} label="JAMB Practice Quiz" desc="A–D interactive exam drills" onClick={() => setActiveView('quiz')} />
+                <AiActionBtn icon={Lightbulb} label="Explain this concept" desc="Plain English teacher breakdown" onClick={() => setActiveView('explain')} />
                 <AiActionBtn 
                   icon={isCurrentBookmarked ? Check : Bookmark} 
                   label={isCurrentBookmarked ? "Page Bookmarked!" : "Bookmark Page"} 
@@ -102,10 +126,10 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50/50 border border-blue-100/80 rounded-2xl p-4 shadow-2xs">
               <div className="flex items-center gap-2 mb-2 text-blue-900 font-semibold text-xs">
                 <Sparkles size={14} className="text-blue-600" />
-                <span>Phase 1 Provider Architecture</span>
+                <span>Hybrid Cloud + Local Scope Sync</span>
               </div>
               <p className="text-xs text-blue-950/80 leading-relaxed">
-                Study tools are decoupled via the reusable <code className="bg-white/80 px-1 py-0.5 rounded font-mono text-blue-700 font-bold">AIProvider</code> framework. In development mode, mock offline responses are served without calling external AI APIs.
+                Your preferred study scope automatically synchronizes to Supabase per-book and follows you seamlessly across your devices.
               </p>
             </div>
           </div>
@@ -116,6 +140,8 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
             bookId={bookId} 
             bookTitle={bookTitle}
             currentPage={currentPage} 
+            studyScope={studyScope}
+            onScopeChange={handleScopeChange}
             onBack={() => setActiveView('menu')} 
           />
         )}
@@ -123,9 +149,11 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
         {activeView === 'summary' && (
           <SummaryPanel 
             subject={bookTitle} 
-            topic={`Page ${currentPage} Key Points`} 
+            topic={studyScope === 'page' ? `Page ${currentPage} Key Points` : `${studyScope.toUpperCase()} Revision Notes`} 
             bookId={bookId} 
             pageNumber={currentPage} 
+            initialScope={studyScope}
+            onScopeChange={handleScopeChange}
             onBack={() => setActiveView('menu')} 
           />
         )}
@@ -133,9 +161,11 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
         {activeView === 'quiz' && (
           <QuestionnairePanel 
             subject={bookTitle} 
-            topic={`Page ${currentPage} Diagnostic Quiz`} 
+            topic={studyScope === 'page' ? `Page ${currentPage} Diagnostic Drill` : `${studyScope.toUpperCase()} Exam Practice`} 
             bookId={bookId} 
             pageNumber={currentPage} 
+            initialScope={studyScope}
+            onScopeChange={handleScopeChange}
             onBack={() => setActiveView('menu')} 
           />
         )}
@@ -145,6 +175,8 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
             bookId={bookId} 
             currentPage={currentPage} 
             bookTitle={bookTitle} 
+            studyScope={studyScope}
+            onScopeChange={handleScopeChange}
             onBack={() => setActiveView('menu')} 
           />
         )}
@@ -157,7 +189,7 @@ function AiActionBtn({ icon: Icon, label, desc, onClick, highlight = false }) {
   return (
     <button 
       onClick={onClick}
-      className={`w-full flex items-center justify-between p-3.5 bg-white border rounded-xl transition-all group text-left shadow-2xs ${
+      className={`w-full flex items-center justify-between p-3.5 bg-white border rounded-xl transition-all group text-left shadow-2xs cursor-pointer ${
         highlight ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200 hover:border-blue-400 hover:shadow-sm hover:bg-blue-50/40'
       }`}
     >
@@ -180,9 +212,9 @@ function AiActionBtn({ icon: Icon, label, desc, onClick, highlight = false }) {
 }
 
 /**
- * Subview: Ask AI Q&A Scoped to Page N
+ * Subview: Ask AI Q&A Scoped to Page, Chapter, or Book
  */
-function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
+function AskAiView({ bookId, bookTitle, currentPage, studyScope, onScopeChange, onBack }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -194,25 +226,24 @@ function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
     setContextLoading(true);
     (async () => {
       try {
-        const ctx = await studyToolsService.extractPageText(bookId, currentPage);
+        const ctx = await studyToolsService.getScopedContext({ bookId, scope: studyScope, pageNumber: currentPage });
         if (active) {
           setPageContext(ctx);
-          if (ctx.isEmpty) {
+          if (ctx.isEmpty && studyScope === 'page') {
             setMessages([
-              { sender: 'ai', text: `⚠️ There's not enough readable text on this page for me to answer accurately (the page may be blank, image-only, or have an OCR failure). Try navigating to a page with selectable text!` }
+              { sender: 'ai', text: `⚠️ There's not enough readable text on this page for me to answer accurately. Try switching scope to Chapter or Entire Book!` }
             ]);
           } else {
-            const sectionDisplay = ctx.sectionTitle ? ` · ${ctx.sectionTitle}` : '';
             setMessages([
-              { sender: 'ai', text: `Hello! I have extracted and verified the context for Page ${currentPage} (${ctx.chapterTitle}${sectionDisplay}). What question can I answer about this material?` }
+              { sender: 'ai', text: `Hello! I am grounded in your ${studyScope.toUpperCase()} study scope (${ctx.title || `Page ${currentPage}`}). What question can I explain for your exam prep?` }
             ]);
           }
         }
       } catch (e) {
         if (active) {
-          setPageContext({ chapterTitle: `Page ${currentPage}`, text: '', isEmpty: true });
+          setPageContext({ title: `Scope: ${studyScope}`, text: '', isEmpty: true });
           setMessages([
-            { sender: 'ai', text: `⚠️ There's not enough readable text on this page for me to answer accurately.` }
+            { sender: 'ai', text: `⚠️ Could not initialize context for ${studyScope} scope.` }
           ]);
         }
       } finally {
@@ -220,7 +251,7 @@ function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
       }
     })();
     return () => { active = false; };
-  }, [bookId, currentPage]);
+  }, [bookId, currentPage, studyScope]);
 
   const handleSend = async (e) => {
     if (e) e.preventDefault();
@@ -237,6 +268,7 @@ function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
         bookId,
         bookTitle,
         pageNumber: currentPage,
+        scope: studyScope,
         contextText: pageContext?.text
       });
       setMessages((prev) => [...prev, { sender: 'ai', text: reply }]);
@@ -250,26 +282,29 @@ function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
   return (
     <div className="flex-1 flex flex-col bg-slate-50/50 h-full overflow-hidden">
       {/* Header Bar */}
-      <div className="p-3.5 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
-          <ChevronLeft size={16} /> Back to Tools
-        </button>
-        <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full">
-          Ask AI · Page {currentPage}
-        </span>
+      <div className="p-3 bg-white border-b border-slate-200 flex flex-col gap-2 shrink-0">
+        <div className="flex items-center justify-between">
+          <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors cursor-pointer">
+            <ChevronLeft size={16} /> Back to Tools
+          </button>
+          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full capitalize">
+            Ask AI · {studyScope}
+          </span>
+        </div>
+        <ScopeSelector scope={studyScope} onChange={onScopeChange} disabled={loading || contextLoading} />
       </div>
 
       {/* Context preview banner */}
-      <div className={`p-3 border-b text-xs shrink-0 flex items-center justify-between ${
-        pageContext?.isEmpty ? 'bg-amber-50/80 border-amber-200 text-amber-900' : 'bg-blue-50/80 border-blue-100 text-blue-900'
+      <div className={`p-2.5 border-b text-xs shrink-0 flex items-center justify-between ${
+        pageContext?.isEmpty && studyScope === 'page' ? 'bg-amber-50/80 border-amber-200 text-amber-900' : 'bg-blue-50/80 border-blue-100 text-blue-900'
       }`}>
         <div className="flex items-center gap-2 overflow-hidden">
-          <Info size={14} className={pageContext?.isEmpty ? 'text-amber-600 shrink-0' : 'text-blue-600 shrink-0'} />
-          <span className="font-medium truncate">
-            {contextLoading ? 'Extracting page content...' : (
-              pageContext?.isEmpty 
+          <Info size={14} className={pageContext?.isEmpty && studyScope === 'page' ? 'text-amber-600 shrink-0' : 'text-blue-600 shrink-0'} />
+          <span className="font-medium truncate text-[11px]">
+            {contextLoading ? `Extracting ${studyScope} context...` : (
+              pageContext?.isEmpty && studyScope === 'page'
                 ? `Page ${currentPage}: Insufficient readable text` 
-                : `Scoped to: ${pageContext?.chapterTitle || `Page ${currentPage}`}${pageContext?.sectionTitle ? ` (${pageContext.sectionTitle})` : ''}`
+                : `Grounded in: ${pageContext?.title || `${studyScope.toUpperCase()} Scope`}`
             )}
           </span>
         </div>
@@ -288,7 +323,7 @@ function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
         {loading && (
           <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-xs p-3 self-start flex items-center gap-2 text-slate-500 text-xs font-medium shadow-2xs">
             <Loader2 size={14} className="animate-spin text-blue-600" />
-            <span>Analyzing textbook text and generating response...</span>
+            <span>Analyzing ${studyScope} context and generating explanation...</span>
           </div>
         )}
       </div>
@@ -299,13 +334,13 @@ function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={`Ask about concepts on Page ${currentPage}...`}
+          placeholder={`Ask about ${studyScope === 'page' ? `Page ${currentPage}` : studyScope === 'chapter' ? 'this chapter' : 'the textbook'}...`}
           className="flex-1 px-3.5 py-2 rounded-xl text-sm bg-slate-50 border border-slate-200 outline-none focus:border-blue-500 focus:bg-white transition-all"
         />
         <button 
           type="submit" 
           disabled={!input.trim() || loading}
-          className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors shadow-2xs shrink-0"
+          className="p-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 transition-colors shadow-2xs shrink-0 cursor-pointer"
           aria-label="Send message"
         >
           <Send size={16} />
@@ -316,9 +351,9 @@ function AskAiView({ bookId, bookTitle, currentPage, onBack }) {
 }
 
 /**
- * Subview: Explain This Page with Read Aloud & Caching
+ * Subview: Explain This Page/Chapter/Book with Read Aloud & Caching
  */
-function ExplainPageView({ bookId, currentPage, bookTitle, onBack }) {
+function ExplainPageView({ bookId, currentPage, bookTitle, studyScope, onScopeChange, onBack }) {
   const [explanation, setExplanation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -333,12 +368,12 @@ function ExplainPageView({ bookId, currentPage, bookTitle, onBack }) {
       studyToolsService.clearPageCache(bookId, currentPage);
     }
     try {
-      const res = await studyToolsService.explainPage({ bookId, pageNumber: currentPage });
+      const res = await studyToolsService.explainPage({ bookId, pageNumber: currentPage, scope: studyScope });
       setExplanation(res.explanation);
       setIsCached(Boolean(res.isCached));
       setChapterTitle(res.chapterTitle);
     } catch (e) {
-      setError("Failed to generate page explanation: " + e.message);
+      setError("Failed to generate concept explanation: " + e.message);
     } finally {
       setLoading(false);
     }
@@ -346,35 +381,38 @@ function ExplainPageView({ bookId, currentPage, bookTitle, onBack }) {
 
   useEffect(() => {
     fetchExplanation();
-  }, [bookId, currentPage]);
+  }, [bookId, currentPage, studyScope]);
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col bg-slate-50/40 w-full">
-      <div className="p-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors">
-          <ChevronLeft size={16} /> Back to Tools
-        </button>
-        <div className="flex items-center gap-2">
-          {isCached && (
-            <span title="Loaded instantly from session memory" className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <Database size={10} /> Cached
-            </span>
-          )}
-          <button 
-            onClick={() => fetchExplanation(true)} 
-            disabled={loading}
-            title="Refresh explanation" 
-            className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-40"
-          >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+      <div className="p-3 bg-white border-b border-slate-200 flex flex-col gap-2 shrink-0">
+        <div className="flex items-center justify-between">
+          <button onClick={onBack} className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 transition-colors cursor-pointer">
+            <ChevronLeft size={16} /> Back to Tools
           </button>
+          <div className="flex items-center gap-2">
+            {isCached && (
+              <span title="Loaded instantly from session memory" className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <Database size={10} /> Cached
+              </span>
+            )}
+            <button 
+              onClick={() => fetchExplanation(true)} 
+              disabled={loading}
+              title="Refresh explanation" 
+              className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-40 cursor-pointer"
+            >
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
+        <ScopeSelector scope={studyScope} onChange={onScopeChange} disabled={loading} />
       </div>
 
       <div className="p-5 max-w-2xl mx-auto flex-1 w-full">
         <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
           <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
-            Page {currentPage} Explanation
+            {studyScope === 'page' ? `Page ${currentPage}` : studyScope.toUpperCase()} Teacher Breakdown
           </span>
 
           {/* Read Aloud controls */}
@@ -382,26 +420,26 @@ function ExplainPageView({ bookId, currentPage, bookTitle, onBack }) {
             <div className="flex items-center gap-1.5">
               {!speaking && (
                 <button
-                  onClick={() => speak(explanation.replace(/#/g, ''), { subject: bookTitle, label: `Page ${currentPage} Explanation` })}
+                  onClick={() => speak(explanation.replace(/#/g, ''), { subject: bookTitle, label: `${studyScope} Explanation` })}
                   disabled={ttsLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all shadow-2xs bg-white hover:bg-slate-50 text-blue-600 disabled:opacity-60"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all shadow-2xs bg-white hover:bg-slate-50 text-blue-600 disabled:opacity-60 cursor-pointer"
                 >
                   {ttsLoading ? <Loader2 size={13} className="animate-spin" /> : <Volume2 size={13} />}
                   <span>Read Aloud</span>
                 </button>
               )}
               {speaking && !paused && (
-                <button onClick={pause} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-blue-600 shadow-2xs">
+                <button onClick={pause} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-blue-600 shadow-2xs cursor-pointer">
                   <Pause size={13} /> Pause
                 </button>
               )}
               {speaking && paused && (
-                <button onClick={resume} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-blue-600 shadow-2xs">
+                <button onClick={resume} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-blue-600 shadow-2xs cursor-pointer">
                   <Play size={13} /> Resume
                 </button>
               )}
               {speaking && (
-                <button onClick={stop} className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border bg-red-50 border-red-200 text-red-600 hover:opacity-80 shadow-2xs">
+                <button onClick={stop} className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border bg-red-50 border-red-200 text-red-600 hover:opacity-80 shadow-2xs cursor-pointer">
                   <VolumeX size={13} />
                 </button>
               )}
@@ -409,13 +447,13 @@ function ExplainPageView({ bookId, currentPage, bookTitle, onBack }) {
           )}
         </div>
 
-        <h3 className="font-bold text-slate-900 text-lg sm:text-xl mb-1">{chapterTitle || `Section at Page ${currentPage}`}</h3>
-        <p className="text-xs text-slate-500 mb-5">Broken down into simple, student-friendly terms for fast comprehension</p>
+        <h3 className="font-bold text-slate-900 text-lg sm:text-xl mb-1">{chapterTitle || `Section around Page ${currentPage}`}</h3>
+        <p className="text-xs text-slate-500 mb-5">Demystifying core theories into intuitive concepts and practical exam mastery tips</p>
 
         {loading && (
           <div className="py-16 flex flex-col items-center justify-center gap-3 text-sm text-slate-500">
             <Loader2 size={24} className="animate-spin text-blue-600" />
-            <span className="font-medium">Extracting Page {currentPage} OCR context and analyzing concepts...</span>
+            <span className="font-medium">Synthesizing {studyScope} reading content into interactive teacher explanations...</span>
           </div>
         )}
 
