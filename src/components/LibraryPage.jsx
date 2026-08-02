@@ -3,6 +3,7 @@ import { supabase } from '../supabase';
 import { BookOpen, Trash2, Plus, FileText, Calendar, Clock, ChevronLeft } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { isAdminUser } from '../config';
+import Footer from './Footer';
 
 export default function LibraryPage({ user, onNavigate }) {
   const [searchParams] = useSearchParams();
@@ -113,8 +114,8 @@ export default function LibraryPage({ user, onNavigate }) {
   };
 
   return (
-    <div className="flex-1 w-full h-full overflow-y-auto bg-slate-50 p-4 sm:p-8">
-      <div className="max-w-7xl mx-auto">
+    <div className="flex-1 w-full h-full overflow-y-auto bg-slate-50 flex flex-col justify-between">
+      <div className="max-w-7xl mx-auto p-4 sm:p-8 w-full">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
           <div>
@@ -280,6 +281,7 @@ export default function LibraryPage({ user, onNavigate }) {
           </div>
         )}
       </div>
+      <Footer onNavigate={onNavigate} />
     </div>
   );
 }

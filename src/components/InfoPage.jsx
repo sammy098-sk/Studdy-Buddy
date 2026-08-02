@@ -272,15 +272,73 @@ function BgTerms() {
 const BG_MAP = {
   about: BgAbout,
   'how-it-works': BgHowItWorks,
+  help: BgHowItWorks,
   privacy: BgPrivacy,
   terms: BgTerms,
+};
+
+const DEFAULT_CONTENTS = {
+  about: {
+    title: "About StudyBuddy",
+    subtitle: "A textbook-first learning companion built around real examination syllabuses.",
+    sections: [
+      { heading: "Why we built this", body: "Textbooks are expensive, physical classes cost more than many families can spare, and most study apps aren't built around actual examination syllabuses. StudyBuddy exists to close that gap." },
+      { heading: "What makes it different", body: ["Built specifically around real course syllabuses, not generic curricula.", "Explanations lead with core concepts and past practice questions, not abstract theory.", "A supportive peer tone, not a tedious lecture.", "Multiple ways to study: full textbook depth, quick topic summaries, or targeted practice questions."] },
+      { heading: "Who it's for", body: "Any student preparing for exams who wants an adaptive study companion that meets them where they are." },
+    ]
+  },
+  'how-it-works': {
+    title: "How StudyBuddy Works",
+    subtitle: "Three ways to study, all built around real course syllabuses.",
+    sections: [
+      { heading: "1. Pick a subject", body: "Choose any of the subjects covered — each broken down into the actual topics on your curriculum." },
+      { heading: "2. Choose how you want to study", body: ["Full Textbook Mode — comprehensive, unabridged coverage of a topic, broken into digestible sections.", "Summary Mode — key-points-only breakdown of a topic, condensed for quick revision.", "Questionnaire Mode — interactive practice questions on a topic with instant diagnostic feedback."] },
+      { heading: "3. Drill into chapters and sections", body: "Our multi-layer Table of Contents extraction makes navigating 1,000+ page textbooks instant and seamless." },
+      { heading: "4. Track your daily achievements", body: "Your reading streak, books in progress, completed books, and real study time update directly on your Study Dashboard." },
+    ]
+  },
+  help: {
+    title: "StudyBuddy Help Center",
+    subtitle: "Find answers to common questions and learn how to get the most out of StudyBuddy.",
+    sections: [
+      { heading: "Getting Started", body: "Browse your personal library or select a core subject directly from your Study Dashboard to open your first textbook." },
+      { heading: "Tracking Your Progress", body: ["StudyBuddy automatically records your reading progress and page bookmarks as you read.", "Your reading streak increments for each consecutive calendar day you study or interact with practice questions.", "Real accumulated study session duration is tracked automatically whenever you have a textbook open."] },
+      { heading: "Reading Toolbar & Preferences", body: "While reading any textbook, utilize the top control bar to modify zoom levels, toggle full width fit mode, or access chapter navigation." },
+      { heading: "Need Additional Assistance?", body: "If you encounter technical issues or wish to suggest new study materials, select 'Contact' in the footer to message our support team directly." },
+    ]
+  },
+  privacy: {
+    title: "Privacy Policy",
+    disclaimer: "This policy outlines how StudyBuddy secures, manages, and honors student learning activity and account profiles under standard data protection protocols.",
+    sections: [
+      { heading: "Information we collect", body: ["Account profile details you provide during authentication, such as name and email address.", "Study progress timestamps and reading durations to power your personal dashboard metrics.", "Basic application connectivity logs to maintain platform reliability."] },
+      { heading: "How we use your data", body: ["To securely deliver and refine the interactive study reading experience.", "To calculate daily reading streaks and highlight continuing reading checkpoints.", "To investigate and resolve user-submitted technical support inquiries."] },
+      { heading: "Data Security & Privacy", body: "We do not sell personal data or student learning history. All communication and storage are secured using encrypted cloud database infrastructure." },
+      { heading: "Student & User Rights", body: ["Right to request access to your complete learning history and bookmarks.", "Right to update or correct personal profile details directly from the Profile page.", "Right to request complete account deletion and data removal at any time."] },
+    ]
+  },
+  terms: {
+    title: "Terms of Service",
+    disclaimer: "By utilizing StudyBuddy educational tools, you acknowledge and agree to abide by these community terms of usage.",
+    sections: [
+      { heading: "Acceptance of Terms", body: "By registering an account or reading textbook resources on StudyBuddy, you accept and agree to these Terms of Service." },
+      { heading: "Academic Purpose", body: ["StudyBuddy is an educational study aid created to strengthen conceptual comprehension and subject familiarity.", "Platform resources are designed to augment dedicated study habits and personal revision.", "You are solely responsible for maintaining the confidentiality of your authentication credentials."] },
+      { heading: "Platform Independence & Disclaimers", body: "StudyBuddy operates independently as an educational study technology platform. AI-supported interactive guides are designed as supplemental tutoring assistants and should be used alongside verified textbook chapters." },
+      { heading: "Limitation of Liability", body: "StudyBuddy is provided on an 'as is' educational basis. We make no guarantees regarding formal external examination results or individual score outcomes." },
+    ]
+  }
 };
 
 /* ─────────────────────────────────────────────
    MAIN COMPONENT
 ───────────────────────────────────────────────── */
 export default function InfoPage({ title, subtitle, disclaimer, sections, onNavigate, bgVariant }) {
-  const BgComponent = BG_MAP[bgVariant] || BgAbout;
+  const defaultData = DEFAULT_CONTENTS[bgVariant] || {};
+  const pageTitle = title || defaultData.title || "Information";
+  const pageSubtitle = subtitle || defaultData.subtitle;
+  const pageDisclaimer = disclaimer || defaultData.disclaimer;
+  const pageSections = sections || defaultData.sections || [];
+  const BgComponent = BG_MAP[bgVariant] || BG_MAP.about || BgAbout;
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col" style={{ background: "#FAFBFF", position: 'relative' }}>
@@ -292,18 +350,18 @@ export default function InfoPage({ title, subtitle, disclaimer, sections, onNavi
         <div className="max-w-2xl mx-auto">
           <BackToHomeButton onNavigate={onNavigate} />
           <h2 className="text-2xl font-semibold mb-1" style={{ color: "#101C34", fontFamily: "'Montserrat', sans-serif" }}>
-            {title}
+            {pageTitle}
           </h2>
-          {subtitle && <p className="text-sm mb-6" style={{ color: "#8493B0" }}>{subtitle}</p>}
+          {pageSubtitle && <p className="text-sm mb-6" style={{ color: "#8493B0" }}>{pageSubtitle}</p>}
 
-          {disclaimer && (
+          {pageDisclaimer && (
             <div className="text-xs px-4 py-3 rounded-lg border mb-8" style={{ background: "#FFFBEB", borderColor: "#FDE68A", color: "#92400E" }}>
-              {disclaimer}
+              {pageDisclaimer}
             </div>
           )}
 
           <div className="flex flex-col gap-7">
-            {sections?.map((s, i) => (
+            {pageSections?.map((s, i) => (
               <div key={i}>
                 {s.heading && (
                   <h3 className="text-[15px] font-semibold mb-2" style={{ color: "#101C34" }}>{s.heading}</h3>

@@ -125,6 +125,57 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
     return () => clearTimeout(timer);
   }, [currentPage, zoom, mode, fitWidth, user, bookId, isLoading]);
 
+  // Track active Study Session duration
+  useEffect(() => {
+    if (!user || !bookId || isLoading) return;
+    let sessionId = null;
+    const startTimestamp = Date.now();
+
+    const startSession = async () => {
+      try {
+        const { data } = await supabase.from('study_sessions').insert({
+          user_id: user.id,
+          subject: bookMeta?.subject || 'General Study',
+          topic: bookMeta?.title || `Textbook ${bookId}`,
+          mode: 'textbook',
+          started_at: new Date().toISOString()
+        }).select('id').single();
+        if (data && data.id) {
+          sessionId = data.id;
+        }
+      } catch (err) {
+        console.warn('Study session logging not yet migrated or unavailable:', err);
+      }
+    };
+    startSession();
+
+    const syncDuration = async () => {
+      if (!sessionId) return;
+      const elapsedMinutes = Math.floor((Date.now() - startTimestamp) / 60000);
+      try {
+        await supabase.from('study_sessions').update({
+          ended_at: new Date().toISOString(),
+          duration_minutes: elapsedMinutes
+        }).eq('id', sessionId);
+      } catch (err) {
+        // Fallback if duration_minutes column not added yet
+        try {
+          await supabase.from('study_sessions').update({
+            ended_at: new Date().toISOString()
+          }).eq('id', sessionId);
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+
+    const interval = setInterval(syncDuration, 60000); // Sync duration every minute
+    return () => {
+      clearInterval(interval);
+      syncDuration();
+    };
+  }, [user, bookId, bookMeta, isLoading]);
+
   if (error) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-slate-50 w-full h-full">

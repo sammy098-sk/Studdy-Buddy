@@ -248,6 +248,12 @@ function MainApp() {
           <Route path="/book/:id" element={<Navigate to="read" replace />} />
           <Route path="/book/:id/read" element={<ReaderRouteWrapper user={user} />} />
           <Route path="/study" element={<HomeView user={user} onNavigate={navigateTo} />} />
+          <Route path="/about" element={<InfoPage bgVariant="about" onNavigate={navigateTo} />} />
+          <Route path="/how-it-works" element={<InfoPage bgVariant="how-it-works" onNavigate={navigateTo} />} />
+          <Route path="/help" element={<InfoPage bgVariant="help" onNavigate={navigateTo} />} />
+          <Route path="/privacy" element={<InfoPage bgVariant="privacy" onNavigate={navigateTo} />} />
+          <Route path="/terms" element={<InfoPage bgVariant="terms" onNavigate={navigateTo} />} />
+          <Route path="/contact" element={<ContactPage onNavigate={navigateTo} />} />
           {/* Legacy route kept for backward compatibility if needed */}
           <Route path="/legacy-study" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />
           <Route path="/sessions" element={<SessionsPage userId={user.id} onNavigate={navigateTo} onResume={handleResume} />} />

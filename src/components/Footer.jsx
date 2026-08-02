@@ -71,13 +71,13 @@ export default function Footer({ onNavigate }) {
         {/* Accordion Container on Mobile, Standard Columns on Desktop */}
         <div className="md:contents divide-y divide-slate-100 md:divide-y-0 text-left">
           
-          {/* Group 1: Browse */}
+          {/* Group 1: Quick Links */}
           <div className="py-2 md:py-0">
             <button
               onClick={() => toggleSection('browse')}
               className="w-full flex items-center justify-between py-2 md:py-0 text-xs font-extrabold text-slate-900 uppercase tracking-wider md:pointer-events-none md:mb-3.5"
             >
-              <span>Browse</span>
+              <span>Quick Links</span>
               <ChevronDown 
                 size={16} 
                 strokeWidth={2.5}
@@ -99,13 +99,13 @@ export default function Footer({ onNavigate }) {
             </div>
           </div>
 
-          {/* Group 2: Support */}
+          {/* Group 2: Resources */}
           <div className="py-2 md:py-0">
             <button
               onClick={() => toggleSection('support')}
               className="w-full flex items-center justify-between py-2 md:py-0 text-xs font-extrabold text-slate-900 uppercase tracking-wider md:pointer-events-none md:mb-3.5"
             >
-              <span>Support</span>
+              <span>Resources</span>
               <ChevronDown 
                 size={16} 
                 strokeWidth={2.5}
@@ -115,14 +115,15 @@ export default function Footer({ onNavigate }) {
             
             <div 
               className={`transition-all duration-300 ease-in-out overflow-hidden md:max-h-none md:opacity-100 md:overflow-visible md:block ${
-                expandedSection === 'support' ? 'max-h-48 opacity-100 pb-3 pt-2' : 'max-h-0 opacity-0'
+                expandedSection === 'support' ? 'max-h-60 opacity-100 pb-3 pt-2' : 'max-h-0 opacity-0'
               }`}
             >
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-slate-600 font-medium">
-                <button onClick={() => handleNav('contact')} className="text-left hover:text-[#2954E5] transition-colors py-0.5">Help Center</button>
+                <button onClick={() => handleNav('about')} className="text-left hover:text-[#2954E5] transition-colors py-0.5">About</button>
+                <button onClick={() => handleNav('help')} className="text-left hover:text-[#2954E5] transition-colors py-0.5">Help Center</button>
+                <button onClick={() => handleNav('privacy')} className="text-left hover:text-[#2954E5] transition-colors py-0.5">Privacy Policy</button>
+                <button onClick={() => handleNav('terms')} className="text-left hover:text-[#2954E5] transition-colors py-0.5">Terms of Service</button>
                 <button onClick={() => handleNav('contact')} className="text-left hover:text-[#2954E5] transition-colors py-0.5">Contact</button>
-                <button onClick={() => handleNav('privacy')} className="text-left hover:text-[#2954E5] transition-colors py-0.5">Privacy</button>
-                <button onClick={() => handleNav('terms')} className="text-left hover:text-[#2954E5] transition-colors py-0.5">Terms</button>
               </div>
             </div>
           </div>

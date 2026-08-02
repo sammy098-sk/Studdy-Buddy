@@ -82,6 +82,8 @@ export default function HomeView({ user, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGoalChip, setSelectedGoalChip] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [streakDays, setStreakDays] = useState(0);
+  const [hoursStudied, setHoursStudied] = useState(null);
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -103,6 +105,9 @@ export default function HomeView({ user, onNavigate }) {
         if (textbooksError) throw textbooksError;
 
         let progressMap = {};
+        let streak = 0;
+        let computedHours = null;
+
         if (user?.id) {
           const { data: progressData } = await supabase
             .from('reading_progress')
@@ -115,7 +120,84 @@ export default function HomeView({ user, onNavigate }) {
               progressMap[p.book_id] = p;
             });
           }
+
+          // Fetch study progress for streak calculation
+          const { data: studyProgressData } = await supabase
+            .from('study_progress')
+            .select('topic_label, created_at')
+            .eq('user_id', user.id);
+
+          // Fetch study sessions for real hours studied and streak calculation
+          const { data: sessionsData, error: sessionsError } = await supabase
+            .from('study_sessions')
+            .select('started_at, ended_at, duration_minutes')
+            .eq('user_id', user.id);
+
+          if (!sessionsError && sessionsData && sessionsData.length > 0) {
+            let totalMinutes = 0;
+            let countValid = 0;
+            sessionsData.forEach(s => {
+              if (typeof s.duration_minutes === 'number' && s.duration_minutes > 0) {
+                totalMinutes += s.duration_minutes;
+                countValid++;
+              } else if (s.started_at && s.ended_at) {
+                const diffMs = new Date(s.ended_at) - new Date(s.started_at);
+                if (diffMs > 0) {
+                  totalMinutes += Math.round(diffMs / 60000);
+                  countValid++;
+                }
+              }
+            });
+            if (countValid > 0 || totalMinutes > 0) {
+              computedHours = Math.round((totalMinutes / 60) * 10) / 10;
+            }
+          }
+
+          // Compute Reading Streak: consecutive calendar days ending today or yesterday
+          const activeDates = new Set();
+          (progressData || []).forEach(p => {
+            if (p.updated_at || p.last_read_at) {
+              activeDates.add(new Date(p.updated_at || p.last_read_at).toISOString().split('T')[0]);
+            }
+          });
+          (studyProgressData || []).forEach(p => {
+            if (p.created_at) {
+              activeDates.add(new Date(p.created_at).toISOString().split('T')[0]);
+            }
+          });
+          (sessionsData || []).forEach(s => {
+            if (s.started_at) {
+              activeDates.add(new Date(s.started_at).toISOString().split('T')[0]);
+            }
+          });
+
+          const todayStr = new Date().toISOString().split('T')[0];
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+          let checkDate = null;
+          if (activeDates.has(todayStr)) {
+            checkDate = new Date(todayStr);
+          } else if (activeDates.has(yesterdayStr)) {
+            checkDate = new Date(yesterdayStr);
+          }
+
+          if (checkDate) {
+            while (true) {
+              const dStr = checkDate.toISOString().split('T')[0];
+              if (activeDates.has(dStr)) {
+                streak += 1;
+                checkDate.setDate(checkDate.getDate() - 1);
+              } else {
+                break;
+              }
+            }
+          }
         }
+
+        setStreakDays(streak);
+        setHoursStudied(computedHours);
 
         const mergedBooks = (textbooksData || []).map(book => ({
           ...book,
@@ -168,13 +250,15 @@ export default function HomeView({ user, onNavigate }) {
     }
     return matchQuery && (
       b.title.toLowerCase().includes(selectedGoalChip.toLowerCase()) ||
-      (b.subject && b.subject.toLowerCase().includes(selectedGoalChip.toLowerCase()))
+      (b.subject && b.subject.toLowerCase().includes(selectedGoalChip.toLowerCase())) ||
+      (b.category && b.category.toLowerCase().includes(selectedGoalChip.toLowerCase()))
     );
   });
 
   const handleChipClick = (chip) => {
     if (selectedGoalChip === chip) {
       setSelectedGoalChip(null);
+      setSearchQuery('');
     } else {
       setSelectedGoalChip(chip);
       if (chip === 'Recently Added') {
@@ -185,12 +269,17 @@ export default function HomeView({ user, onNavigate }) {
 
   const isSearching = searchQuery.trim().length > 0 || selectedGoalChip !== null;
 
-  // Calculate meaningful stats
-  const inProgressCount = books.filter(b => b.progress && b.progress.current_page > 0).length;
-  const displayInProgress = inProgressCount > 0 ? `${inProgressCount} in progress` : '2 in progress';
-  const displayStreak = '7 days';
-  const displayHours = '12 hrs';
-  const displayCompleted = '5 books';
+  // Calculate meaningful real statistics from actual database records (Never fabricate values)
+  const completedBooksList = books.filter(b => b.progress && b.total_pages > 0 && b.progress.current_page >= b.total_pages);
+  const completedCount = completedBooksList.length;
+
+  const inProgressBooksList = books.filter(b => b.progress && b.progress.current_page > 0 && !(b.total_pages > 0 && b.progress.current_page >= b.total_pages));
+  const inProgressCount = inProgressBooksList.length;
+
+  const displayInProgress = `${inProgressCount} in progress`;
+  const displayStreak = `${streakDays || 0} ${streakDays === 1 ? 'day' : 'days'}`;
+  const displayHours = hoursStudied !== null ? `${hoursStudied} hrs` : '--';
+  const displayCompleted = `${completedCount} completed`;
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50 flex flex-col justify-between">
