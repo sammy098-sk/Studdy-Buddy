@@ -14,9 +14,9 @@ const PROVIDERS = {
   gemini: new GeminiProvider(),
 };
 
-// PHASE 1 DEFAULT: set to 'placeholder'. 
-// PHASE 2 ACTIVATION: switch default to 'anthropic' or configure dynamically via user preferences.
-let activeProviderKey = 'placeholder';
+// PHASE 2 ACTIVE: Gemini is the live AI provider.
+// To switch providers, call AIProviderFactory.setProvider('anthropic' | 'openai' | 'placeholder').
+let activeProviderKey = 'gemini';
 
 export const AIProviderFactory = {
   /**
