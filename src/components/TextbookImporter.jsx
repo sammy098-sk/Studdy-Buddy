@@ -50,6 +50,7 @@ export default function TextbookImporter({ onNavigate, user }) {
   const [progressPercent, setProgressPercent] = useState(0);
   const [statusText, setStatusText] = useState('');
   const [errorMessage, setErrorMessage] = useState(null);
+  const [lowDpiWarning, setLowDpiWarning] = useState(null);
 
   // Verification Summary State
   const [adminSummary, setAdminSummary] = useState(null);
@@ -620,7 +621,13 @@ export default function TextbookImporter({ onNavigate, user }) {
           const { data: authData } = await supabase.auth.getUser();
           if (!authData?.user) throw new Error("Authenticated user not found in Supabase session.");
 
-          // Create Parent Book Record (Status: 'processing')
+          if (data.ocr_result?.is_low_dpi_warning || (data.ocr_result?.confidence_score < 80 && data.ocr_result?.confidence_score > 0)) {
+            setLowDpiWarning('This PDF appears to be a low-quality scan. OCR accuracy may be reduced.');
+          } else {
+            setLowDpiWarning(null);
+          }
+
+          // Create Parent Book Record (Status: 'processing', complete with classification & OCR metadata)
           const { data: bookRecord, error: bookErr } = await supabase.from('textbooks').insert({
             title: title.trim() || 'Untitled Textbook',
             subject: subject,
@@ -629,17 +636,50 @@ export default function TextbookImporter({ onNavigate, user }) {
             total_parts: chunks.length,
             status: 'processing',
             uploaded_by: authData.user.id,
-            is_published: true
+            is_published: true,
+            pdf_type: data.ocr_result?.pdf_type || 'native_searchable_pdf',
+            processing_state: data.ocr_result?.processing_state || 'completed',
+            ocr_engine: data.ocr_result?.ocr_engine || 'native_text',
+            ocr_status: data.ocr_result?.processing_state || 'not_needed',
+            confidence_score: data.ocr_result?.confidence_score ?? 100.0,
+            pages_requiring_ocr: data.ocr_result?.pages_requiring_ocr || [],
+            pages_failed: data.ocr_result?.pages_failed || [],
+            ocr_pipeline_version: data.ocr_result?.ocr_pipeline_version ?? 1
           }).select().single();
 
           if (bookErr || !bookRecord) throw new Error(`Failed to create textbook record: ${bookErr?.message}`);
           
           const newBookId = bookRecord.id;
+          const failedPagesSet = new Set(data.ocr_result?.pages_failed || []);
+
+          // Save authoritative extracted page text to Supabase (OCR once during upload, reuse everywhere!)
+          if (data.ocr_result?.extracted_pages?.length > 0) {
+            setStatusText('Saving authoritative extracted page text to database...');
+            const pagesToInsert = data.ocr_result.extracted_pages.map(p => ({
+              book_id: newBookId,
+              page_number: p.page_number,
+              extracted_text: p.extracted_text || '',
+              source: p.source || 'digital',
+              confidence_score: p.confidence_score ?? 100.0,
+              ocr_status: p.ocr_status || 'completed',
+              is_low_dpi: p.is_low_dpi || false,
+              ocr_pipeline_version: p.ocr_pipeline_version ?? 1
+            }));
+            for (let idx = 0; idx < pagesToInsert.length; idx += 500) {
+              const batch = pagesToInsert.slice(idx, idx + 500);
+              const { error: pErr } = await supabase.from('textbook_extracted_pages').insert(batch);
+              if (pErr) console.warn('Failed to insert extracted pages batch:', pErr);
+            }
+          }
           
           if (fileStats?.chapters?.length > 0) {
             setStatusText('Saving chapter metadata...');
-            // Take up to 1500 chapters to prevent payload limits
-            const chaptersToInsert = fileStats.chapters.slice(0, 1500).map(ch => ({
+            // Prevent TOC fabrication: Filter out headings targeting unreadable or failed OCR pages!
+            const validChapters = fileStats.chapters
+              .filter(ch => !failedPagesSet.has(ch.page_number))
+              .slice(0, 1500);
+
+            const chaptersToInsert = validChapters.map(ch => ({
               id: ch.id,
               book_id: newBookId,
               title: ch.title,
@@ -649,9 +689,11 @@ export default function TextbookImporter({ onNavigate, user }) {
               type: ch.type || 'chapter',
               order_index: ch.order_index
             }));
-            const { error: chapterErr } = await supabase.from('textbook_chapters').insert(chaptersToInsert);
-            if (chapterErr) {
-              console.warn("Failed to insert chapters:", chapterErr);
+            if (chaptersToInsert.length > 0) {
+              const { error: chapterErr } = await supabase.from('textbook_chapters').insert(chaptersToInsert);
+              if (chapterErr) {
+                console.warn("Failed to insert chapters:", chapterErr);
+              }
             }
           }
 
@@ -664,7 +706,19 @@ export default function TextbookImporter({ onNavigate, user }) {
           clearInterval(interval);
           throw new Error(`Server splitting failed: ${data.error}`);
         } else {
-           setStatusText(`Splitting document...`);
+          const pState = data.processing_state || 'uploaded';
+          const stateMessages = {
+            uploaded: 'Upload complete. Initializing server-side OCR & classification...',
+            checking_for_text: 'Checking page text layers & document classification...',
+            extracting_native_text: 'Extracting searchable native digital text...',
+            preprocessing_images: 'Preprocessing scanned images (deskewing, contrast & binarization)...',
+            running_ocr: `Running server-side OCR on scanned pages (${data.progress_meta?.completedOcrPages || 0}/${data.progress_meta?.pagesRequiringOcr || '??'})...`,
+            building_toc: 'Constructing adaptive Table of Contents hierarchy...',
+            generating_embeddings: 'Finalizing page text & preparing split parts...',
+          };
+          setStatusText(stateMessages[pState] || `Server processing: ${pState.replace(/_/g, ' ')}...`);
+          const progressMap = { uploaded: 15, checking_for_text: 18, extracting_native_text: 22, preprocessing_images: 24, running_ocr: 26, building_toc: 28, generating_embeddings: 29 };
+          if (progressMap[pState]) setProgressPercent(progressMap[pState]);
         }
       } catch (err) {
         clearInterval(interval);
@@ -771,6 +825,16 @@ export default function TextbookImporter({ onNavigate, user }) {
               </p>
             </div>
           </div>
+
+          {lowDpiWarning && (
+            <div className="mb-6 p-4 rounded-xl flex items-center gap-3 text-sm" style={{ background: '#FEF9C3', borderColor: '#FDE047', color: '#854D0E', border: '1px solid' }}>
+              <AlertCircle size={18} />
+              <div>
+                <span className="font-semibold block mb-1">Low-Quality Scan Detected</span>
+                <span>{lowDpiWarning}</span>
+              </div>
+            </div>
+          )}
 
           {errorMessage && (
             <div className="mb-6 p-4 rounded-xl flex items-center gap-3 text-sm" style={{ background: '#FEF2F2', borderColor: '#FCA5A5', color: '#991B1B', border: '1px solid' }}>

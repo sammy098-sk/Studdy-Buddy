@@ -5,6 +5,7 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 import { PDFDocument } from 'pdf-lib';
+import { ServerOCRPipeline } from './src/ServerOCRPipeline.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -54,6 +55,9 @@ app.post('/jobs/split', upload.single('file'), (req, res) => {
   
   jobs[jobId] = {
     status: 'processing',
+    processing_state: 'uploaded',
+    progress_meta: {},
+    ocr_result: null,
     originalName: req.file.originalname,
     chunks: [],
     error: null,
@@ -61,7 +65,7 @@ app.post('/jobs/split', upload.single('file'), (req, res) => {
     createdAt: Date.now()
   };
 
-  res.json({ success: true, jobId, status: 'processing' });
+  res.json({ success: true, jobId, status: 'processing', processing_state: 'uploaded' });
 
   // Start background task
   (async () => {
@@ -72,6 +76,25 @@ app.post('/jobs/split', upload.single('file'), (req, res) => {
       console.log(`[${jobId}] Processing PDF: ${req.file.originalname} | ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
 
       const pdfBytes = await fs.promises.readFile(inputPath);
+
+      // Execute Server-Side Pluggable OCR & Document Classification Pipeline
+      try {
+        jobs[jobId].processing_state = 'checking_for_text';
+        const ocrResult = await ServerOCRPipeline.processDocument(pdfBytes, {
+          targetOcrEngine: req.body?.ocr_engine || 'tesseract',
+          onProgress: (state, meta) => {
+            if (jobs[jobId]) {
+              jobs[jobId].processing_state = state;
+              jobs[jobId].progress_meta = meta;
+            }
+          }
+        });
+        jobs[jobId].ocr_result = ocrResult;
+      } catch (ocrErr) {
+        console.warn(`[${jobId}] OCR Pipeline encountered non-fatal error:`, ocrErr.message);
+      }
+
+      jobs[jobId].processing_state = 'generating_embeddings';
       const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
       const totalPages = pdfDoc.getPageCount();
 
@@ -158,11 +181,12 @@ app.post('/jobs/split', upload.single('file'), (req, res) => {
       }
 
       jobs[jobId].status = 'completed';
+      jobs[jobId].processing_state = jobs[jobId].ocr_result?.processing_state || 'completed';
       jobs[jobId].chunks = chunks;
       jobs[jobId].total_pages = totalPages;
       jobs[jobId].original_size = totalBytes;
       
-      console.log(`[${jobId}] Processing complete. Created ${chunks.length} chunks.`);
+      console.log(`[${jobId}] Processing complete. Created ${chunks.length} chunks. OCR status: ${jobs[jobId].processing_state}`);
     } catch (err) {
       console.error(`[${jobId}] Error:`, err);
       jobs[jobId].status = 'error';
@@ -178,6 +202,9 @@ app.get('/jobs/:jobId', (req, res) => {
 
   res.json({
     status: job.status,
+    processing_state: job.processing_state || job.status,
+    progress_meta: job.progress_meta || {},
+    ocr_result: job.ocr_result || null,
     error: job.error,
     total_pages: job.total_pages,
     original_size: job.original_size,

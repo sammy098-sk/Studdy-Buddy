@@ -121,11 +121,31 @@ class StudyToolsService {
       } catch (err) {
         console.warn(`[StudyToolsService] Could not lookup chapter for book ${bookId} page ${pageNumber}:`, err);
       }
+
+      try {
+        // Query authoritative server-side extracted text from Supabase (source of truth)
+        const { data: pageRecord } = await supabase
+          .from('textbook_extracted_pages')
+          .select('extracted_text, ocr_status, confidence_score, source')
+          .eq('book_id', bookId)
+          .eq('page_number', pageNumber)
+          .maybeSingle();
+
+        if (pageRecord) {
+          if (pageRecord.ocr_status === 'failed') {
+            extractedText = ''; // Enforce zero-hallucination if server-side OCR failed!
+          } else if (pageRecord.extracted_text) {
+            extractedText = pageRecord.extracted_text;
+          }
+        }
+      } catch (dbErr) {
+        console.warn(`[StudyToolsService] Error querying textbook_extracted_pages for book ${bookId}, page ${pageNumber}:`, dbErr.message);
+      }
     }
 
-    // Dynamic OCR extraction via registered PDF page provider
+    // Dynamic fallback OCR extraction via registered PDF page provider if database record missing
     const getPageFn = this.pageProviders.get(bookId) || this.pageProviders.get('active');
-    if (getPageFn) {
+    if (!extractedText && getPageFn) {
       try {
         const pageProxy = await getPageFn(pageNumber);
         if (pageProxy && typeof pageProxy.getTextContent === 'function') {
@@ -246,11 +266,24 @@ class StudyToolsService {
     }
 
     const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: `${style} summary of ${topic}` });
+    const textToUse = contextText || scoped.text || '';
+    const readableText = textToUse.replace(/[^a-zA-Z0-9]/g, '');
+    if (scoped.isEmpty || readableText.length < 30) {
+      return {
+        summary: `Cannot generate summary: The selected ${scope} lacks readable text (it may be an unreadable image scan or failed OCR processing). Please select a different scope or retry OCR.`,
+        isCached: false,
+        providerName: provider.name,
+        scope,
+        style,
+        isEmpty: true
+      };
+    }
+
     const resultObj = await this.#withCache(cacheKey, async () => {
       return await provider.summarize({
         subject,
         topic: topic || scoped.title,
-        text: contextText || scoped.text,
+        text: textToUse,
         pageNumber,
         scope,
         style
@@ -274,11 +307,24 @@ class StudyToolsService {
     const cacheKey = this.#getCacheKey(bookId, pageNumber, `quiz_${scope}_${examMode ? 'jamb' : 'std'}_${count}`, `${subject}_${topic}_${provider.name}`);
 
     const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: `JAMB practice exam questions on ${topic}` });
+    const textToUse = contextText || scoped.text || '';
+    const readableText = textToUse.replace(/[^a-zA-Z0-9]/g, '');
+    if (scoped.isEmpty || readableText.length < 30) {
+      return {
+        questions: [],
+        error: `Cannot generate practice questions: The selected ${scope} lacks readable text (it may be an unreadable image scan or failed OCR processing).`,
+        isCached: false,
+        providerName: provider.name,
+        scope,
+        isEmpty: true
+      };
+    }
+
     const resultObj = await this.#withCache(cacheKey, async () => {
       return await provider.generateQuestions({
         subject,
         topic: topic || scoped.title,
-        text: contextText || scoped.text,
+        text: textToUse,
         pageNumber,
         scope,
         count,
@@ -311,9 +357,22 @@ class StudyToolsService {
     const cacheKey = this.#getCacheKey(bookId, pageNumber, `explain_${scope}_${promptPill.slice(0, 10)}`, provider.name);
 
     const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: promptPill || `Explain ${scope}` });
+    const textToUse = contextText || scoped.text || '';
+    const readableText = textToUse.replace(/[^a-zA-Z0-9]/g, '');
+    if (scoped.isEmpty || readableText.length < 30) {
+      return {
+        explanation: `Cannot explain content: The selected ${scope} lacks readable text (it may be an unreadable image scan or failed OCR processing).`,
+        isCached: false,
+        chapterTitle: scoped.title,
+        providerName: provider.name,
+        scope,
+        isEmpty: true
+      };
+    }
+
     const resultObj = await this.#withCache(cacheKey, async () => {
       return await provider.explainPage({
-        text: contextText || scoped.text,
+        text: textToUse,
         pageNumber,
         scope,
         promptPill

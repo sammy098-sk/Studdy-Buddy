@@ -36,7 +36,14 @@ class TextbookRetrievalService {
 
       const chapterList = chapters || [];
 
-      // 2. Fetch OCR text chunks or fallback metadata
+      // 2. Fetch authoritative extracted pages from Supabase (server-side OCR source of truth)
+      const { data: extractedPages } = await supabase
+        .from('textbook_extracted_pages')
+        .select('*')
+        .eq('book_id', bookId)
+        .order('page_number', { ascending: true });
+
+      // Fallback: Fetch OCR text chunks or metadata
       const { data: chunks } = await supabase
         .from('textbook_chunks')
         .select('*')
@@ -49,7 +56,30 @@ class TextbookRetrievalService {
       // Associate pages with chapters
       chapterList.forEach(ch => chapterMap.set(ch.id || ch.title, ch));
 
-      if (chunks && chunks.length > 0) {
+      if (extractedPages && extractedPages.length > 0) {
+        extractedPages.forEach((p, idx) => {
+          if (p.ocr_status === 'failed') return; // Exclude failed OCR pages to prevent hallucination
+          const textContent = (p.extracted_text || '').trim();
+          if (!textContent || textContent.replace(/[^a-zA-Z0-9]/g, '').length < 30) return;
+
+          const matchingChap = chapterList.find(ch => 
+            (ch.page_start && ch.page_end && p.page_number >= ch.page_start && p.page_number <= ch.page_end) ||
+            ch.page_number === p.page_number
+          ) || { title: `Page ${p.page_number}`, id: `page_${p.page_number}` };
+
+          indexChunks.push({
+            id: p.id || `pg_${p.page_number}`,
+            bookId,
+            pageNumber: p.page_number,
+            chapterTitle: matchingChap.title || `Page ${p.page_number}`,
+            chapterId: matchingChap.id,
+            text: textContent,
+            confidence: p.confidence_score,
+            source: p.source,
+            tokens: textContent.toLowerCase().match(/\b[a-z]{3,}\b/g) || []
+          });
+        });
+      } else if (chunks && chunks.length > 0) {
         chunks.forEach((c, idx) => {
           const textContent = (c.text_content || c.content || '').trim();
           if (!textContent && !c.storage_path) return;
