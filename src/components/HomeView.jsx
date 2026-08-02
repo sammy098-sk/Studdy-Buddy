@@ -308,9 +308,9 @@ export default function HomeView({ user, onNavigate }) {
           </div>
 
           {/* Stat 2: Reading Streak */}
-          <div title="Consecutive daily study streak" className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-amber-300/80 transition-all duration-200 flex items-center gap-3.5 group">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100 group-hover:bg-amber-500 group-hover:text-white transition-colors">
-              <Flame size={22} strokeWidth={2} />
+          <div title="Consecutive daily study streak" className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-3.5 group">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <Clock3 size={22} strokeWidth={2} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm sm:text-lg font-extrabold text-slate-800 truncate leading-tight">{displayStreak}</div>
