@@ -279,11 +279,15 @@ export default function HomeView({ user, onNavigate }) {
               <Sparkles size={13} strokeWidth={2.5} className="text-blue-600 animate-pulse" />
               <span>Study Dashboard</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+            <h1 className="hidden md:block text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
               {getTimeGreeting()}, {user?.name || 'Student'} 👋
             </h1>
-            <p className="text-slate-500 text-xs sm:text-sm font-medium">
+            <p className="hidden md:block text-slate-500 text-xs sm:text-sm font-medium">
               Your academic library, continuous progress tracking, and AI revision tools in one unified space.
+            </p>
+            {/* Mobile Hero Explanation (Avdoding duplicate greeting on mobile) */}
+            <p className="md:hidden text-slate-700 text-xs sm:text-sm font-semibold leading-relaxed pt-0.5">
+              Your all-in-one learning platform for reading textbooks, tracking study progress, generating AI summaries, practicing questions, and preparing for exams.
             </p>
           </div>
           <button 

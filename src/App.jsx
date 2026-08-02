@@ -185,16 +185,24 @@ function MainApp() {
       {!isReaderRoute && (
         <header className="bg-white border-b shrink-0 z-30 shadow-2xs" style={{ borderColor: "#E2E8F0" }}>
           <div className="max-w-[1400px] mx-auto w-full flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 gap-4">
-            {/* Brand Logo & Name */}
-            <button onClick={() => navigate('/study')} className="flex items-center gap-2.5 group shrink-0 focus-visible:outline-none">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-2xs" style={{ background: "#2954E5" }}>
+            {/* Brand Logo & Name / Mobile Greeting */}
+            <button onClick={() => navigate('/study')} className="flex items-center gap-2.5 group shrink-0 focus-visible:outline-none min-w-0">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-2xs shrink-0" style={{ background: "#2954E5" }}>
                 <BookOpen size={17} color="#FFFFFF" />
               </div>
-              <div className="flex flex-col text-left">
+              {/* Desktop Branding (Hidden on mobile) */}
+              <div className="hidden md:flex flex-col text-left">
                 <span className="font-extrabold text-[16px] leading-none tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                   StudyBuddy
                 </span>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 font-mono">Platform</span>
+              </div>
+              {/* Mobile Greeting (Replaces branding text on mobile) */}
+              <div className="flex flex-col md:hidden text-left min-w-0">
+                <span className="text-[11px] font-medium text-slate-400 truncate">{getGreeting()}</span>
+                <span className="text-[14px] font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  {user?.name || "Student"} 👋
+                </span>
               </div>
             </button>
 
@@ -221,14 +229,6 @@ function MainApp() {
                 Library
               </span>
             </form>
-
-            {/* Mobile Greeting */}
-            <div className="flex flex-col md:hidden text-right min-w-0 flex-1">
-              <span className="text-[11px] font-medium text-slate-400 truncate">{getGreeting()}</span>
-              <span className="text-[14px] font-bold text-slate-900 truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                {user.name || "Student"} 👋
-              </span>
-            </div>
 
             {/* Right Header Shortcuts */}
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
