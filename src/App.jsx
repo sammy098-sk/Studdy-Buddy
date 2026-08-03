@@ -75,7 +75,7 @@ function MainApp() {
         role: data?.role || 'student'
       });
 
-      // Fetch today's completed topics
+      // Fetch today's completed topics & log daily app engagement check-in if none exist today
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
       
@@ -85,8 +85,15 @@ function MainApp() {
         .eq('user_id', session.user.id)
         .gte('created_at', todayStart.toISOString());
         
-      if (progressData) {
+      if (progressData && progressData.length > 0) {
         setCompleted(progressData.map(p => p.topic_label));
+      } else {
+        const { error: checkinErr } = await supabase
+          .from('study_progress')
+          .insert({ user_id: session.user.id, topic_label: 'Daily Check-in' });
+        if (!checkinErr) {
+          setCompleted(['Daily Check-in']);
+        }
       }
       
       setStage("app");
@@ -214,56 +221,56 @@ function MainApp() {
                 if (q) navigate(`/library?search=${encodeURIComponent(q)}`);
                 else navigate('/library');
               }} 
-              className="hidden md:flex flex-1 max-w-md mx-6 relative"
+              className="hidden md:flex flex-1 max-w-md lg:max-w-xl mx-6 relative"
             >
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <Search size={16} />
+              <div className="absolute inset-y-0 left-0 pl-3.5 lg:pl-4 flex items-center pointer-events-none text-slate-400">
+                <Search size={18} className="lg:w-5 lg:h-5" />
               </div>
               <input 
                 name="topSearch"
                 type="text" 
                 placeholder="Search study library, textbooks, or subjects..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200/80 hover:border-slate-300 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 rounded-xl text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 outline-none transition-all"
+                className="w-full pl-10 lg:pl-12 pr-4 py-2 lg:py-2.5 bg-slate-50 border border-slate-200/80 hover:border-slate-300 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 rounded-xl lg:rounded-2xl text-xs sm:text-sm lg:text-base font-medium text-slate-800 placeholder:text-slate-400 outline-none transition-all"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono bg-white text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] lg:text-xs font-mono bg-white text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs">
                 Library
               </span>
             </form>
 
             {/* Right Header Shortcuts */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
               {/* Notifications */}
               <button
                 onClick={() => navigate('/notifications')}
                 title="Notifications"
-                className="hidden md:flex items-center justify-center w-10 h-10 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs hover:shadow-sm"
+                className="hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs hover:shadow-sm"
               >
-                <Bell size={18} />
+                <Bell size={20} />
               </button>
 
               {/* Settings Shortcut */}
               <button
                 onClick={() => navigate('/notifications')}
                 title="Account Settings"
-                className="hidden md:flex items-center justify-center w-10 h-10 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs hover:shadow-sm"
+                className="hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs hover:shadow-sm"
               >
-                <Settings size={18} />
+                <Settings size={20} />
               </button>
 
               {/* Profile User Chip */}
               <button
                 onClick={() => navigate('/profile')}
                 title="View Profile"
-                className="hidden md:flex items-center gap-2.5 px-3 py-1.5 rounded-xl border border-slate-200/80 bg-white hover:border-blue-300 hover:shadow-sm transition-all text-left group"
+                className="hidden md:flex items-center gap-2.5 lg:gap-3 px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl lg:rounded-2xl border border-slate-200/80 bg-white hover:border-blue-300 hover:shadow-sm transition-all text-left group"
               >
-                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 font-extrabold text-xs flex items-center justify-center border border-blue-100 uppercase group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-lg lg:rounded-xl bg-blue-50 text-blue-700 font-extrabold text-xs lg:text-sm flex items-center justify-center border border-blue-100 uppercase group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   {(user?.name || "S")[0]}
                 </div>
                 <div className="min-w-0 pr-1">
-                  <div className="text-[12.5px] font-bold text-slate-800 leading-tight truncate max-w-[120px] group-hover:text-blue-600 transition-colors">
+                  <div className="text-[12.5px] lg:text-[15px] font-bold text-slate-800 leading-tight truncate max-w-[120px] lg:max-w-[160px] group-hover:text-blue-600 transition-colors">
                     {user?.name || "Student"}
                   </div>
-                  <div className="text-[10px] font-medium text-slate-400 capitalize">{user?.role || "Student"}</div>
+                  <div className="text-[10px] lg:text-xs font-medium text-slate-400 capitalize">{user?.role || "Student"}</div>
                 </div>
               </button>
 

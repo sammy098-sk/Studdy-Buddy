@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronLeft, BookOpen, Clock, History, ChevronRight } from 'lucide-react';
+import { ChevronLeft, BookOpen, Clock, History, ChevronRight, Trash2, AlertTriangle, X } from 'lucide-react';
 import { supabase } from '../supabase';
 import { SUBJECT_ICONS } from '../config';
 import Footer from './Footer';
@@ -53,6 +53,32 @@ export default function SessionsPage({ userId, onNavigate, onResume }) {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [sessionMsgs, setSessionMsgs] = useState({});
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const handleClearHistory = async () => {
+    setClearing(true);
+    try {
+      // RLS-protected deletion targeting only the logged-in user's study_sessions.
+      // Removes activity records without affecting study_progress, bookmarks, textbook progress, or preferences.
+      const { error } = await supabase
+        .from('study_sessions')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+
+      // Immediately reflect clean state in frontend without requiring page refresh
+      setSessions([]);
+      setSessionMsgs({});
+      setShowConfirmModal(false);
+    } catch (err) {
+      console.error('Failed to clear history:', err.message);
+      alert('Could not clear history: ' + err.message);
+    } finally {
+      setClearing(false);
+    }
+  };
 
   useEffect(() => {
     const fetchSessions = async () => {
@@ -84,24 +110,36 @@ export default function SessionsPage({ userId, onNavigate, onResume }) {
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col" style={{ background: '#F0F4FF' }}>
-      <div className="flex-1 px-4 sm:px-8 py-10">
-        <div className="max-w-2xl mx-auto">
+      <div className="flex-1 px-4 sm:px-8 lg:px-12 py-10">
+        <div className="max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto">
 
           <BackToHomeButton onNavigate={onNavigate} />
 
           {/* Header */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#2954E5,#4f46e5)' }}>
-              <History size={18} color="#FFFFFF" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 lg:mb-12">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-xl lg:rounded-2xl flex items-center justify-center shrink-0 shadow-sm" style={{ background: 'linear-gradient(135deg,#2954E5,#4f46e5)' }}>
+                <History size={20} color="#FFFFFF" className="lg:w-7 lg:h-7" />
+              </div>
+              <div>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold" style={{ color: '#101C34', fontFamily: "'Montserrat', sans-serif" }}>
+                  Study History
+                </h2>
+                <p className="text-sm sm:text-base lg:text-lg font-medium" style={{ color: '#8493B0' }}>
+                  All your past study sessions
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-semibold" style={{ color: '#101C34', fontFamily: "'Montserrat', sans-serif" }}>
-                Study History
-              </h2>
-              <p className="text-sm" style={{ color: '#8493B0' }}>
-                All your past study sessions
-              </p>
-            </div>
+
+            {sessions.length > 0 && (
+              <button
+                onClick={() => setShowConfirmModal(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 lg:px-5 lg:py-3 rounded-xl lg:rounded-2xl border border-red-200 bg-red-50 text-red-600 font-bold text-xs sm:text-sm lg:text-base hover:bg-red-600 hover:text-white hover:border-red-600 transition-all duration-200 shadow-sm self-start sm:self-auto"
+              >
+                <Trash2 size={18} className="shrink-0 lg:w-5 lg:h-5" />
+                <span>Clear History</span>
+              </button>
+            )}
           </div>
 
           {loading && (
@@ -144,40 +182,40 @@ export default function SessionsPage({ userId, onNavigate, onResume }) {
                   return (
                     <div
                       key={session.id}
-                      className="rounded-2xl border overflow-hidden"
+                      className="rounded-2xl lg:rounded-3xl border overflow-hidden transition-all hover:border-blue-200/80"
                       style={{ borderColor: '#D8E3F8', background: '#FFFFFF', boxShadow: '0 4px 16px -4px rgba(41,84,229,0.07)' }}
                     >
                       {/* Session card header */}
-                      <div className="flex items-center gap-3 p-4">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#E8F1FE' }}>
-                          <Icon size={18} style={{ color: '#2954E5' }} />
+                      <div className="flex items-center gap-3 lg:gap-4 p-4 lg:p-6">
+                        <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-xl lg:rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#E8F1FE' }}>
+                          <Icon size={20} style={{ color: '#2954E5' }} className="lg:w-7 lg:h-7" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[14px] font-semibold truncate" style={{ color: '#101C34' }}>
+                          <div className="flex items-center gap-2 lg:gap-3 flex-wrap">
+                            <span className="text-[15px] sm:text-base lg:text-xl font-extrabold truncate" style={{ color: '#101C34' }}>
                               {session.subject}
                             </span>
                             {session.mode && (
-                              <span className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: modeStyle.bg, color: modeStyle.color }}>
+                              <span className="text-[11px] lg:text-xs px-2.5 py-0.5 rounded-full font-bold" style={{ background: modeStyle.bg, color: modeStyle.color }}>
                                 {MODE_LABELS[session.mode] || session.mode}
                               </span>
                             )}
                           </div>
                           {session.topic && (
-                            <div className="text-xs truncate mt-0.5" style={{ color: '#8493B0' }}>{session.topic}</div>
+                            <div className="text-xs sm:text-sm lg:text-base font-medium truncate mt-0.5 lg:mt-1" style={{ color: '#8493B0' }}>{session.topic}</div>
                           )}
                           {duration && (
-                            <div className="flex items-center gap-1 text-xs mt-1" style={{ color: '#B7C3DA' }}>
-                              <Clock size={11} /> {duration}
+                            <div className="flex items-center gap-1.5 text-xs lg:text-sm font-semibold mt-1 lg:mt-1.5" style={{ color: '#B7C3DA' }}>
+                              <Clock size={13} className="lg:w-4 lg:h-4" /> {duration}
                             </div>
                           )}
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 lg:gap-3 shrink-0">
                           {/* Resume button */}
                           <button
                             onClick={() => onResume(session)}
-                            className="text-xs px-3 py-1.5 rounded-lg font-medium text-white"
+                            className="text-xs sm:text-sm lg:text-base px-3.5 py-1.5 lg:px-5 lg:py-2.5 rounded-lg lg:rounded-xl font-bold text-white shadow-xs hover:opacity-95 transition-opacity"
                             style={{ background: '#2954E5' }}
                           >
                             Resume
@@ -185,12 +223,13 @@ export default function SessionsPage({ userId, onNavigate, onResume }) {
                           {/* Expand for messages */}
                           <button
                             onClick={() => toggleExpand(session)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+                            className="w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center rounded-lg lg:rounded-xl transition-colors hover:bg-slate-50"
                             style={{ background: isExpanded ? '#E8F1FE' : 'transparent' }}
                             aria-label="Show messages"
                           >
                             <ChevronRight
-                              size={16}
+                              size={18}
+                              className="lg:w-6 lg:h-6"
                               style={{ color: '#8493B0', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }}
                             />
                           </button>
@@ -235,6 +274,48 @@ export default function SessionsPage({ userId, onNavigate, onResume }) {
           ))}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 lg:p-10 max-w-md lg:max-w-lg w-full shadow-2xl border border-slate-100">
+            <div className="flex items-center justify-between mb-4 lg:mb-5">
+              <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-2xl bg-red-100 flex items-center justify-center text-red-600 shrink-0">
+                <AlertTriangle size={24} className="lg:w-7 lg:h-7" />
+              </div>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 mb-2 font-['Montserrat']">
+              Clear Study History?
+            </h3>
+            <p className="text-sm lg:text-base font-medium text-slate-600 leading-relaxed mb-6 lg:mb-8">
+              This will remove all your past study session records. Don't worry — your reading progress, textbook chapters, bookmarks, and account preferences will remain completely untouched.
+            </p>
+            <div className="flex items-center justify-end gap-3 lg:gap-4">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                disabled={clearing}
+                className="px-5 py-2.5 lg:px-6 lg:py-3 rounded-xl lg:rounded-2xl text-sm lg:text-base font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearHistory}
+                disabled={clearing}
+                className="px-5 py-2.5 lg:px-6 lg:py-3 rounded-xl lg:rounded-2xl text-sm lg:text-base font-bold text-white bg-red-600 hover:bg-red-700 shadow-md shadow-red-600/20 transition-all"
+              >
+                {clearing ? 'Clearing...' : 'Yes, Clear History'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer onNavigate={onNavigate} />
     </div>
   );

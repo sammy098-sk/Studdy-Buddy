@@ -15,30 +15,49 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
   
   useEffect(() => {
     const fetchWeeklyProgress = async () => {
-      // Find the start of the current week (Monday)
+      // Calculate Monday of current week at 00:00:00 local time without mutation bugs
       const now = new Date();
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-      const startOfWeek = new Date(now.setDate(diff));
-      startOfWeek.setHours(0, 0, 0, 0);
+      const currentDay = now.getDay(); // 0 is Sun, 1 is Mon...
+      const daysFromMon = currentDay === 0 ? 6 : currentDay - 1;
+      
+      const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysFromMon, 0, 0, 0, 0);
+      const endOfWeek = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + 6, 23, 59, 59, 999);
+      
+      // Safety buffer when querying UTC timestamps in database
+      const queryMin = new Date(startOfWeek.getTime() - 24 * 3600 * 1000).toISOString();
 
-      const { data } = await supabase
-        .from('study_progress')
-        .select('created_at')
-        .eq('user_id', user.id)
-        .gte('created_at', startOfWeek.toISOString());
+      const [progressRes, readingRes, sessionsRes] = await Promise.all([
+        supabase.from('study_progress').select('created_at').eq('user_id', user.id).gte('created_at', queryMin),
+        supabase.from('reading_progress').select('updated_at, last_read_at').eq('user_id', user.id).gte('updated_at', queryMin),
+        supabase.from('study_sessions').select('started_at').eq('user_id', user.id).gte('started_at', queryMin)
+      ]);
 
       let progress = [false, false, false, false, false, false, false];
-      
-      if (data) {
-        data.forEach(record => {
-          const recordDate = new Date(record.created_at);
-          const d = recordDate.getDay(); // 0 = Sunday, 1 = Monday
+      const allTimestamps = [];
+
+      if (progressRes.data) progressRes.data.forEach(r => r.created_at && allTimestamps.push(r.created_at));
+      if (readingRes.data) readingRes.data.forEach(r => {
+        if (r.updated_at) allTimestamps.push(r.updated_at);
+        if (r.last_read_at) allTimestamps.push(r.last_read_at);
+      });
+      if (sessionsRes.data) sessionsRes.data.forEach(r => r.started_at && allTimestamps.push(r.started_at));
+
+      allTimestamps.forEach(ts => {
+        const recordDate = new Date(ts);
+        if (!isNaN(recordDate) && recordDate >= startOfWeek && recordDate <= endOfWeek) {
+          const d = recordDate.getDay();
           const index = d === 0 ? 6 : d - 1;
           progress[index] = true;
-        });
+        }
+      });
+
+      // Ensure today is marked active immediately for live motivational feedback
+      const todayIndex = currentDay === 0 ? 6 : currentDay - 1;
+      if (!progress[todayIndex]) {
+        await supabase.from('study_progress').insert({ user_id: user.id, topic_label: 'Profile Visit Check-in' });
+        progress[todayIndex] = true;
       }
-      
+
       setWeeklyProgress(progress);
     };
 
@@ -204,12 +223,12 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
       {/* ── PAGE CONTENT ─────────────────────────────────────────────────
           Extra top padding so the content clears the gradient banner.
       ──────────────────────────────────────────────────────────────────── */}
-      <div className="relative flex-1 px-4 sm:px-8 pt-10 pb-10" style={{ zIndex: 1 }}>
-        <div className="max-w-xl mx-auto">
+      <div className="relative flex-1 px-4 sm:px-8 lg:px-12 pt-10 pb-12" style={{ zIndex: 1 }}>
+        <div className="max-w-xl lg:max-w-3xl xl:max-w-4xl mx-auto">
 
           {/* Page title — sits inside the coloured band */}
           <h2
-            className="text-2xl font-semibold mb-6"
+            className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-6 lg:mb-8"
             style={{ color: "#FFFFFF", fontFamily: "'Montserrat', sans-serif" }}
           >
             Your Profile
@@ -217,7 +236,7 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
 
           {/* Avatar card — overlaps the gradient band and the white body */}
           <div
-            className="flex items-center gap-4 mb-6 p-5 rounded-2xl border"
+            className="flex items-center gap-4 lg:gap-6 mb-6 sm:mb-8 p-5 lg:p-7 rounded-2xl lg:rounded-3xl border"
             style={{
               borderColor: "#D8E3F8",
               background: "#FFFFFF",
@@ -226,7 +245,7 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
           >
             {/* Avatar circle with a subtle ring */}
             <div
-              className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-semibold text-white shrink-0"
+              className="w-14 h-14 lg:w-20 lg:h-20 rounded-full lg:rounded-2xl flex items-center justify-center text-lg lg:text-2xl font-extrabold text-white shrink-0"
               style={{
                 background: "linear-gradient(135deg, #2954E5, #4f46e5)",
                 boxShadow: "0 0 0 3px rgba(41,84,229,0.15)",
@@ -235,24 +254,24 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
               {initials}
             </div>
             <div className="min-w-0">
-              <div className="text-[15px] font-medium truncate" style={{ color: "#101C34" }}>{user.name || "Student"}</div>
-              <div className="text-sm truncate" style={{ color: "#8493B0" }}>{user.email || "—"}</div>
+              <div className="text-[15px] sm:text-lg lg:text-2xl font-extrabold truncate" style={{ color: "#101C34" }}>{user.name || "Student"}</div>
+              <div className="text-sm lg:text-base font-medium truncate mt-0.5" style={{ color: "#8493B0" }}>{user.email || "—"}</div>
             </div>
           </div>
 
           {/* Admin PDF Importer Card */}
           {isAdminUser(user) && (
-            <div className="mb-6 p-4 rounded-2xl border flex items-center justify-between gap-3" style={{ borderColor: "#2954E5", background: "#E8F1FE" }}>
-              <div className="flex items-center gap-3">
-                <Upload size={20} style={{ color: "#2954E5" }} />
+            <div className="mb-6 lg:mb-8 p-4 lg:p-6 rounded-2xl lg:rounded-3xl border flex items-center justify-between gap-4" style={{ borderColor: "#2954E5", background: "#E8F1FE" }}>
+              <div className="flex items-center gap-3.5">
+                <Upload size={24} style={{ color: "#2954E5" }} />
                 <div>
-                  <div className="text-sm font-semibold" style={{ color: "#101C34" }}>Admin: PDF Textbook Importer</div>
-                  <div className="text-xs" style={{ color: "#5A6B8C" }}>Upload PDF textbooks & extract chapters to database</div>
+                  <div className="text-sm lg:text-lg font-bold" style={{ color: "#101C34" }}>Admin: PDF Textbook Importer</div>
+                  <div className="text-xs lg:text-sm font-medium mt-0.5" style={{ color: "#5A6B8C" }}>Upload PDF textbooks & extract chapters to database</div>
                 </div>
               </div>
               <button
                 onClick={() => onNavigate("importer")}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-white shrink-0"
+                className="px-4 py-2 lg:px-5 lg:py-2.5 rounded-xl lg:rounded-2xl text-xs lg:text-sm font-bold text-white shrink-0 shadow-sm"
                 style={{ background: "#2954E5" }}
               >
                 Open Importer
@@ -261,34 +280,38 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
           )}
 
           {/* Progress Tracker Card */}
-          <div className="mb-8 p-5 rounded-2xl border" style={{ borderColor: "#D8E3F8", background: "#FFFFFF", boxShadow: "0 4px 16px -4px rgba(41,84,229,0.08)" }}>
-            <div className="flex items-center gap-2 mb-4">
-              <Activity size={18} style={{ color: "#2954E5" }} />
-              <h3 className="font-semibold text-[15px]" style={{ color: "#101C34" }}>Weekly Progress</h3>
+          <div className="mb-8 lg:mb-10 p-5 lg:p-8 rounded-2xl lg:rounded-3xl border" style={{ borderColor: "#D8E3F8", background: "#FFFFFF", boxShadow: "0 4px 16px -4px rgba(41,84,229,0.08)" }}>
+            <div className="flex items-center gap-2.5 lg:gap-3 mb-4 lg:mb-6">
+              <Activity size={20} style={{ color: "#2954E5" }} className="lg:w-7 lg:h-7" />
+              <h3 className="font-extrabold text-[15px] sm:text-lg lg:text-2xl" style={{ color: "#101C34" }}>Weekly Activity Tracker</h3>
             </div>
             
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-sm" style={{ color: "#5A6B8C" }}>App visits this week</span>
-              <span className="text-sm font-semibold" style={{ color: "#2954E5" }}>
-                {weeklyProgress.filter(Boolean).length} / 7 Days
+            <div className="flex justify-between items-center mb-5 lg:mb-6">
+              <span className="text-sm lg:text-base font-medium" style={{ color: "#5A6B8C" }}>App engagement & study sessions this week</span>
+              <span className="text-sm lg:text-lg font-extrabold px-3 py-1 bg-blue-50 text-blue-700 rounded-xl border border-blue-100">
+                {weeklyProgress.filter(Boolean).length} / 7 Days Active
               </span>
             </div>
             
-            <div className="flex justify-between gap-1.5 mt-2">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
+            <div className="flex justify-between gap-2 lg:gap-3.5 mt-2">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, idx) => {
                 const isActive = weeklyProgress[idx];
                 return (
-                  <div key={idx} className="flex flex-col items-center gap-2 flex-1">
+                  <div key={idx} className="flex flex-col items-center gap-2 lg:gap-3 flex-1">
                     <div 
-                      className={`w-full h-8 rounded-lg flex items-center justify-center transition-all ${isActive ? 'scale-105 shadow-sm' : ''}`}
+                      className={`w-full h-8 sm:h-10 lg:h-14 rounded-lg lg:rounded-2xl flex items-center justify-center transition-all ${isActive ? 'scale-105 shadow-md shadow-blue-500/20' : ''}`}
                       style={{ 
                         background: isActive ? 'linear-gradient(135deg, #2954E5, #4f46e5)' : '#F0F4FF',
                         border: isActive ? 'none' : '1px solid #E3EAFB'
                       }}
                     >
-                      {isActive && <CheckCircle2 size={14} color="#FFFFFF" />}
+                      {isActive ? (
+                        <CheckCircle2 size={16} color="#FFFFFF" className="lg:w-6 lg:h-6" />
+                      ) : (
+                        <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 rounded-full bg-slate-300" />
+                      )}
                     </div>
-                    <span className="text-[11px] font-medium" style={{ color: isActive ? "#101C34" : "#8493B0" }}>
+                    <span className="text-[11px] lg:text-sm font-bold truncate" style={{ color: isActive ? "#101C34" : "#8493B0" }}>
                       {day}
                     </span>
                   </div>

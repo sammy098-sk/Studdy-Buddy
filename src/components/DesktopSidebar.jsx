@@ -7,8 +7,8 @@ import {
 import { supabase } from '../supabase';
 
 const SidebarSection = ({ label, children }) => (
-  <div className="space-y-0.5">
-    <div className="px-3 pt-4 pb-1.5 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">
+  <div className="space-y-1">
+    <div className="px-3.5 pt-5 pb-2 text-xs font-extrabold text-slate-400 uppercase tracking-wider font-mono">
       {label}
     </div>
     {children}
@@ -20,22 +20,22 @@ const SidebarLink = ({ item, active, onClick }) => {
   return (
     <button
       onClick={onClick}
-      className={`w-full group flex items-center justify-between px-3 py-2.5 rounded-xl font-semibold text-sm transition-all duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+      className={`w-full group flex items-center justify-between px-3.5 py-3 rounded-xl font-bold text-base transition-all duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
         active
           ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
       }`}
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-3 min-w-0">
         <IconComponent
-          size={16}
+          size={19}
           strokeWidth={active ? 2.5 : 2}
           className={active ? 'text-white shrink-0' : 'text-slate-500 group-hover:text-blue-600 shrink-0 transition-colors'}
         />
-        <span className="truncate text-[13px]">{item.label}</span>
+        <span className="truncate text-[15px] lg:text-[16px]">{item.label}</span>
       </div>
       {item.badge && (
-        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold shrink-0 ${
+        <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold shrink-0 ${
           active ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-600 border border-blue-100'
         }`}>
           {item.badge}
@@ -108,10 +108,10 @@ export default function DesktopSidebar({ user, currentPath, onNavigate }) {
   return (
     <>
       <aside
-        className="hidden lg:flex flex-col w-60 xl:w-64 shrink-0 bg-white border-r border-slate-200 select-none"
-        style={{ height: 'calc(100vh - 57px)', overflowY: 'auto' }}
+        className="hidden lg:flex flex-col w-64 xl:w-72 shrink-0 bg-white border-r border-slate-200 select-none"
+        style={{ height: 'calc(100vh - 65px)', overflowY: 'auto' }}
       >
-        <div className="flex flex-col flex-1 p-3 pb-6">
+        <div className="flex flex-col flex-1 p-3.5 pb-6">
 
           {/* ── LIBRARY ── */}
           <SidebarSection label="Library">
