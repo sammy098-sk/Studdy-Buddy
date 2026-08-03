@@ -55,6 +55,8 @@ export default function TextbookImporter({ onNavigate, user }) {
   // Verification Summary State
   const [adminSummary, setAdminSummary] = useState(null);
   const startTimeRef = React.useRef(null);
+  const completedJobsRef = React.useRef(new Set());
+  const activePollTimeoutRef = React.useRef(null);
 
   // Retry & Job state
   const [jobId, setJobId] = useState(null);
@@ -601,12 +603,12 @@ export default function TextbookImporter({ onNavigate, user }) {
     }
   };
 
-  const pollJobStatus = async (currentJobId) => {
+  const pollJobStatus = async (currentJobId, targetBookId) => {
     const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
     let consecutiveErrors = 0;
     const maxErrors = 12; // Allow up to ~24 seconds of transport network dropout / container coldboot restarts
     
-    const interval = setInterval(async () => {
+    const executePoll = async () => {
       try {
         const res = await fetch(`${COMPRESSOR_URL}/jobs/${currentJobId}`);
         if (!res.ok) throw new Error(`Status HTTP ${res.status}: Failed to fetch job status.`);
@@ -614,15 +616,17 @@ export default function TextbookImporter({ onNavigate, user }) {
         consecutiveErrors = 0; // Reset network error threshold on successful poll
 
         if (data.status === 'completed') {
-          clearInterval(interval);
+          // Idempotency check: Ensure OCR completion handler updates the existing DB row EXACTLY ONCE
+          if (completedJobsRef.current.has(currentJobId)) {
+            console.warn(`[Idempotency] Job ${currentJobId} already processed completion. Skipping duplicate database writes.`);
+            return;
+          }
+          completedJobsRef.current.add(currentJobId);
+
           const chunks = data.chunks || [];
           setPendingChunks(chunks);
           setProgressPercent(30);
-          setStatusText(`PDF split into ${chunks.length} parts. Creating database record...`);
-
-          // Get fresh user from Supabase to guarantee RLS match
-          const { data: authData } = await supabase.auth.getUser();
-          if (!authData?.user) throw new Error("Authenticated user not found in Supabase session.");
+          setStatusText(`PDF split into ${chunks.length} parts. Updating textbook record...`);
 
           if (data.ocr_result?.is_low_dpi_warning || (data.ocr_result?.confidence_score < 80 && data.ocr_result?.confidence_score > 0)) {
             setLowDpiWarning('This PDF appears to be a low-quality scan. OCR accuracy may be reduced.');
@@ -630,16 +634,11 @@ export default function TextbookImporter({ onNavigate, user }) {
             setLowDpiWarning(null);
           }
 
-          // Create Parent Book Record (Status: 'processing', complete with classification & OCR metadata)
-          const { data: bookRecord, error: bookErr } = await supabase.from('textbooks').insert({
-            title: title.trim() || 'Untitled Textbook',
-            subject: subject,
-            author: author.trim() || null,
+          // UPDATE existing Parent Book Record instead of inserting duplicate rows!
+          const { error: updateBookErr } = await supabase.from('textbooks').update({
             total_pages: data.total_pages,
             total_parts: chunks.length,
             status: 'processing',
-            uploaded_by: authData.user.id,
-            is_published: true,
             pdf_type: data.ocr_result?.pdf_type || 'native_searchable_pdf',
             processing_state: data.ocr_result?.processing_state || 'completed',
             ocr_engine: data.ocr_result?.ocr_engine || 'native_text',
@@ -648,18 +647,20 @@ export default function TextbookImporter({ onNavigate, user }) {
             pages_requiring_ocr: data.ocr_result?.pages_requiring_ocr || [],
             pages_failed: data.ocr_result?.pages_failed || [],
             ocr_pipeline_version: data.ocr_result?.ocr_pipeline_version ?? 1
-          }).select().single();
+          }).eq('id', targetBookId);
 
-          if (bookErr || !bookRecord) throw new Error(`Failed to create textbook record: ${bookErr?.message}`);
+          if (updateBookErr) throw new Error(`Failed to update textbook record: ${updateBookErr.message}`);
           
-          const newBookId = bookRecord.id;
           const failedPagesSet = new Set(data.ocr_result?.pages_failed || []);
 
           // Save authoritative extracted page text to Supabase (OCR once during upload, reuse everywhere!)
           if (data.ocr_result?.extracted_pages?.length > 0) {
             setStatusText('Saving authoritative extracted page text to database...');
+            // Idempotent cleanup before insertion in case of retry
+            await supabase.from('textbook_extracted_pages').delete().eq('book_id', targetBookId);
+
             const pagesToInsert = data.ocr_result.extracted_pages.map(p => ({
-              book_id: newBookId,
+              book_id: targetBookId,
               page_number: p.page_number,
               extracted_text: p.extracted_text || '',
               source: p.source || 'digital',
@@ -677,6 +678,9 @@ export default function TextbookImporter({ onNavigate, user }) {
           
           if (fileStats?.chapters?.length > 0) {
             setStatusText('Saving chapter metadata...');
+            // Idempotent cleanup before insertion in case of retry
+            await supabase.from('textbook_chapters').delete().eq('book_id', targetBookId);
+
             // Prevent TOC fabrication: Filter out headings targeting unreadable or failed OCR pages!
             const validChapters = fileStats.chapters
               .filter(ch => !failedPagesSet.has(ch.page_number))
@@ -684,7 +688,7 @@ export default function TextbookImporter({ onNavigate, user }) {
 
             const chaptersToInsert = validChapters.map(ch => ({
               id: ch.id,
-              book_id: newBookId,
+              book_id: targetBookId,
               title: ch.title,
               page_number: ch.page_number,
               level: ch.level,
@@ -700,13 +704,11 @@ export default function TextbookImporter({ onNavigate, user }) {
             }
           }
 
-          setParentBookId(newBookId);
           setProgressPercent(40);
 
           // Start sequential chunk upload
-          await processUploadLoop(chunks, 0, newBookId, currentJobId);
+          await processUploadLoop(chunks, 0, targetBookId, currentJobId);
         } else if (data.status === 'error') {
-          clearInterval(interval);
           throw new Error(`Server splitting failed: ${data.error}`);
         } else {
           const pState = data.processing_state || 'uploaded';
@@ -722,24 +724,33 @@ export default function TextbookImporter({ onNavigate, user }) {
           setStatusText(stateMessages[pState] || `Server processing: ${pState.replace(/_/g, ' ')}...`);
           const progressMap = { uploaded: 15, checking_for_text: 18, extracting_native_text: 22, preprocessing_images: 24, running_ocr: 26, building_toc: 28, generating_embeddings: 29 };
           if (progressMap[pState]) setProgressPercent(progressMap[pState]);
+          
+          // Schedule next poll safely after previous handler completes (avoids intervals piling up)
+          activePollTimeoutRef.current = setTimeout(executePoll, 2000);
         }
       } catch (err) {
         consecutiveErrors++;
         console.warn(`[Polling Notice ${consecutiveErrors}/${maxErrors}] Transport error or temporary server coldboot:`, err.message);
-        if (consecutiveErrors >= maxErrors) {
-          clearInterval(interval);
+        if (consecutiveErrors >= maxErrors || err.message.startsWith('Server splitting failed:')) {
           console.error('Polling Fatal Error:', err);
-          setErrorMessage('Network error during processing: Unable to communicate with processing service after repeated retries.');
+          setErrorMessage('Error during processing: ' + err.message);
           setIsProcessing(false);
+          if (targetBookId) {
+            await supabase.from('textbooks').update({ status: 'failed' }).eq('id', targetBookId).catch(console.error);
+          }
         } else {
           setStatusText(`Reconnecting to processing service (attempt ${consecutiveErrors} of ${maxErrors})...`);
+          activePollTimeoutRef.current = setTimeout(executePoll, 2000);
         }
       }
-    }, 2000);
+    };
+
+    if (activePollTimeoutRef.current) clearTimeout(activePollTimeoutRef.current);
+    activePollTimeoutRef.current = setTimeout(executePoll, 2000);
   };
 
   const handleStartUpload = async () => {
-    if (!file || !title) return;
+    if (isProcessing || !file || !title) return; // Prevent duplicate execution clicks
     if (!user) {
       setErrorMessage("Authentication required: Please log in to upload textbooks.");
       return;
@@ -750,9 +761,35 @@ export default function TextbookImporter({ onNavigate, user }) {
     setErrorMessage(null);
     setFailedChunkIndex(null);
     setProgressPercent(2);
-    setStatusText('Initiating secure PDF transmission...');
+    setStatusText('Initializing authoritative textbook record...');
 
     try {
+      // STEP 0: Create ONE authoritative record immediately to prevent duplicate insertions later
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData?.user) throw new Error("Authenticated user not found in Supabase session.");
+
+      const { data: bookRecord, error: bookErr } = await supabase.from('textbooks').insert({
+        title: title.trim() || 'Untitled Textbook',
+        subject: subject,
+        author: author.trim() || null,
+        total_pages: fileStats?.pageCount || 0,
+        total_parts: 0,
+        status: 'uploading',
+        uploaded_by: authData.user.id,
+        is_published: true,
+        pdf_type: 'unknown',
+        processing_state: 'uploading',
+        ocr_engine: 'tesseract',
+        ocr_status: 'in_progress',
+        confidence_score: 0.0,
+        ocr_pipeline_version: 1
+      }).select().single();
+
+      if (bookErr || !bookRecord) throw new Error(`Failed to initialize textbook record: ${bookErr?.message}`);
+      const initialBookId = bookRecord.id;
+      setParentBookId(initialBookId);
+
+      setStatusText('Initiating secure PDF transmission...');
       const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
       let newJobId = null;
       
@@ -839,8 +876,8 @@ export default function TextbookImporter({ onNavigate, user }) {
       setProgressPercent(15);
       setStatusText('Splitting document & initiating server-side OCR...');
 
-      // STEP 2: Poll for completion with automatic network retry tolerance
-      pollJobStatus(newJobId);
+      // STEP 2: Poll for completion with automatic network retry tolerance and idempotency guarantees
+      pollJobStatus(newJobId, initialBookId);
     } catch (err) {
       console.error('Upload Error:', err);
       setErrorMessage(err.message || 'An error occurred during upload.');
@@ -856,6 +893,7 @@ export default function TextbookImporter({ onNavigate, user }) {
   };
 
   const handleCancelUpload = async () => {
+    if (activePollTimeoutRef.current) clearTimeout(activePollTimeoutRef.current);
     if (jobId) {
       const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
       await fetch(`${COMPRESSOR_URL}/jobs/${jobId}/complete`, { method: 'POST' }).catch(console.error);
