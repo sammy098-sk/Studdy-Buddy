@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Bot, FileText, BrainCircuit, Lightbulb, Bookmark, MessageSquare, 
   ChevronRight, ChevronLeft, Loader2, Send, Sparkles, Volume2, VolumeX, 
-  Pause, Play, Database, Check, Info, RefreshCw 
+  Pause, Play, Database, Check, Info, RefreshCw, Book, Layers
 } from 'lucide-react';
 import studyToolsService from '../services/StudyToolsService';
 import { readerPreferencesService } from '../services/ReaderPreferencesService';
@@ -359,7 +359,26 @@ function ExplainPageView({ bookId, currentPage, bookTitle, studyScope, onScopeCh
   const [error, setError] = useState(null);
   const [isCached, setIsCached] = useState(false);
   const [chapterTitle, setChapterTitle] = useState('');
+  const [bookModules, setBookModules] = useState([]);
+  const [selectedModule, setSelectedModule] = useState('overview');
   const { speak, pause, resume, stop, speaking, paused, loading: ttsLoading } = useSpeech();
+
+  const handleScopeChange = (newScope) => {
+    if (newScope !== 'book') {
+      setSelectedModule('overview');
+    }
+    if (onScopeChange) onScopeChange(newScope);
+  };
+
+  useEffect(() => {
+    let active = true;
+    if (studyScope === 'book') {
+      studyToolsService.getBookModules(bookId, bookTitle).then(mods => {
+        if (active) setBookModules(mods || []);
+      });
+    }
+    return () => { active = false; };
+  }, [studyScope, bookId, bookTitle]);
 
   const fetchExplanation = async (forceRefresh = false) => {
     setLoading(true);
@@ -368,10 +387,19 @@ function ExplainPageView({ bookId, currentPage, bookTitle, studyScope, onScopeCh
       studyToolsService.clearPageCache(bookId, currentPage);
     }
     try {
-      const res = await studyToolsService.explainPage({ bookId, pageNumber: currentPage, scope: studyScope });
+      const moduleToPass = studyScope === 'book'
+        ? (selectedModule === 'overview' ? 'Entire Textbook Overview & Master Lecture Schema' : selectedModule)
+        : null;
+
+      const res = await studyToolsService.explainPage({
+        bookId,
+        pageNumber: currentPage,
+        scope: studyScope,
+        moduleTitle: moduleToPass
+      });
       setExplanation(res.explanation);
       setIsCached(Boolean(res.isCached));
-      setChapterTitle(res.chapterTitle);
+      setChapterTitle(studyScope === 'book' ? (selectedModule === 'overview' ? `Textbook Overview: ${bookTitle}` : selectedModule) : res.chapterTitle);
     } catch (e) {
       setError("Failed to generate concept explanation: " + e.message);
     } finally {
@@ -381,7 +409,7 @@ function ExplainPageView({ bookId, currentPage, bookTitle, studyScope, onScopeCh
 
   useEffect(() => {
     fetchExplanation();
-  }, [bookId, currentPage, studyScope]);
+  }, [bookId, currentPage, studyScope, selectedModule]);
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col bg-slate-50/40 w-full">
@@ -406,10 +434,75 @@ function ExplainPageView({ bookId, currentPage, bookTitle, studyScope, onScopeCh
             </button>
           </div>
         </div>
-        <ScopeSelector scope={studyScope} onChange={onScopeChange} disabled={loading} />
+        <ScopeSelector scope={studyScope} onChange={handleScopeChange} disabled={loading && !explanation} />
       </div>
 
       <div className="p-5 max-w-2xl mx-auto flex-1 w-full">
+        {/* ── REVISION BOOK CHAPTER NAVIGATION (Visible when Scope is 'book') ── */}
+        {studyScope === 'book' && (
+          <div className="mb-6 rounded-2xl border p-4 shadow-xs transition-all" style={{ background: "linear-gradient(135deg, #F8FAFD 0%, #EFF4FC 100%)", borderColor: "#D4E2F9" }}>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-1.5 rounded-lg bg-blue-600 text-white shadow-xs">
+                <Book size={16} />
+              </div>
+              <div>
+                <h3 className="text-[13.5px] font-bold text-slate-800 tracking-tight" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  AI Teacher Revision Book
+                </h3>
+                <p className="text-[11px] text-slate-600">
+                  Navigate chapter modules for authoritative lecture notes without token truncation.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1 mt-2">
+              <button
+                onClick={() => setSelectedModule('overview')}
+                disabled={loading && selectedModule === 'overview'}
+                className={`flex items-center justify-between text-left px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  selectedModule === 'overview'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-white text-slate-700 hover:bg-blue-50/70 border border-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Layers size={13} className={selectedModule === 'overview' ? 'text-blue-100' : 'text-blue-600'} />
+                  <span>Textbook Overview & Master Lecture</span>
+                </div>
+                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${selectedModule === 'overview' ? 'bg-blue-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  Overview
+                </span>
+              </button>
+
+              {bookModules.map((mod, idx) => {
+                const isActive = selectedModule === mod.title;
+                return (
+                  <button
+                    key={mod.id || idx}
+                    onClick={() => setSelectedModule(mod.title)}
+                    disabled={loading && isActive}
+                    className={`flex items-center justify-between text-left px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-blue-600 text-white font-semibold shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-blue-50/70 border border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <ChevronRight size={13} className={isActive ? 'text-white' : 'text-slate-400'} />
+                      <span className="truncate">{mod.title}</span>
+                    </div>
+                    {mod.startPage && (
+                      <span className={`text-[10px] shrink-0 font-medium px-2 py-0.5 rounded-md ${isActive ? 'bg-blue-700 text-blue-100' : 'bg-slate-100 text-slate-500'}`}>
+                        Pg {mod.startPage}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
           <span className="text-xs font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-100">
             {studyScope === 'page' ? `Page ${currentPage}` : studyScope.toUpperCase()} Teacher Breakdown
@@ -420,7 +513,7 @@ function ExplainPageView({ bookId, currentPage, bookTitle, studyScope, onScopeCh
             <div className="flex items-center gap-1.5">
               {!speaking && (
                 <button
-                  onClick={() => speak(explanation.replace(/#/g, ''), { subject: bookTitle, label: `${studyScope} Explanation` })}
+                  onClick={() => speak(explanation.replace(/#/g, ''), { subject: bookTitle, label: `${studyScope === 'book' ? selectedModule : studyScope} Explanation` })}
                   disabled={ttsLoading}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all shadow-2xs bg-white hover:bg-slate-50 text-blue-600 disabled:opacity-60 cursor-pointer"
                 >
@@ -436,7 +529,7 @@ function ExplainPageView({ bookId, currentPage, bookTitle, studyScope, onScopeCh
               {speaking && paused && (
                 <button onClick={resume} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all bg-white text-blue-600 shadow-2xs cursor-pointer">
                   <Play size={13} /> Resume
-                </button>
+                  </button>
               )}
               {speaking && (
                 <button onClick={stop} className="px-2.5 py-1.5 rounded-xl text-xs font-semibold border bg-red-50 border-red-200 text-red-600 hover:opacity-80 shadow-2xs cursor-pointer">
@@ -453,7 +546,11 @@ function ExplainPageView({ bookId, currentPage, bookTitle, studyScope, onScopeCh
         {loading && (
           <div className="py-16 flex flex-col items-center justify-center gap-3 text-sm text-slate-500">
             <Loader2 size={24} className="animate-spin text-blue-600" />
-            <span className="font-medium">Synthesizing {studyScope} reading content into interactive teacher explanations...</span>
+            <span className="font-medium text-center px-4">
+              {studyScope === 'book'
+                ? `Synthesizing deep master lecture notes for "${selectedModule === 'overview' ? 'Textbook Overview' : selectedModule}"...`
+                : `Synthesizing ${studyScope} reading content into interactive teacher explanations...`}
+            </span>
           </div>
         )}
 

@@ -257,15 +257,15 @@ class StudyToolsService {
   /**
    * Generate Summary for current study scope with selectable styling formats.
    */
-  async generateSummary({ bookId, pageNumber, scope = 'page', style = 'quick', subject = 'Subject', topic = 'Topic', contextText = '', forceRefresh = false }) {
+  async generateSummary({ bookId, pageNumber, scope = 'page', style = 'quick', subject = 'Subject', topic = 'Topic', contextText = '', forceRefresh = false, moduleTitle = null }) {
     const provider = getAIProvider();
-    const cacheKey = this.#getCacheKey(bookId, pageNumber, `sum_${scope}_${style}`, `${subject}_${topic}_${provider.name}`);
+    const cacheKey = this.#getCacheKey(bookId, pageNumber, `sum_${scope}_${style}_${moduleTitle || 'default'}`, `${subject}_${topic}_${provider.name}`);
 
     if (forceRefresh) {
       this.cache.delete(cacheKey);
     }
 
-    const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: `${style} summary of ${topic}` });
+    const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: moduleTitle ? `${style} summary of ${moduleTitle}` : `${style} summary of ${topic}` });
     const textToUse = contextText || scoped.text || '';
     const readableText = textToUse.replace(/[^a-zA-Z0-9]/g, '');
     if (scoped.isEmpty || readableText.length < 30) {
@@ -282,11 +282,12 @@ class StudyToolsService {
     const resultObj = await this.#withCache(cacheKey, async () => {
       return await provider.summarize({
         subject,
-        topic: topic || scoped.title,
+        topic: moduleTitle || topic || scoped.title,
         text: textToUse,
         pageNumber,
         scope,
-        style
+        style,
+        moduleTitle
       });
     });
 
@@ -302,7 +303,7 @@ class StudyToolsService {
   /**
    * Generate A-D JAMB Practice Questions for Current Page, Chapter, or Book.
    */
-  async generateQuestions({ bookId, pageNumber, scope = 'page', examMode = true, subject = 'Subject', topic = 'Topic', count = 5, contextText = '', excludeList = [] }) {
+  async generateQuestions({ bookId, pageNumber, scope = 'page', examMode = true, subject = 'Subject', topic = 'Topic', count = 15, contextText = '', excludeList = [] }) {
     const provider = getAIProvider();
     const cacheKey = this.#getCacheKey(bookId, pageNumber, `quiz_${scope}_${examMode ? 'jamb' : 'std'}_${count}`, `${subject}_${topic}_${provider.name}`);
 
@@ -352,11 +353,11 @@ class StudyToolsService {
   /**
    * Explain current study scope in approachable, interactive teaching terms.
    */
-  async explainPage({ bookId, pageNumber, scope = 'page', promptPill = '', contextText = '' }) {
+  async explainPage({ bookId, pageNumber, scope = 'page', promptPill = '', contextText = '', moduleTitle = null }) {
     const provider = getAIProvider();
-    const cacheKey = this.#getCacheKey(bookId, pageNumber, `explain_${scope}_${promptPill.slice(0, 10)}`, provider.name);
+    const cacheKey = this.#getCacheKey(bookId, pageNumber, `explain_${scope}_${promptPill.slice(0, 10)}_${moduleTitle || 'default'}`, provider.name);
 
-    const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: promptPill || `Explain ${scope}` });
+    const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: moduleTitle || promptPill || `Explain ${scope}` });
     const textToUse = contextText || scoped.text || '';
     const readableText = textToUse.replace(/[^a-zA-Z0-9]/g, '');
     if (scoped.isEmpty || readableText.length < 30) {
@@ -375,7 +376,8 @@ class StudyToolsService {
         text: textToUse,
         pageNumber,
         scope,
-        promptPill
+        promptPill,
+        moduleTitle
       });
     });
 
@@ -386,6 +388,40 @@ class StudyToolsService {
       providerName: provider.name,
       scope
     };
+  }
+
+  /**
+   * Retrieve structured textbook chapters or curriculum modules for AI Revision Book navigation.
+   */
+  async getBookModules(bookId, fallbackTitle = 'General Study') {
+    if (bookId && bookId !== 'default') {
+      try {
+        const { data: chapters } = await supabase
+          .from('textbook_chapters')
+          .select('title, start_page, end_page, level, type')
+          .eq('book_id', bookId)
+          .order('start_page', { ascending: true });
+        if (chapters && chapters.length > 0) {
+          const majors = chapters.filter(c => c.level === 1 || c.type === 'chapter');
+          const listToUse = majors.length > 0 ? majors : chapters.slice(0, 12);
+          return listToUse.map((m, idx) => ({
+            id: m.title || `Module ${idx + 1}`,
+            title: m.title || `Chapter ${idx + 1}`,
+            startPage: m.start_page
+          }));
+        }
+      } catch (e) {
+        console.warn('[StudyToolsService] Could not load textbook chapters from database:', e);
+      }
+    }
+    // Default master curriculum module structure for Revision Book navigation
+    return [
+      { id: 'Module 1', title: `Module 1: Foundational Principles & Core Concepts of ${fallbackTitle}` },
+      { id: 'Module 2', title: 'Module 2: Governing Laws & Analytical Formula Derivations' },
+      { id: 'Module 3', title: 'Module 3: Experimental Methods & Practical Laboratory Applications' },
+      { id: 'Module 4', title: 'Module 4: Advanced Problem Solving & Calculation Workflows' },
+      { id: 'Module 5', title: 'Module 5: Historic JAMB Examination Hot-Spots & Distractor Trap Avoidance' }
+    ];
   }
 
   /**

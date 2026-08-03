@@ -135,43 +135,51 @@ ${prompt}`;
   // ─────────────────────────────────────────────────────────────────────────
   // 2. Summarize — Structured revision bullet points across study styles & scopes
   // ─────────────────────────────────────────────────────────────────────────
-  async summarize({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', style = 'quick' }) {
+  async summarize({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', style = 'quick', moduleTitle = null }) {
     const styleInstructions = {
-      quick: "Focus on quick revision: 2-3 high-yield subtopics with concise, easy-to-digest bullet points.",
-      detailed: "Provide a detailed summary: create comprehensive outlines covering all major arguments, proofs, and foundational logic in depth.",
-      exam_notes: "Format as Exam Revision Notes: focus strictly on JAMB syllabus alignment, examiner traps, and memorization checklists.",
-      definitions: "Format as Key Definitions: list all primary academic vocabulary terms, constants, and theoretical rules with clear definitions.",
-      formulas: "Highlight Important Formulas & Principles: focus on governing equations, theoretical variable relationships, and boundary conditions.",
-      concepts: "Focus on Key Concepts & Mental Models: explain foundational theoretical intuition and *why* phenomena occur rather than raw memorizable facts.",
-      frequent_topics: "Focus on Frequently Tested Topics: emphasize historic exam favorites, standard numerical problem architectures, and recurring theory drills."
-    }[style] || "Focus on high-yield revision summaries.";
+      quick: "Focus on rapid revision mastery: extract core theoretical takeaways and formula derivations with rich explanations.",
+      detailed: "Provide a comprehensive pedagogical study book: elaborate in exhaustive depth on all arguments, foundational intuition, definitions, and proofs.",
+      exam_notes: "Format as Comprehensive Exam Lecture Notes: focus strictly on JAMB syllabus alignment, historic exam drills, memory tricks, and examiner trap avoidance.",
+      definitions: "Format as Master Glossary & Theoretical Principles: define every primary academic vocabulary term, constant, symbol, and rule with concrete examples.",
+      formulas: "Highlight Comprehensive Governing Formulas & Principles: derive equations, clearly explain variable relationships, units, and practical laboratory applications.",
+      concepts: "Focus on Master Mental Models & Deep Intuition: thoroughly explain *why* phenomena occur with engaging relatable analogies and step-by-step reasoning.",
+      frequent_topics: "Focus on High-Yield Recurring Exam Patterns: analyze historic problem structures, calculation workflows, and standard JAMB testing strategies."
+    }[style] || "Provide exhaustive teacher study notes and revision guidance.";
 
-    const system = `You are StudyBuddy AI, an academic study revision mentor and examination strategist.
+    const system = `You are an experienced academic subject specialist and master teacher writing comprehensive revision notes for students preparing for JAMB and higher education examinations.
+Instead of giving short bullet points, brief summaries, or a table of contents outline, you must TEACH the content itself in exhaustive detail based entirely on the extracted textbook data.
 
 Return ONLY a valid JSON object in this exact structure, with no markdown fences, no conversational preamble, and no explanation:
 {
   "subtopics": [
     {
-      "name": "Subtopic or section title",
-      "points": ["bullet point string", "bullet point string", "bullet point string"]
+      "name": "Logical Academic Chapter or Topic Heading",
+      "points": [
+        "Detailed instructional paragraph teaching the underlying theoretical concepts, definitions, and formulas.",
+        "Concrete example, real-world analogy, or numerical problem walkthrough demonstrating application.",
+        "JAMB examination strategy, memory trick, or classic examiner distractor trap to avoid."
+      ]
     }
   ]
 }
 
 Rules:
-- ${styleInstructions}
-- Generate exactly 2 to 4 subtopics appropriate for the requested study scope (${scope}).
-- Each subtopic must contain 3 to 5 actionable bullet points.
-- Format strictly as valid JSON.`;
+- NEVER output generic textbook outline metadata headings like 'Core Chapter Structure', 'Revision Goals', 'Key Concepts', or 'Pedagogical Tools'. Teach the actual theory!
+- Style Guidance: ${styleInstructions}
+- Length & Depth Requirements:
+  * If Scope is PAGE: write comprehensive notes (~700 to 1,500 words across 4 to 6 detailed subtopic sections).
+  * If Scope is CHAPTER or BOOK: write deep master lecture notes (~2,000 to 4,000 words equivalent across 6 to 10 comprehensive subtopic sections) so the student experiences reading an AI-generated textbook rather than a short summary.
+- Format strictly as valid JSON without markdown formatting code blocks.`;
 
     const user = `Subject: ${subject}
-Topic: ${topic}
+Topic: ${moduleTitle || topic}
 Scope: ${scope.toUpperCase()} ${pageNumber ? `(Page ${pageNumber})` : ''}
+${moduleTitle ? `Current Revision Book Module to teach: ${moduleTitle}` : ''}
 
-Textbook content:
+Textbook content to transform into teacher study notes:
 ${text || 'No extracted text available.'}
 
-Summarize this content according to the requested study style (${style}) as structured JSON.`;
+Generate comprehensive teacher study notes and revision analysis according to the requested study style (${style}) as structured JSON.`;
 
     const raw = await this.#generate(system, user);
 
@@ -188,8 +196,8 @@ Summarize this content according to the requested study style (${style}) as stru
       return {
         subtopics: [
           {
-            name: `${style.toUpperCase()} Summary of ${topic}`,
-            points: raw.split('\n').filter(l => l.trim().length > 0).slice(0, 8)
+            name: `${style.toUpperCase()} Comprehensive Study Notes: ${moduleTitle || topic}`,
+            points: raw.split('\n').filter(l => l.trim().length > 0).slice(0, 15)
           }
         ]
       };
@@ -199,41 +207,42 @@ Summarize this content according to the requested study style (${style}) as stru
   // ─────────────────────────────────────────────────────────────────────────
   // 3. Generate Questions — Interactive A–D JAMB Exam MCQs & diagnostic drills
   // ─────────────────────────────────────────────────────────────────────────
-  async generateQuestions({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', count = 5, examMode = true, excludeList = [] }) {
-    const system = `You are StudyBuddy AI, a premier JAMB examination question architect and pedagogical test designer.
+  async generateQuestions({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', count = 15, examMode = true, excludeList = [] }) {
+    const system = `You are StudyBuddy AI, an experienced JAMB examination test architect and pedagogical assessment specialist.
 
 Return ONLY a valid JSON array of exactly ${count} multiple-choice practice question objects. No markdown formatting, no conversational preamble, and no extra text.
 
 Required JSON format for each question object:
 [
   {
-    "question": "Clear, challenging question stem simulating JAMB examination phrasing...",
+    "question": "Challenging, academic question stem formatted exactly like a JAMB examination item...",
     "options": [
-      { "id": "A", "text": "Plausible distractor testing common misconception", "isCorrect": false },
-      { "id": "B", "text": "The single accurate answer grounded in the reading", "isCorrect": true },
-      { "id": "C", "text": "Second distractor based on unit or procedural errors", "isCorrect": false },
-      { "id": "D", "text": "Third distractor", "isCorrect": false }
+      { "id": "A", "text": "Plausible distractor testing common student misconception", "isCorrect": false, "explanation": "Why Option A is incorrect: explain the exact formulaic or conceptual mistake in this distractor." },
+      { "id": "B", "text": "The single correct option supported by textbook definitions", "isCorrect": true, "explanation": "Why Option B is correct: state the direct law, definition, or mathematical principle from the text." },
+      { "id": "C", "text": "Second distractor utilizing wrong units or inverted variables", "isCorrect": false, "explanation": "Why Option C is incorrect: identify the wrong assumption or unit inconsistency." },
+      { "id": "D", "text": "Third distractor testing syllabus confusion", "isCorrect": false, "explanation": "Why Option D is incorrect: explain why this choice violates boundary conditions." }
     ],
-    "explanation": "Detailed educational feedback explaining why the correct option succeeds and why each distractor is incorrect."
+    "explanation": "Master synthesis explaining the complete problem workflow and guiding theory."
   }
 ]
 
 Rules:
-- Questions must strictly test concepts present in the provided textbook content (${scope} scope).
+- Questions must strictly evaluate authentic theories, terms, and calculations present in the provided textbook content (${scope} scope).
 - Exactly ONE option per question must have "isCorrect": true.
-- Distractors must be realistic and scientifically plausible to prepare students for actual examination traps.
+- EVERY single option (A, B, C, and D) MUST include its own specific 'explanation' string detailing why it is the right choice or why it fails as a distractor.
+- Distractors must be realistic and challenging to train students for CBT exam traps.
 - Format strictly as a valid JSON array of objects.`;
 
     const user = `Subject: ${subject}
 Topic: ${topic}
 Scope: ${scope.toUpperCase()} ${pageNumber ? `(Page ${pageNumber})` : ''}
 Number of questions required: ${count}
-${excludeList.length ? `Do NOT duplicate previously tested topics or questions: ${JSON.stringify(excludeList.slice(-5))}` : ''}
+${excludeList.length ? `Do NOT duplicate previously tested topics or question stems: ${JSON.stringify(excludeList.slice(-5))}` : ''}
 
 Textbook content:
 ${text || 'No extracted text available.'}
 
-Generate exactly ${count} structured multiple-choice practice questions with options A–D and educational explanations as a JSON array.`;
+Generate exactly ${count} structured multiple-choice practice questions with options A–D and exhaustive option-by-option explanations as a JSON array.`;
 
     const raw = await this.#generate(system, user);
 
@@ -251,17 +260,17 @@ Generate exactly ${count} structured multiple-choice practice questions with opt
       console.warn('[OpenRouterProvider] generateQuestions() JSON parsing fallback:', raw);
     }
 
-    // Fallback if LLM returned simple string lines instead of JSON
+    // Fallback if LLM returned text instead of valid JSON array
     const lines = raw.split('\n').map(l => l.replace(/^\d+[\.\)]\s*/, '').trim()).filter(l => l.length > 10);
     return lines.slice(0, count).map((qStr, i) => ({
       question: qStr,
       options: [
-        { id: "A", text: "True / Conceptually accurate as stated", isCorrect: true },
-        { id: "B", text: "False / Contradicts boundary conditions in text", isCorrect: false },
-        { id: "C", text: "Inconclusive without external laboratory tables", isCorrect: false },
-        { id: "D", text: "None of the above", isCorrect: false }
+        { id: "A", text: "True / Accurately matches governing textbook principles", isCorrect: true, explanation: "Correct answer directly aligned with textbook definitions." },
+        { id: "B", text: "False / Violates thermodynamic or conceptual laws", isCorrect: false, explanation: "Incorrect distractor contradicting theoretical conservation laws." },
+        { id: "C", text: "Inconclusive without external empirical constants", isCorrect: false, explanation: "Incorrect: standard JAMB scenarios assume standard laboratory conditions." },
+        { id: "D", text: "None of the above", isCorrect: false, explanation: "Incorrect: Option A correctly captures the relationship." }
       ],
-      explanation: "Verify foundational principles directly against the active reading passage."
+      explanation: "Always confirm unit alignment and foundational definitions in your reading textbook."
     }));
   }
 
@@ -287,29 +296,34 @@ Provide constructive peer tutoring feedback on this response.`;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 5. Explain Page — Plain-English 3-section breakdown
+  // 5. Explain Page — Plain-English Master Teacher Breakdown
   // ─────────────────────────────────────────────────────────────────────────
-  async explainPage({ text = '', pageNumber = '', bookTitle = 'this textbook' }) {
-    const system = `You are StudyBuddy AI, specialized in translating dense academic chapters into conversational, intuitive explanations.
+  async explainPage({ text = '', pageNumber = '', bookTitle = 'this textbook', scope = 'page', moduleTitle = null }) {
+    const system = `You are an experienced academic master teacher and JAMB tutor specialized in transforming dense textbook text into deep, comprehensive, conversational lecture notes.
+Instead of producing short summaries or basic bullet points, write rich, deeply elaborated educational explanations that teach the actual textbook concepts in comprehensive detail.
 
-Structure your response with exactly these three markdown headings in order:
-### 1. What This Page is Actually Saying
-### 2. Why It Matters for Your Exams
-### 3. Quick Check for Understanding
+Structure your comprehensive lecture notes with clear markdown headings covering:
+### 1. In-Depth Theoretical Lecture & Core Principles
+Teach every important concept, formula derivation, definition, and referenced diagram in extensive detail across several engaging paragraphs. Use memorable analogies, concrete examples, and step-by-step explanations.
+### 2. Why This Matters for JAMB & Examinations
+Provide detailed analysis of how examiners test this specific theory in CBT multiple-choice questions and high-stakes exams, emphasizing high-yield relationships and key vocabulary.
+### 3. Common Student Mistakes & Examiner Traps
+Explicitly break down classic student misconceptions, calculation pitfalls, unit conversion errors, and memory tricks to overcome them.
+### 4. Self-Diagnostic Checks for Mastery
+Present two reflective conceptual thought experiments or analytical questions the student should ask themselves to verify deep comprehension. Do NOT provide simple yes/no questions.
 
 Rules:
-- Use plain, approachable language suitable for an engaged secondary or undergrad student.
-- Section 1: 2 to 3 clear paragraphs demystifying the core concepts and logic.
-- Section 2: 2 sentences explaining how examiners test this theory in JAMB and similar assessments.
-- Section 3: One concise, reflective conceptual question the student can ask themselves to verify comprehension. Do NOT provide the answer to this final check question.`;
+- NEVER output superficial table of contents headings like 'Core Chapter Structure' or 'Revision Goals'. Teach the material!
+- Length requirements: For Page scope, write ~700 to 1,500 words of rich instructional analysis. For Chapter or Book modules (${moduleTitle || scope}), produce master lecture notes (~2,000 to 4,000 words equivalent in pedagogical depth) so the student experiences reading an AI-generated textbook chapter rather than a basic summary.`;
 
     const user = `Textbook: ${bookTitle}
-Page: ${pageNumber || 'current'}
+Scope: ${scope.toUpperCase()} ${pageNumber ? `(Page ${pageNumber})` : ''}
+${moduleTitle ? `Current Book Revision Chapter / Module: ${moduleTitle}` : ''}
 
-Content to explain:
-${text || 'No extracted text available for this page.'}
+Content to transform into master teacher lecture notes:
+${text || 'No extracted text available for this scope.'}
 
-Break this down cleanly and clearly following the required 3 sections.`;
+Teach this content completely and thoroughly following the required academic lecture structure.`;
 
     return await this.#generate(system, user);
   }

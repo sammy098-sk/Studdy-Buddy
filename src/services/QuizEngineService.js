@@ -42,21 +42,37 @@ class QuizEngineService {
     if (!session || !session.questions[questionIdx]) return null;
 
     const q = session.questions[questionIdx];
-    // Find option
     let isCorrect = false;
     let feedback = '';
+    let selectedExplanation = '';
+    let optionsBreakdown = [];
 
     if (q && Array.isArray(q.options)) {
       const selectedOpt = q.options.find(opt => opt.id === optionId);
       isCorrect = Boolean(selectedOpt?.isCorrect);
-      feedback = q.explanation || (isCorrect ? "Correct! Well done." : "Incorrect. Review the textbook reading passage for core definitions.");
+      feedback = q.explanation || (isCorrect ? "Correct! You correctly applied the foundational principles from the reading." : "Incorrect. Review the textbook reading passage for primary definitions and boundary conditions.");
+      
+      selectedExplanation = selectedOpt?.explanation || (isCorrect 
+        ? `Option ${optionId} is correct: It precisely mirrors the governing concepts and relationships explained in your textbook revision scope.` 
+        : `Option ${optionId} is incorrect: This choice represents a common examination distractor that misinterprets the theoretical rules in the text.`);
+
+      optionsBreakdown = q.options.map(opt => ({
+        id: opt.id,
+        text: opt.text,
+        isCorrect: opt.isCorrect,
+        explanation: opt.explanation || (opt.isCorrect 
+          ? `Correct Answer: This option is supported by the direct formulas and principles in the text.` 
+          : `Why Option ${opt.id} is incorrect: Misapplies syllabus vocabulary or violates key theoretical conditions in this section.`)
+      }));
     }
 
     session.answers[questionIdx] = {
       selectedOptionId: optionId,
       isCorrect,
       checked: true,
-      feedback
+      feedback,
+      selectedExplanation,
+      optionsBreakdown
     };
 
     this.#recalculateScore(session);
