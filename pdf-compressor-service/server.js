@@ -62,7 +62,137 @@ app.get('/download/:filename', (req, res) => {
   res.sendFile(filePath);
 });
 
-// ─── ENDPOINT: Start Async Split Job ───────────────────────────────────────
+// ─── HELPER: Background Document Processing & OCR ─────────────────────────
+async function runBackgroundProcessing(jobId, inputPath, originalName, targetOcrEngine = 'tesseract') {
+  try {
+    const originalStat = await fs.promises.stat(inputPath);
+    const totalBytes = originalStat.size;
+
+    console.log(`[${jobId}] Processing PDF: ${originalName} | ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
+
+    const pdfBytes = await fs.promises.readFile(inputPath);
+
+    // Execute Server-Side Pluggable OCR & Document Classification Pipeline
+    try {
+      jobs[jobId].processing_state = 'checking_for_text';
+      const ocrResult = await ServerOCRPipeline.processDocument(pdfBytes, {
+        targetOcrEngine: targetOcrEngine || 'tesseract',
+        onProgress: (state, meta) => {
+          if (jobs[jobId]) {
+            jobs[jobId].processing_state = state;
+            jobs[jobId].progress_meta = meta;
+          }
+        }
+      });
+      jobs[jobId].ocr_result = ocrResult;
+    } catch (ocrErr) {
+      console.warn(`[${jobId}] OCR Pipeline encountered non-fatal error:`, ocrErr.message);
+    }
+
+    // Request V8 garbage collection if enabled to prevent OOM on limited server tiers
+    if (typeof global.gc === 'function') {
+      global.gc();
+    }
+
+    jobs[jobId].processing_state = 'generating_embeddings';
+    const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+    const totalPages = pdfDoc.getPageCount();
+
+    const TARGET_CHUNK = 18 * 1024 * 1024; // Aim for ~18MB
+    const MAX_CHUNK = 20 * 1024 * 1024; // Never exceed 20MB
+    const avgBytesPerPage = totalBytes / totalPages;
+
+    let chunks = [];
+    let startPage = 0;
+    let partNum = 1;
+
+    const measureSize = async (start, end) => {
+      const newPdf = await PDFDocument.create();
+      const pageIndices = Array.from({ length: end - start }, (_, i) => start + i);
+      const copiedPages = await newPdf.copyPages(pdfDoc, pageIndices);
+      copiedPages.forEach((page) => newPdf.addPage(page));
+      const bytes = await newPdf.save();
+      return bytes;
+    };
+
+    while (startPage < totalPages) {
+      let low = 1;
+      let high = totalPages - startPage;
+      
+      // Optimize upper bound using heuristic to prevent testing massive page ranges
+      let heuristicPages = Math.floor(TARGET_CHUNK / avgBytesPerPage);
+      if (heuristicPages < 1) heuristicPages = 1;
+      high = Math.min(high, Math.ceil(heuristicPages * 1.5));
+
+      let bestBytes = null;
+      let bestPagesCount = 1;
+
+      console.log(`[${jobId}] Calculating optimal size for Part ${partNum} starting at page ${startPage + 1}...`);
+      
+      while (low <= high) {
+        let mid = Math.floor((low + high) / 2);
+        const bytes = await measureSize(startPage, startPage + mid);
+        
+        if (bytes.length > MAX_CHUNK) {
+          high = mid - 1;
+        } else {
+          bestBytes = bytes;
+          bestPagesCount = mid;
+          if (bytes.length >= TARGET_CHUNK) break;
+          low = mid + 1;
+        }
+      }
+
+      if (!bestBytes) {
+        bestPagesCount = 1;
+        bestBytes = await measureSize(startPage, startPage + 1);
+      }
+
+      const endPage = startPage + bestPagesCount;
+      const chunkFilename = `${jobId}_part_${partNum}.pdf`;
+      const chunkPath = path.join(os.tmpdir(), chunkFilename);
+
+      await fs.promises.writeFile(chunkPath, bestBytes);
+      if (jobs[jobId]) {
+        jobs[jobId].filesToDelete.push(chunkPath);
+      }
+
+      const checksum = crypto.createHash('sha256').update(bestBytes).digest('hex');
+
+      chunks.push({
+        part_number: partNum,
+        first_page: startPage + 1,
+        last_page: endPage,
+        page_count: bestPagesCount,
+        size_bytes: bestBytes.length,
+        checksum: checksum,
+        download_url: `/download/${chunkFilename}`
+      });
+
+      console.log(`[${jobId}] Part ${partNum} created: Pages ${startPage + 1}-${endPage} | ${(bestBytes.length / (1024 * 1024)).toFixed(2)} MB`);
+      
+      startPage = endPage;
+      partNum++;
+      bestBytes = null; // Free chunk memory
+    }
+
+    jobs[jobId].status = 'completed';
+    jobs[jobId].processing_state = jobs[jobId].ocr_result?.processing_state || 'completed';
+    jobs[jobId].chunks = chunks;
+    jobs[jobId].total_pages = totalPages;
+    jobs[jobId].original_size = totalBytes;
+    
+    console.log(`[${jobId}] Processing complete. Created ${chunks.length} chunks. OCR status: ${jobs[jobId].processing_state}`);
+  } catch (err) {
+    console.error(`[${jobId}] Error:`, err);
+    if (jobs[jobId]) {
+      jobs[jobId].status = 'error';
+      jobs[jobId].error = err.message;
+    }
+  }
+}
+
+// ─── ENDPOINT: Start Async Split Job (Single Shot) ──────────────────────────
 app.post('/jobs/split', upload.single('file'), (req, res) => {
   const inputPath = req.file?.path;
   if (!inputPath) return res.status(400).json({ error: 'No PDF uploaded.' });
@@ -84,131 +214,66 @@ app.post('/jobs/split', upload.single('file'), (req, res) => {
   res.json({ success: true, jobId, status: 'processing', processing_state: 'uploaded' });
 
   // Start background task
-  (async () => {
-    try {
-      const originalStat = await fs.promises.stat(inputPath);
-      const totalBytes = originalStat.size;
+  runBackgroundProcessing(jobId, inputPath, req.file.originalname, req.body?.ocr_engine);
+});
 
-      console.log(`[${jobId}] Processing PDF: ${req.file.originalname} | ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`);
+// ─── ENDPOINT: Resumable Chunked Upload & Process ──────────────────────────
+app.post('/jobs/upload-chunk', upload.single('chunk'), async (req, res) => {
+  try {
+    const { uploadId, chunkIndex, totalChunks, originalName, ocr_engine } = req.body;
+    if (!req.file || !uploadId || chunkIndex === undefined || !totalChunks) {
+      return res.status(400).json({ error: 'Missing chunk payload or required parameters.' });
+    }
 
-      const pdfBytes = await fs.promises.readFile(inputPath);
+    const safeUploadId = String(uploadId).replace(/[^a-zA-Z0-9_-]/g, '');
+    const targetPath = path.join(os.tmpdir(), `merged_${safeUploadId}.pdf`);
 
-      // Execute Server-Side Pluggable OCR & Document Classification Pipeline
-      try {
-        jobs[jobId].processing_state = 'checking_for_text';
-        const ocrResult = await ServerOCRPipeline.processDocument(pdfBytes, {
-          targetOcrEngine: req.body?.ocr_engine || 'tesseract',
-          onProgress: (state, meta) => {
-            if (jobs[jobId]) {
-              jobs[jobId].processing_state = state;
-              jobs[jobId].progress_meta = meta;
-            }
-          }
-        });
-        jobs[jobId].ocr_result = ocrResult;
-      } catch (ocrErr) {
-        console.warn(`[${jobId}] OCR Pipeline encountered non-fatal error:`, ocrErr.message);
-      }
+    const chunkBytes = await fs.promises.readFile(req.file.path);
+    await fs.promises.appendFile(targetPath, chunkBytes);
 
-      jobs[jobId].processing_state = 'generating_embeddings';
-      const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-      const totalPages = pdfDoc.getPageCount();
+    if (fs.existsSync(req.file.path)) {
+      await fs.promises.unlink(req.file.path).catch(console.error);
+    }
 
-      const TARGET_CHUNK = 18 * 1024 * 1024; // Aim for ~18MB
-      const MAX_CHUNK = 20 * 1024 * 1024; // Never exceed 20MB
-      const avgBytesPerPage = totalBytes / totalPages;
+    const currentIdx = Number(chunkIndex);
+    const totalIdx = Number(totalChunks);
 
-      let chunks = [];
-      let startPage = 0;
-      let partNum = 1;
-      const sessionPrefix = `${jobId}_split`;
+    console.log(`[${safeUploadId}] Received segment ${currentIdx + 1}/${totalIdx} (${(chunkBytes.length / (1024 * 1024)).toFixed(2)} MB)`);
 
-      const measureSize = async (start, end) => {
-        const newPdf = await PDFDocument.create();
-        const pageIndices = Array.from({ length: end - start }, (_, i) => start + i);
-        const copiedPages = await newPdf.copyPages(pdfDoc, pageIndices);
-        copiedPages.forEach((page) => newPdf.addPage(page));
-        const bytes = await newPdf.save();
-        return bytes;
+    if (currentIdx + 1 === totalIdx) {
+      const jobId = `job_${crypto.randomBytes(8).toString('hex')}`;
+      jobs[jobId] = {
+        status: 'processing',
+        processing_state: 'uploaded',
+        progress_meta: {},
+        ocr_result: null,
+        originalName: originalName || 'document.pdf',
+        chunks: [],
+        error: null,
+        filesToDelete: [targetPath],
+        createdAt: Date.now()
       };
 
-      while (startPage < totalPages) {
-        let low = 1;
-        let high = totalPages - startPage;
-        
-        // Optimize upper bound using heuristic to prevent testing massive page ranges unnecessarily
-        let heuristicPages = Math.floor(TARGET_CHUNK / avgBytesPerPage);
-        if (heuristicPages < 1) heuristicPages = 1;
-        high = Math.min(high, Math.ceil(heuristicPages * 1.5));
+      runBackgroundProcessing(jobId, targetPath, originalName || 'document.pdf', ocr_engine || 'tesseract');
 
-        let bestBytes = null;
-        let bestPagesCount = 1;
-
-        console.log(`[${jobId}] Calculating optimal size for Part ${partNum} starting at page ${startPage + 1}...`);
-        
-        while (low <= high) {
-          let mid = Math.floor((low + high) / 2);
-          const bytes = await measureSize(startPage, startPage + mid);
-          
-          if (bytes.length > MAX_CHUNK) {
-            high = mid - 1; // Too large, search smaller range
-          } else {
-            bestBytes = bytes;
-            bestPagesCount = mid;
-            
-            if (bytes.length >= TARGET_CHUNK) {
-              // Sweet spot achieved (18MB - 20MB), stop searching to save resources
-              break;
-            }
-            low = mid + 1; // Try to get closer to 18MB
-          }
-        }
-
-        // Edge case fallback: if a single page is > 20MB, we must accept it to make progress
-        if (!bestBytes) {
-          bestBytes = await measureSize(startPage, startPage + 1);
-          bestPagesCount = 1;
-          console.warn(`[${jobId}] WARNING: Page ${startPage + 1} exceeds 20MB limit (${bestBytes.length} bytes)!`);
-        }
-
-        const endPage = startPage + bestPagesCount;
-        const chunkFilename = `${sessionPrefix}_part${partNum}.pdf`;
-        const chunkPath = path.join(os.tmpdir(), chunkFilename);
-        
-        await fs.promises.writeFile(chunkPath, bestBytes);
-        jobs[jobId].filesToDelete.push(chunkPath);
-
-        const checksum = crypto.createHash('sha256').update(bestBytes).digest('hex');
-
-        chunks.push({
-          part_number: partNum,
-          first_page: startPage + 1,
-          last_page: endPage,
-          page_count: bestPagesCount,
-          size_bytes: bestBytes.length,
-          checksum: checksum,
-          download_url: `/download/${chunkFilename}`
-        });
-
-        console.log(`[${jobId}] Part ${partNum} created: Pages ${startPage + 1}-${endPage} | ${(bestBytes.length / (1024 * 1024)).toFixed(2)} MB`);
-        
-        startPage = endPage;
-        partNum++;
-      }
-
-      jobs[jobId].status = 'completed';
-      jobs[jobId].processing_state = jobs[jobId].ocr_result?.processing_state || 'completed';
-      jobs[jobId].chunks = chunks;
-      jobs[jobId].total_pages = totalPages;
-      jobs[jobId].original_size = totalBytes;
-      
-      console.log(`[${jobId}] Processing complete. Created ${chunks.length} chunks. OCR status: ${jobs[jobId].processing_state}`);
-    } catch (err) {
-      console.error(`[${jobId}] Error:`, err);
-      jobs[jobId].status = 'error';
-      jobs[jobId].error = err.message;
+      return res.json({
+        success: true,
+        isComplete: true,
+        jobId,
+        status: 'processing',
+        processing_state: 'uploaded'
+      });
     }
-  })();
+
+    return res.json({
+      success: true,
+      isComplete: false,
+      chunkIndex: currentIdx
+    });
+  } catch (err) {
+    console.error('Chunk upload failure:', err);
+    return res.status(500).json({ error: `Chunk upload failed: ${err.message}` });
+  }
 });
 
 // ─── ENDPOINT: Poll Job Status ─────────────────────────────────────────────
@@ -250,6 +315,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`PDF Splitter Async Microservice running on port ${PORT}`);
 });
+
+// Accommodate large payloads and intense OCR computations (15 minutes timeout)
+server.setTimeout(900 * 1000);
+server.keepAliveTimeout = 65 * 1000;
+server.headersTimeout = 66 * 1000;

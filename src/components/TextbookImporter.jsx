@@ -603,12 +603,15 @@ export default function TextbookImporter({ onNavigate, user }) {
 
   const pollJobStatus = async (currentJobId) => {
     const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
+    let consecutiveErrors = 0;
+    const maxErrors = 12; // Allow up to ~24 seconds of transport network dropout / container coldboot restarts
     
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`${COMPRESSOR_URL}/jobs/${currentJobId}`);
-        if (!res.ok) throw new Error('Failed to fetch job status.');
+        if (!res.ok) throw new Error(`Status HTTP ${res.status}: Failed to fetch job status.`);
         const data = await res.json();
+        consecutiveErrors = 0; // Reset network error threshold on successful poll
 
         if (data.status === 'completed') {
           clearInterval(interval);
@@ -721,10 +724,16 @@ export default function TextbookImporter({ onNavigate, user }) {
           if (progressMap[pState]) setProgressPercent(progressMap[pState]);
         }
       } catch (err) {
-        clearInterval(interval);
-        console.error('Polling Error:', err);
-        setErrorMessage(err.message || 'An error occurred during splitting.');
-        setIsProcessing(false);
+        consecutiveErrors++;
+        console.warn(`[Polling Notice ${consecutiveErrors}/${maxErrors}] Transport error or temporary server coldboot:`, err.message);
+        if (consecutiveErrors >= maxErrors) {
+          clearInterval(interval);
+          console.error('Polling Fatal Error:', err);
+          setErrorMessage('Network error during processing: Unable to communicate with processing service after repeated retries.');
+          setIsProcessing(false);
+        } else {
+          setStatusText(`Reconnecting to processing service (attempt ${consecutiveErrors} of ${maxErrors})...`);
+        }
       }
     }, 2000);
   };
@@ -740,39 +749,98 @@ export default function TextbookImporter({ onNavigate, user }) {
     setIsProcessing(true);
     setErrorMessage(null);
     setFailedChunkIndex(null);
-    setProgressPercent(5);
-    setStatusText('Uploading original PDF...');
+    setProgressPercent(2);
+    setStatusText('Initiating secure PDF transmission...');
 
     try {
       const COMPRESSOR_URL = import.meta.env.VITE_COMPRESSOR_URL || 'http://localhost:3001';
+      let newJobId = null;
       
-      const formData = new FormData();
-      formData.append('file', file);
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB segment slicing for resilience against network dropouts & proxy limits
+      if (file.size > CHUNK_SIZE) {
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        const uploadId = `upl_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
-      // STEP 1: Start Async Split Job
-      const splitRes = await fetch(`${COMPRESSOR_URL}/jobs/split`, {
-        method: 'POST',
-        body: formData,
-      });
+        for (let i = 0; i < totalChunks; i++) {
+          const start = i * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
 
-      if (!splitRes.ok) {
-        let msg = await splitRes.text();
-        throw new Error(`Failed to start job: ${msg}`);
+          const chunkPercent = Math.round(((i + 1) / totalChunks) * 13) + 1; // Progress 2% -> 14%
+          setProgressPercent(Math.max(2, chunkPercent));
+          setStatusText(`Uploading large PDF segment ${i + 1} of ${totalChunks} (${((i + 1) * 5).toFixed(0)} MB transmitted)...`);
+
+          let attempts = 0;
+          let chunkSuccess = false;
+          let lastErr = null;
+
+          while (attempts < 3 && !chunkSuccess) {
+            try {
+              const formData = new FormData();
+              formData.append('chunk', chunk, file.name || 'segment.pdf');
+              formData.append('uploadId', uploadId);
+              formData.append('chunkIndex', i);
+              formData.append('totalChunks', totalChunks);
+              formData.append('originalName', file.name);
+
+              const chunkRes = await fetch(`${COMPRESSOR_URL}/jobs/upload-chunk`, {
+                method: 'POST',
+                body: formData,
+              });
+
+              if (!chunkRes.ok) {
+                const msg = await chunkRes.text();
+                throw new Error(`Segment ${i + 1} upload failed: ${msg}`);
+              }
+
+              const chunkData = await chunkRes.json();
+              if (chunkData.error) throw new Error(chunkData.error);
+
+              if (chunkData.isComplete && chunkData.jobId) {
+                newJobId = chunkData.jobId;
+              }
+              chunkSuccess = true;
+            } catch (retryErr) {
+              attempts++;
+              lastErr = retryErr;
+              console.warn(`Segment ${i + 1} transmission attempt ${attempts} failed:`, retryErr.message);
+              if (attempts < 3) await new Promise(r => setTimeout(r, 1500 * attempts));
+            }
+          }
+
+          if (!chunkSuccess) {
+            throw new Error(`Upload Interrupted: Segment ${i + 1} failed after repeated retry attempts (${lastErr?.message || 'Network disruption'}).`);
+          }
+        }
+      } else {
+        // Standard single-shot upload for smaller PDFs (<= 5MB)
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const splitRes = await fetch(`${COMPRESSOR_URL}/jobs/split`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!splitRes.ok) {
+          let msg = await splitRes.text();
+          throw new Error(`Failed to start processing: ${msg}`);
+        }
+
+        const splitData = await splitRes.json();
+        if (splitData.error) throw new Error(splitData.error);
+        newJobId = splitData.jobId;
       }
 
-      const splitData = await splitRes.json();
-      if (splitData.error) throw new Error(splitData.error);
-      
-      const newJobId = splitData.jobId;
+      if (!newJobId) throw new Error("Failed to receive valid job tracking ID from processing service.");
       setJobId(newJobId);
       
-      // We are now in processing/splitting stage
+      // Transition to server processing/splitting stage
       setProgressPercent(15);
-      setStatusText('Splitting document...');
+      setStatusText('Splitting document & initiating server-side OCR...');
 
-      // STEP 2: Poll for completion
+      // STEP 2: Poll for completion with automatic network retry tolerance
       pollJobStatus(newJobId);
-
     } catch (err) {
       console.error('Upload Error:', err);
       setErrorMessage(err.message || 'An error occurred during upload.');
