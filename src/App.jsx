@@ -230,9 +230,9 @@ function MainApp() {
                 name="topSearch"
                 type="text" 
                 placeholder="Search study library, textbooks, or subjects..."
-                className="w-full pl-10 lg:pl-12 pr-4 py-2 lg:py-2.5 bg-slate-50 border border-slate-200/80 hover:border-slate-300 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 rounded-xl lg:rounded-2xl text-xs sm:text-sm lg:text-base font-medium text-slate-800 placeholder:text-slate-400 outline-none transition-all"
+                className="w-full pl-10 lg:pl-12 pr-16 py-2 lg:py-3 bg-slate-50 border border-slate-200/80 hover:border-slate-300 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 rounded-xl lg:rounded-2xl text-sm lg:text-[15.5px] font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition-all"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] lg:text-xs font-mono bg-white text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] lg:text-[13px] font-mono font-bold bg-white text-slate-500 border border-slate-200 px-2 py-0.5 rounded-lg shadow-2xs">
                 Library
               </span>
             </form>

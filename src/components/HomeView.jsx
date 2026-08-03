@@ -271,82 +271,74 @@ export default function HomeView({ user, onNavigate }) {
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/70 flex flex-col justify-between">
-      <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10">
+      <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 lg:space-y-8">
         
-        {/* 1. Greeting & Dashboard Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 lg:p-8 rounded-3xl border border-slate-200/80 shadow-2xs">
-          <div className="space-y-1.5 min-w-0">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100/80 rounded-lg text-[11px] lg:text-xs font-bold tracking-wider uppercase font-mono shadow-2xs">
-              <Sparkles size={13} strokeWidth={2.5} className="text-blue-600 animate-pulse lg:w-4 lg:h-4" />
-              <span>Study Dashboard</span>
-            </div>
-            <h1 className="hidden md:block text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold text-slate-900 tracking-tight truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+        {/* 1. Compact Welcome Message & Header (SaaS style: concise, fast to main content) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
+          <div className="space-y-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-[28px] xl:text-[30px] font-extrabold text-slate-900 tracking-tight truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
               {getTimeGreeting()}, {user?.name || 'Student'} 👋
             </h1>
-            <p className="hidden md:block text-slate-500 text-xs sm:text-sm lg:text-base xl:text-lg font-medium">
-              Your academic library, continuous progress tracking, and AI revision tools in one unified space.
-            </p>
-            {/* Mobile Hero Explanation (Avoiding duplicate greeting on mobile) */}
-            <p className="md:hidden text-slate-700 text-xs sm:text-sm font-semibold leading-relaxed pt-0.5">
-              Your all-in-one learning platform for reading textbooks, tracking study progress, generating AI summaries, practicing questions, and preparing for exams.
+            <p className="text-slate-500 text-xs sm:text-sm lg:text-[15px] font-medium truncate">
+              Welcome back to your study space. Pick up where you left off or explore new academic resources.
             </p>
           </div>
           <button 
             onClick={() => onNavigate('library')} 
-            className="hidden sm:inline-flex items-center gap-2 px-5 py-3 lg:px-6 lg:py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-xs lg:text-sm xl:text-base font-extrabold rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/25 hover:-translate-y-0.5 active:translate-y-0 shrink-0 group"
+            className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 lg:px-6 lg:py-3 bg-blue-600 hover:bg-blue-700 text-white text-xs lg:text-[14.5px] font-extrabold rounded-2xl transition-all duration-200 shadow-lg shadow-blue-600/20 hover:-translate-y-0.5 active:translate-y-0 shrink-0 group cursor-pointer"
           >
-            <BookOpen size={16} className="lg:w-5 lg:h-5" />
+            <BookOpen size={17} className="lg:w-5 lg:h-5" />
             <span>Open Full Library</span>
-            <ArrowRight size={16} className="lg:w-5 lg:h-5 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight size={17} className="lg:w-5 lg:h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
 
-        {/* 2. Rotating Hero Carousel */}
-        <HeroCarousel onNavigate={onNavigate} />
+        {/* 2. Rotating Promotional Marketing Banner (Dynamic & Responsive) */}
+        <HeroCarousel activeBook={activeBook} onNavigate={onNavigate} />
 
-        {/* 3. Statistics Cards Grid (Moved below Hero Carousel; Desktop typography and hierarchy enhanced) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-5">
+        {/* 3. Statistics Cards Grid (Equal card heights, larger icons, and refined text hierarchy) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           {/* Stat 1: Continue Reading Progress */}
-          <div title="Textbooks currently open and in progress" className="bg-white p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-3.5 lg:gap-5 group">
-            <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <BookMarked size={22} strokeWidth={2} className="lg:w-7 lg:h-7" />
+          <div title="Textbooks currently open and in progress" className="bg-white p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-4 lg:gap-5 group h-full">
+            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <BookMarked size={26} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm sm:text-lg lg:text-2xl xl:text-3xl font-extrabold text-slate-800 truncate leading-tight">{displayInProgress}</div>
-              <div className="text-[11px] sm:text-xs lg:text-sm xl:text-base font-semibold text-slate-400 truncate mt-0.5">In Progress</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 truncate leading-none">{displayInProgress}</div>
+              <div className="text-xs lg:text-[15px] font-bold text-slate-500 truncate mt-1.5">In Progress</div>
             </div>
           </div>
 
           {/* Stat 2: Reading Streak */}
-          <div title="Consecutive daily study streak" className="bg-white p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-3.5 lg:gap-5 group">
-            <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <Clock3 size={22} strokeWidth={2} className="lg:w-7 lg:h-7" />
+          <div title="Consecutive daily study streak" className="bg-white p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-4 lg:gap-5 group h-full">
+            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <Clock3 size={26} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm sm:text-lg lg:text-2xl xl:text-3xl font-extrabold text-slate-800 truncate leading-tight">{displayStreak}</div>
-              <div className="text-[11px] sm:text-xs lg:text-sm xl:text-base font-semibold text-slate-400 truncate mt-0.5">Reading Streak</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 truncate leading-none">{displayStreak}</div>
+              <div className="text-xs lg:text-[15px] font-bold text-slate-500 truncate mt-1.5">Reading Streak</div>
             </div>
           </div>
 
           {/* Stat 3: Hours Studied */}
-          <div title="Cumulative recorded hours studying" className="bg-white p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-300/80 transition-all duration-200 flex items-center gap-3.5 lg:gap-5 group">
-            <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-              <Timer size={22} strokeWidth={2} className="lg:w-7 lg:h-7" />
+          <div title="Cumulative recorded hours studying" className="bg-white p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-300/80 transition-all duration-200 flex items-center gap-4 lg:gap-5 group h-full">
+            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <Timer size={26} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm sm:text-lg lg:text-2xl xl:text-3xl font-extrabold text-slate-800 truncate leading-tight">{displayHours}</div>
-              <div className="text-[11px] sm:text-xs lg:text-sm xl:text-base font-semibold text-slate-400 truncate mt-0.5">Hours Studied</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 truncate leading-none">{displayHours}</div>
+              <div className="text-xs lg:text-[15px] font-bold text-slate-500 truncate mt-1.5">Hours Studied</div>
             </div>
           </div>
 
           {/* Stat 4: Books Completed */}
-          <div title="Total textbooks finished end-to-end" className="bg-white p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300/80 transition-all duration-200 flex items-center gap-3.5 lg:gap-5 group">
-            <div className="w-12 h-12 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              <CheckCircle2 size={22} strokeWidth={2} className="lg:w-7 lg:h-7" />
+          <div title="Total textbooks finished end-to-end" className="bg-white p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300/80 transition-all duration-200 flex items-center gap-4 lg:gap-5 group h-full">
+            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <CheckCircle2 size={26} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm sm:text-lg lg:text-2xl xl:text-3xl font-extrabold text-slate-800 truncate leading-tight">{displayCompleted}</div>
-              <div className="text-[11px] sm:text-xs lg:text-sm xl:text-base font-semibold text-slate-400 truncate mt-0.5">Books Completed</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 truncate leading-none">{displayCompleted}</div>
+              <div className="text-xs lg:text-[15px] font-bold text-slate-500 truncate mt-1.5">Books Completed</div>
             </div>
           </div>
         </div>
@@ -536,8 +528,8 @@ export default function HomeView({ user, onNavigate }) {
                 {/* 6. SUBJECTS & CURRICULUM GRID */}
                 <div className="space-y-4 lg:space-y-5">
                   <div className="flex items-center justify-between px-1">
-                    <h2 className="text-xs lg:text-sm xl:text-base font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-2 font-mono">
-                      <GraduationCap size={17} strokeWidth={2.2} className="text-purple-600 lg:w-5 lg:h-5" />
+                    <h2 className="text-sm lg:text-[15.5px] font-extrabold text-slate-600 uppercase tracking-widest flex items-center gap-2 font-mono">
+                      <GraduationCap size={18} strokeWidth={2.5} className="text-purple-600 lg:w-5 lg:h-5" />
                       <span>Subjects & Curriculum</span>
                     </h2>
                     <button 
@@ -568,20 +560,20 @@ export default function HomeView({ user, onNavigate }) {
                           <div
                             key={s.name}
                             onClick={() => onNavigate('library', { subject: s.name })}
-                            className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[7rem] lg:min-h-[9rem]`}
+                            className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[7rem] lg:min-h-[9.5rem]`}
                           >
                             <div className="flex items-center gap-3 lg:gap-4 mb-4 min-w-0">
                               <div className={`w-11 h-11 lg:w-14 lg:h-14 rounded-xl lg:rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
-                                <IconComponent size={22} strokeWidth={2} className="lg:w-7 lg:h-7" />
+                                <IconComponent size={24} strokeWidth={2} className="lg:w-7 lg:h-7" />
                               </div>
-                              <span className="font-extrabold text-sm sm:text-[15.5px] lg:text-lg xl:text-xl truncate leading-tight" style={{ fontFamily: "'Montserrat', sans-serif" }}>{s.name}</span>
+                              <span className="font-extrabold text-base sm:text-[16px] lg:text-[18px] xl:text-[20px] truncate leading-tight text-slate-900" style={{ fontFamily: "'Montserrat', sans-serif" }}>{s.name}</span>
                             </div>
                             
-                            <div className="flex items-center justify-between text-xs lg:text-sm font-extrabold pt-3 border-t border-black/5 opacity-90">
+                            <div className="flex items-center justify-between text-xs lg:text-[14px] font-extrabold pt-3.5 border-t border-black/5 opacity-95 text-slate-700">
                               <span>{s.count} {s.count === 1 ? 'book' : 'books'}</span>
-                              <span className="group-hover:translate-x-1.5 transition-transform flex items-center gap-1 text-slate-900">
+                              <span className="group-hover:translate-x-1.5 transition-transform flex items-center gap-1 text-slate-900 font-extrabold">
                                 <span>Explore</span>
-                                <ArrowRight size={13} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
+                                <ArrowRight size={14} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
                               </span>
                             </div>
                           </div>
@@ -595,8 +587,8 @@ export default function HomeView({ user, onNavigate }) {
                 {books.length > 0 && (
                   <div className="space-y-4 lg:space-y-5">
                     <div className="flex items-center justify-between px-1">
-                      <h2 className="text-xs lg:text-sm xl:text-base font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-2 font-mono">
-                        <Sparkles size={16} strokeWidth={2.2} className="text-amber-500 lg:w-5 lg:h-5" />
+                      <h2 className="text-sm lg:text-[15.5px] font-extrabold text-slate-600 uppercase tracking-widest flex items-center gap-2 font-mono">
+                        <Sparkles size={17} strokeWidth={2.5} className="text-amber-500 lg:w-5 lg:h-5" />
                         <span>Recently Added Books</span>
                       </h2>
                       <button 
@@ -626,25 +618,25 @@ export default function HomeView({ user, onNavigate }) {
                               </div>
                               <div className="relative z-20 pl-1.5 mt-auto">
                                 <div className="w-6 h-0.5 bg-white/40 rounded-full mb-1"></div>
-                                <p className="text-white text-[12px] lg:text-base font-extrabold line-clamp-2 uppercase tracking-tight opacity-95 leading-tight">{book.title}</p>
+                                <p className="text-white text-[13px] lg:text-[16px] font-extrabold line-clamp-2 uppercase tracking-tight opacity-95 leading-tight">{book.title}</p>
                               </div>
                             </div>
 
                             <div className="p-4 lg:p-5 flex-1 flex flex-col justify-between bg-white">
                               <div>
-                                <h3 className="text-[13px] sm:text-sm lg:text-base xl:text-lg font-bold text-slate-800 line-clamp-2 leading-snug mb-1 min-h-[2.4rem] lg:min-h-[3.2rem]" title={book.title}>
+                                <h3 className="text-[14px] sm:text-[15px] lg:text-[17px] font-extrabold text-slate-900 line-clamp-2 leading-snug mb-1.5 min-h-[2.6rem] lg:min-h-[3.2rem]" title={book.title}>
                                   {book.title}
                                 </h3>
-                                <p className="text-xs lg:text-sm text-slate-400 font-medium truncate mb-3">
+                                <p className="text-xs lg:text-[14.5px] text-slate-500 font-semibold truncate mb-4">
                                   {book.author || 'Academic Press'}
                                 </p>
                               </div>
                               
-                              <div className="pt-2.5 lg:pt-3 border-t border-slate-100 flex items-center justify-between text-xs lg:text-sm font-extrabold text-blue-600">
+                              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs lg:text-[14px] font-extrabold text-blue-600">
                                 <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
                                 <span className="group-hover:translate-x-1.5 transition-transform flex items-center gap-1 text-blue-700">
                                   <span>Read</span>
-                                  <ArrowRight size={13} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
+                                  <ArrowRight size={14} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
                                 </span>
                               </div>
                             </div>
