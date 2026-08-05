@@ -72,6 +72,7 @@ export default function HomeView({ user, onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [streakDays, setStreakDays] = useState(0);
   const [hoursStudied, setHoursStudied] = useState(null);
+  const [recentSessions, setRecentSessions] = useState([]);
   const [completedPlanIds, setCompletedPlanIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sb_jamb_plan_completed') || '["jamb-plan-0"]'); } catch { return ["jamb-plan-0"]; }
   });
