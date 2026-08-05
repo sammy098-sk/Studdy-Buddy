@@ -338,6 +338,9 @@ function MainApp() {
             <Route path="/book/:id" element={<Navigate to="read" replace />} />
             <Route path="/book/:id/read" element={<ReaderRouteWrapper user={user} />} />
             <Route path="/study" element={<HomeView user={user} onNavigate={navigateTo} />} />
+            <Route path="/ai-summaries" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
+            <Route path="/jamb-practice" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
+            <Route path="/explain-concept" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />
             <Route path="/about" element={<InfoPage bgVariant="about" onNavigate={navigateTo} />} />
             <Route path="/how-it-works" element={<InfoPage bgVariant="how-it-works" onNavigate={navigateTo} />} />
             <Route path="/help" element={<InfoPage bgVariant="help" onNavigate={navigateTo} />} />

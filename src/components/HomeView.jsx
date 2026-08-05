@@ -3,7 +3,7 @@ import {
   BookOpen, Search, Sparkles, Clock3, ArrowRight, Loader2, Play, 
   CheckCircle2, ChevronRight, Compass, GraduationCap, BookMarked, 
   Timer, Bookmark, Target, Calendar, Award, Circle, CheckSquare, 
-  Square, History, Flame, FileText, HelpCircle
+  Square, History, Flame, FileText, HelpCircle, Wand2, ClipboardCheck, Lightbulb
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { SUBJECT_ICONS } from '../config';
@@ -532,52 +532,86 @@ export default function HomeView({ user, onNavigate }) {
           <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} />
         </div>
 
-        {/* 3. Statistics Cards Grid (Req 11 & 12: 20-24px vertical spacing, fixed truncation on mobile) */}
-        <div className="mt-5 sm:mt-6 lg:mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-6">
-          {/* Stat 1: Continue Reading Progress */}
-          <div title="Textbooks currently open and in progress" className="bg-white p-4.5 sm:p-5 lg:p-6.5 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-3.5 sm:gap-4 lg:gap-5 group h-full">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <BookMarked size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[19px] sm:text-2xl lg:text-[32px] xl:text-[34px] font-black text-slate-900 truncate leading-none">{displayInProgress}</div>
-              <div className="text-[11.5px] sm:text-xs lg:text-[15.5px] font-extrabold text-slate-500 truncate mt-1 sm:mt-1.5">In Progress</div>
-            </div>
-          </div>
-
-          {/* Stat 2: Reading Streak / Reading Days */}
-          <div title="Consecutive daily study streak" className="bg-white p-4.5 sm:p-5 lg:p-6.5 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-3.5 sm:gap-4 lg:gap-5 group h-full">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <Clock3 size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[19px] sm:text-2xl lg:text-[32px] xl:text-[34px] font-black text-slate-900 truncate leading-none">{displayStreak}</div>
-              <div className="text-[11.5px] sm:text-xs lg:text-[15.5px] font-extrabold text-slate-500 truncate mt-1 sm:mt-1.5">
-                <span className="md:hidden">Reading Days</span>
-                <span className="hidden md:inline">Reading Streak</span>
+        {/* 3. Core Studdy Buddy Feature Cards (Displayed consistently across Desktop & Mobile) */}
+        <div className="mt-5 sm:mt-6 lg:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 lg:gap-6">
+          {/* Feature 1: AI-Generated Summaries */}
+          <div 
+            onClick={() => onNavigate('ai-summaries')} 
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-purple-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+          >
+            <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-all duration-200 shadow-2xs">
+                <Wand2 size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
+              </div>
+              <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-purple-700 transition-colors tracking-tight">
+                    AI Summaries
+                  </h3>
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                </div>
+                <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
+                  Get concise, easy-to-understand summaries of every chapter generated by AI.
+                </p>
               </div>
             </div>
-          </div>
-
-          {/* Stat 3: Hours Studied */}
-          <div title="Cumulative recorded hours studying" className="bg-white p-4.5 sm:p-5 lg:p-6.5 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-300/80 transition-all duration-200 flex items-center gap-3.5 sm:gap-4 lg:gap-5 group h-full">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-              <Timer size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[19px] sm:text-2xl lg:text-[32px] xl:text-[34px] font-black text-slate-900 truncate leading-none">{displayHours}</div>
-              <div className="text-[11.5px] sm:text-xs lg:text-[15.5px] font-extrabold text-slate-500 truncate mt-1 sm:mt-1.5">Hours Studied</div>
+            <div className="hidden sm:flex items-center justify-between pt-4 mt-3 border-t border-slate-100 text-xs font-extrabold text-purple-600 group-hover:text-purple-700 transition-colors">
+              <span>Explore Summaries</span>
+              <ArrowRight size={15} strokeWidth={2.5} className="group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
 
-          {/* Stat 4: Books Completed */}
-          <div title="Total textbooks finished end-to-end" className="bg-white p-4.5 sm:p-5 lg:p-6.5 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300/80 transition-all duration-200 flex items-center gap-3.5 sm:gap-4 lg:gap-5 group h-full">
-            <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              <CheckCircle2 size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
+          {/* Feature 2: JAMB Practice Questions */}
+          <div 
+            onClick={() => onNavigate('jamb-practice')} 
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-emerald-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+          >
+            <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200 shadow-2xs">
+                <ClipboardCheck size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
+              </div>
+              <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors tracking-tight">
+                    JAMB Practice
+                  </h3>
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                </div>
+                <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
+                  Practice authentic JAMB-style questions and monitor your performance.
+                </p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[19px] sm:text-2xl lg:text-[32px] xl:text-[34px] font-black text-slate-900 truncate leading-none">{displayCompleted}</div>
-              <div className="text-[11.5px] sm:text-xs lg:text-[15.5px] font-extrabold text-slate-500 truncate mt-1 sm:mt-1.5">Completed</div>
+            <div className="hidden sm:flex items-center justify-between pt-4 mt-3 border-t border-slate-100 text-xs font-extrabold text-emerald-600 group-hover:text-emerald-700 transition-colors">
+              <span>Start Practice</span>
+              <ArrowRight size={15} strokeWidth={2.5} className="group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+
+          {/* Feature 3: Explain This Concept */}
+          <div 
+            onClick={() => onNavigate('explain-concept')} 
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-blue-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+          >
+            <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-all duration-200 shadow-2xs">
+                <Lightbulb size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
+              </div>
+              <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-1">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors tracking-tight">
+                    Explain This Concept
+                  </h3>
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                </div>
+                <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
+                  Ask AI to explain any difficult topic in simple, easy-to-understand language.
+                </p>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center justify-between pt-4 mt-3 border-t border-slate-100 text-xs font-extrabold text-blue-600 group-hover:text-blue-700 transition-colors">
+              <span>Ask AI Now</span>
+              <ArrowRight size={15} strokeWidth={2.5} className="group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
         </div>
