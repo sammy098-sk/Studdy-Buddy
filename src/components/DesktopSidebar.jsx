@@ -17,28 +17,36 @@ const SidebarSection = ({ label, children }) => (
   </div>
 );
 
-const SidebarLink = ({ item, active, onClick }) => {
+const SidebarLink = ({ item, active, onClick, isHighlighted }) => {
   const IconComponent = item.icon;
   return (
     <button
       onClick={onClick}
-      className={`w-full group flex items-center justify-between px-4.5 py-4 rounded-2xl font-extrabold text-[16px] lg:text-[17.5px] transition-all duration-200 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+      className={`w-full group flex items-center justify-between px-4 py-3.5 sm:py-4 rounded-2xl font-extrabold text-[15.5px] lg:text-[17px] transition-all duration-200 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 select-none ${
         active
-          ? 'bg-blue-600 text-white font-black shadow-xl shadow-blue-600/25 ring-1 ring-blue-500/50 translate-x-1.5'
-          : 'text-slate-600 font-bold hover:bg-slate-100/80 hover:text-slate-950 hover:translate-x-1'
+          ? 'bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 text-white font-black shadow-xl shadow-blue-600/30 ring-1 ring-blue-400/30 translate-x-1.5 scale-[1.01]'
+          : isHighlighted
+            ? 'bg-gradient-to-r from-blue-50/95 to-indigo-50/95 text-blue-950 font-black border-l-4 border-blue-600 shadow-2xs hover:from-blue-100 hover:to-indigo-100 hover:translate-x-1'
+            : 'text-slate-600 font-bold hover:bg-slate-100/80 hover:text-slate-950 hover:translate-x-1'
       }`}
     >
-      <div className="flex items-center gap-4 min-w-0">
+      <div className="flex items-center gap-3.5 min-w-0">
         <IconComponent
-          size={24}
-          strokeWidth={active ? 2.6 : 2.2}
-          className={active ? 'text-white shrink-0 drop-shadow-2xs' : 'text-slate-500 group-hover:text-blue-600 shrink-0 transition-colors'}
+          size={23}
+          strokeWidth={active || isHighlighted ? 2.6 : 2.2}
+          className={
+            active 
+              ? 'text-white shrink-0 drop-shadow-2xs' 
+              : isHighlighted
+                ? 'text-blue-600 shrink-0'
+                : 'text-slate-500 group-hover:text-blue-600 shrink-0 transition-colors'
+          }
         />
         <span className="truncate tracking-tight">{item.label}</span>
       </div>
       {item.badge && (
-        <span className={`px-3 py-1 rounded-full text-xs lg:text-[13px] font-black shrink-0 shadow-2xs ${
-          active ? 'bg-white text-blue-700' : 'bg-blue-50 text-blue-700 border border-blue-150'
+        <span className={`px-2.5 py-0.5 rounded-full text-[11px] lg:text-xs font-black shrink-0 shadow-2xs tracking-tight font-mono ${
+          active ? 'bg-white text-blue-700' : isHighlighted ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200/80'
         }`}>
           {item.badge}
         </span>
@@ -132,9 +140,10 @@ export default function DesktopSidebar({ user, currentPath, onNavigate }) {
                 key: 'continue',
                 label: 'Continue Reading',
                 icon: BookMarked,
-                badge: continueReadingBook ? `Pg ${continueReadingBook.current_page}` : null,
+                badge: continueReadingBook && continueReadingBook.current_page > 0 ? `Pg ${continueReadingBook.current_page}` : null,
               }}
               active={false}
+              isHighlighted={!!continueReadingBook && continueReadingBook.current_page > 0}
               onClick={handleContinueReading}
             />
             <SidebarLink

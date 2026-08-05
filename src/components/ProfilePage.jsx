@@ -175,7 +175,7 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
   });
 
   const sections = ["edit", "password", "preferences"];
-  const sectionLabels = { edit: "Edit profile", password: "Change password", preferences: "Exam & Subject Preferences (JAMB)" };
+  const sectionLabels = { edit: "Edit profile", password: "Change password", preferences: "JAMB Preferences" };
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col w-full" style={{ background: "#F0F4FF", position: 'relative' }}>
@@ -481,10 +481,10 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
                         <div>
                           <label className="text-sm font-extrabold text-slate-800 block flex items-center gap-2">
                             <Award size={16} className="text-purple-600" />
-                            <span>Your JAMB Subject Combination</span>
+                            <span>Your JAMB Combination</span>
                           </label>
                           <span className="text-xs text-slate-500 font-bold">
-                            English Language is locked. Select exactly 3 additional electives ({favSubjects.filter(s => s !== "English Language").length}/3 selected).
+                            Use of English is locked. Select exactly 3 additional electives ({favSubjects.filter(s => s !== "English Language").length}/3 selected).
                           </span>
                         </div>
                       </div>
@@ -493,7 +493,7 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
                       <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300 text-emerald-900 font-extrabold text-xs sm:text-sm flex items-center justify-between mb-3">
                         <span className="flex items-center gap-2">
                           <CheckCircle2 size={16} className="text-emerald-600" />
-                          <span>✓ English Language / Use of English</span>
+                          <span>✅ Use of English (Locked)</span>
                         </span>
                         <span className="px-2 py-0.5 bg-emerald-200/80 rounded uppercase tracking-wider text-[10px] font-black flex items-center gap-1">
                           <Lock size={11} /> Compulsory

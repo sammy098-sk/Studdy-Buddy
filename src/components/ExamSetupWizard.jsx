@@ -319,21 +319,21 @@ export default function ExamSetupWizard({ user, onFinish }) {
               )}
 
               {/* Compulsory Locked Card */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/80 border-2 border-emerald-400 text-emerald-950 flex items-center justify-between shadow-sm">
+              <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/90 border-2 border-emerald-400 text-emerald-950 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
                     <CheckCircle2 size={26} strokeWidth={2.5} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-black text-base sm:text-lg">English Language / Use of English</span>
-                      <span className="px-2 py-0.5 bg-emerald-200 text-emerald-900 rounded-md text-[11px] font-extrabold uppercase tracking-wide flex items-center gap-1">
+                      <span className="font-black text-base sm:text-lg">✅ Use of English</span>
+                      <span className="px-2.5 py-0.5 bg-emerald-200 text-emerald-900 rounded-md text-xs font-extrabold tracking-wide flex items-center gap-1">
                         <Lock size={12} strokeWidth={2.5} />
-                        <span>Compulsory</span>
+                        <span>Locked (Compulsory)</span>
                       </span>
                     </div>
                     <p className="text-xs sm:text-sm text-emerald-800 font-semibold mt-0.5">
-                      Standard compulsory subject for all JAMB candidates across sciences, arts, and commercial courses.
+                      Compulsory subject for all JAMB candidates across all science, arts, and commercial courses.
                     </p>
                   </div>
                 </div>
@@ -341,8 +341,8 @@ export default function ExamSetupWizard({ user, onFinish }) {
 
               {/* Elective Grid */}
               <div>
-                <label className="block text-xs sm:text-sm uppercase font-extrabold tracking-wider text-slate-500 mb-3">
-                  Choose 3 Electives ({selectedElectives.length}/3 Selected):
+                <label className="block text-sm sm:text-base font-extrabold tracking-tight text-slate-800 mb-3">
+                  Choose any three additional subjects ({selectedElectives.length}/3 selected):
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {EXTENDED_ELECTIVES.map((subject) => {
@@ -389,13 +389,13 @@ export default function ExamSetupWizard({ user, onFinish }) {
               <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl border border-slate-700">
                 <div className="flex items-center gap-2 mb-3 text-emerald-400 font-mono uppercase text-xs sm:text-sm font-black tracking-wider">
                   <Award size={18} strokeWidth={2.5} />
-                  <span>Your Official JAMB Combination Summary</span>
+                  <span>Your JAMB Combination</span>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
                   <div className="p-3 rounded-xl bg-white/10 border border-white/15 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 truncate">
                     <span className="text-emerald-400 shrink-0">✓</span>
-                    <span className="truncate">English Language</span>
+                    <span className="truncate">Use of English</span>
                     <span className="text-[10px] opacity-70 ml-auto">(Locked)</span>
                   </div>
                   {[0, 1, 2].map((idx) => {
@@ -403,7 +403,7 @@ export default function ExamSetupWizard({ user, onFinish }) {
                     return (
                       <div key={idx} className={`p-3 rounded-xl border text-xs sm:text-sm font-extrabold flex items-center gap-2 truncate ${sub ? 'bg-white/10 border-white/15 text-white' : 'bg-white/5 border-dashed border-white/10 text-white/40'}`}>
                         <span className={sub ? "text-emerald-400 shrink-0" : "opacity-40"}>✓</span>
-                        <span className="truncate">{sub || `Elective slot #${idx + 1}`}</span>
+                        <span className="truncate">{sub || `Choose subject #${idx + 1}`}</span>
                       </div>
                     );
                   })}

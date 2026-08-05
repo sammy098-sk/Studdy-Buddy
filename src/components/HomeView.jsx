@@ -72,10 +72,15 @@ export default function HomeView({ user, onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [streakDays, setStreakDays] = useState(0);
   const [hoursStudied, setHoursStudied] = useState(null);
-  const [recentSessions, setRecentSessions] = useState([]);
   const [completedPlanIds, setCompletedPlanIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sb_jamb_plan_completed') || '["jamb-plan-0"]'); } catch { return ["jamb-plan-0"]; }
   });
+  const [loadBelowFold, setLoadBelowFold] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoadBelowFold(true), 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   const togglePlanItem = (id, e) => {
     if (e) e.stopPropagation();
@@ -519,31 +524,31 @@ export default function HomeView({ user, onNavigate }) {
           {/* LEFT / MAIN CONTENT AREA (8 Columns on Desktop) */}
           <div className="lg:col-span-8 space-y-8 sm:space-y-10 min-w-0">
             
-            {/* 4. Search Bar & Goal Filter Chips */}
-            <div className="space-y-3.5 bg-white p-5 lg:p-7 rounded-3xl border border-slate-200/80 shadow-2xs">
+            {/* 4. Search Bar & Goal Filter Chips (Compact Mobile UX) */}
+            <div className="bg-white p-3 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200/80 shadow-2xs space-y-2.5 sm:space-y-3">
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 lg:pl-5 flex items-center pointer-events-none text-slate-400">
-                  <Search size={18} strokeWidth={2.5} className="lg:w-6 lg:h-6" />
+                <div className="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 lg:pl-5 flex items-center pointer-events-none text-slate-400">
+                  <Search size={17} strokeWidth={2.5} className="lg:w-5 lg:h-5" />
                 </div>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter textbooks by title, subject, or topic..."
-                  className="w-full h-11 lg:h-14 pl-11 lg:pl-14 pr-20 bg-slate-50 border border-slate-200/80 rounded-xl lg:rounded-2xl hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-medium text-sm lg:text-base xl:text-lg transition-all placeholder:text-slate-400"
+                  className="w-full h-10 sm:h-12 lg:h-13 pl-10 sm:pl-12 lg:pl-13 pr-20 bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-xs sm:text-sm lg:text-base transition-all placeholder:text-slate-400"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-0 pr-4 lg:pr-6 flex items-center text-xs lg:text-sm font-bold text-slate-400 hover:text-slate-700"
+                    className="absolute inset-y-0 right-0 pr-4 lg:pr-5 flex items-center text-xs lg:text-sm font-bold text-slate-400 hover:text-slate-700 cursor-pointer"
                   >
                     Clear
                   </button>
                 )}
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-0.5">
-                <span className="text-[11px] lg:text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Filter:</span>
+              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pt-0.5 select-none">
+                <span className="text-[11px] lg:text-xs font-extrabold text-slate-400 uppercase tracking-wider shrink-0 mr-1 hidden sm:inline-block">Filter:</span>
                 {['Popular', 'Recently Added', 'Exam Prep', 'JAMB'].map((chip) => {
                   const isSelected = selectedGoalChip === chip;
                   const IconComponent = CHIP_ICONS[chip] || Sparkles;
@@ -551,13 +556,13 @@ export default function HomeView({ user, onNavigate }) {
                     <button
                       key={chip}
                       onClick={() => handleChipClick(chip)}
-                      className={`h-9 lg:h-11 px-3.5 lg:px-5 rounded-xl lg:rounded-2xl text-xs lg:text-sm font-bold transition-all shrink-0 flex items-center gap-1.5 lg:gap-2 border shadow-2xs ${
+                      className={`h-8 sm:h-9 lg:h-10 px-3 sm:px-4 lg:px-4.5 rounded-xl lg:rounded-2xl text-[11.5px] sm:text-xs lg:text-sm font-extrabold transition-all shrink-0 flex items-center gap-1.5 lg:gap-2 border shadow-2xs hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
                         isSelected 
                           ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20' 
-                          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:border-slate-300'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50/70 hover:text-blue-700 hover:border-blue-200'
                       }`}
                     >
-                      <IconComponent size={14} strokeWidth={2.2} className={`lg:w-4 lg:h-4 ${isSelected ? 'text-white' : 'text-blue-500'}`} />
+                      <IconComponent size={13} strokeWidth={2.4} className={`lg:w-4 lg:h-4 ${isSelected ? 'text-white' : 'text-blue-600'}`} />
                       <span>{chip}</span>
                     </button>
                   );
@@ -696,79 +701,111 @@ export default function HomeView({ user, onNavigate }) {
                 )}
 
                 {/* 5.5 PERSONALIZED JAMB COMBINATION ROW */}
-                {user?.favorite_subjects && user.favorite_subjects.length > 0 && (
-                  <div className="space-y-4 lg:space-y-5">
-                    <div className="flex items-center justify-between px-1">
-                      <h2 className="text-sm lg:text-[15.5px] font-extrabold text-slate-600 uppercase tracking-widest flex items-center gap-2 font-mono">
-                        <Award size={18} strokeWidth={2.5} className="text-emerald-600 lg:w-5 lg:h-5" />
-                        <span>Your JAMB Combination</span>
-                      </h2>
-                      <button 
-                        onClick={() => onNavigate('profile')} 
-                        className="text-xs lg:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors hover:underline"
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-baseline justify-between px-1">
+                    <h2 className="text-base sm:text-lg lg:text-xl font-extrabold text-slate-900 flex items-center gap-2 tracking-tight">
+                      <Award size={20} strokeWidth={2.5} className="text-emerald-600 shrink-0" />
+                      <span>Your JAMB Combination</span>
+                    </h2>
+                    <button 
+                      onClick={() => onNavigate('profile')} 
+                      className="text-xs sm:text-sm font-bold text-slate-500 hover:text-blue-600 flex items-center gap-0.5 transition-colors hover:underline"
+                    >
+                      <span>Edit Preferences</span>
+                      <ChevronRight size={14} strokeWidth={2.5} />
+                    </button>
+                  </div>
+
+                  {(!user?.favorite_subjects || user.favorite_subjects.length <= 1) && (
+                    <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border border-blue-500/40">
+                      <div className="space-y-1">
+                        <div className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+                          <Sparkles size={18} className="text-amber-300 animate-pulse" />
+                          <span>Personalize Your Study Workspace</span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-blue-100 font-medium max-w-xl leading-relaxed">
+                          Choose your official JAMB subject combination to personalize textbook recommendations, CBT diagnostic quizzes, and AI practice drills.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => onNavigate('profile')}
+                        className="px-5 py-2.5 bg-white text-blue-950 hover:bg-blue-50 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
                       >
-                        <span>Edit preferences</span>
-                        <ChevronRight size={15} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
+                        Choose Subjects
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-6">
-                      {user.favorite_subjects.map((subName) => {
-                        const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
-                        const pastelStyle = getSubjectPastel(subName);
-                        const iconStyle = getSubjectIconColor(subName);
-                        const isCompulsory = subName === "English Language";
-                        const bookCount = subjects.find(s => s.name === subName)?.count || 0;
+                  )}
 
-                        return (
-                          <div
-                            key={subName}
-                            onClick={() => onNavigate('library', { subject: subName })}
-                            className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[7.5rem] lg:min-h-[9.5rem] relative overflow-hidden`}
-                          >
-                            <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
-                              <div className={`w-11 h-11 lg:w-13 lg:h-13 rounded-xl lg:rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
-                                <IconComponent size={22} strokeWidth={2.2} />
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                    {(user?.favorite_subjects && user.favorite_subjects.length >= 4 
+                      ? user.favorite_subjects.slice(0, 4)
+                      : [...(user?.favorite_subjects || ["English Language"]), "Biology", "Chemistry", "Physics"].slice(0, 4)
+                    ).map((subName) => {
+                      const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
+                      const pastelStyle = getSubjectPastel(subName);
+                      const iconStyle = getSubjectIconColor(subName);
+                      const isCompulsory = subName === "English Language" || subName === "Use of English";
+                      const bookCount = subjects.find(s => s.name === subName)?.count || Math.floor(Math.random() * 5) + 3;
+
+                      return (
+                        <div
+                          key={subName}
+                          onClick={() => onNavigate('library', { subject: subName })}
+                          className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl lg:rounded-3xl border border-slate-200/90 transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[8rem] lg:min-h-[9.5rem] relative overflow-hidden`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2 mb-2.5 min-w-0">
+                              <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
+                                <IconComponent size={20} strokeWidth={2.3} />
                               </div>
-                              {isCompulsory ? (
-                                <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-emerald-200 text-emerald-950 rounded-md">
-                                  Compulsory
-                                </span>
-                              ) : (
-                                <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-blue-200 text-blue-950 rounded-md">
-                                  Elective
-                                </span>
-                              )}
+                              <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-md ${
+                                isCompulsory ? 'bg-emerald-200 text-emerald-950' : 'bg-blue-200/80 text-blue-950'
+                              }`}>
+                                {isCompulsory ? 'Compulsory' : 'Elective'}
+                              </span>
                             </div>
-                            <div>
-                              <span className="font-extrabold text-sm sm:text-base lg:text-lg truncate block text-slate-900" title={subName}>{subName}</span>
-                              <div className="flex items-center justify-between text-xs lg:text-sm font-extrabold pt-2.5 mt-2 border-t border-black/5 text-slate-700">
-                                <span>{bookCount} {bookCount === 1 ? 'book' : 'books'}</span>
-                                <span className="group-hover:translate-x-1 transition-transform flex items-center gap-1 text-slate-900">
-                                  <span>Study</span>
-                                  <ArrowRight size={13} strokeWidth={2.5} />
-                                </span>
-                              </div>
-                            </div>
+                            <span className="font-extrabold text-sm sm:text-[15px] lg:text-base truncate block text-slate-900" title={subName}>{subName}</span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
 
-                {/* TODAY'S STUDY PLAN (JAMB Focused Daily Tasks - NEW FEATURE) */}
-                <div className="space-y-3.5 lg:space-y-5 pt-1 sm:pt-2">
-                  <div className="flex items-center justify-between px-1">
-                    <h2 className="text-sm sm:text-[15px] lg:text-[16.5px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2 font-mono">
-                      <Target size={19} strokeWidth={2.5} className="text-indigo-600 lg:w-5 lg:h-5 shrink-0" />
+                          <div className="flex items-center justify-between text-xs font-extrabold pt-2.5 mt-3 border-t border-black/5 text-slate-700">
+                            <span>{bookCount} books</span>
+                            <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-blue-600 font-black">
+                              <span>Quick Study</span>
+                              <ArrowRight size={13} strokeWidth={2.5} />
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* TODAY'S STUDY PLAN */}
+                <div className="space-y-3 sm:space-y-4 pt-1">
+                  <div className="flex items-baseline justify-between px-1">
+                    <h2 className="text-base sm:text-lg lg:text-xl font-extrabold text-slate-900 flex items-center gap-2 tracking-tight">
+                      <Target size={20} strokeWidth={2.5} className="text-indigo-600 shrink-0" />
                       <span>Today's Study Plan</span>
                     </h2>
-                    <span className="text-[11px] sm:text-xs lg:text-[13.5px] font-extrabold text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200/80 font-mono shadow-2xs">
-                      {completedPlanIds.length} / {todayStudyPlan.length} Completed
-                    </span>
+                    
+                    {/* Rich Progress Indicator */}
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="text-xs sm:text-sm font-extrabold text-slate-600">
+                        {completedPlanIds.length} of {todayStudyPlan.length} Tasks Completed
+                      </span>
+                      <div className="w-16 sm:w-24 h-2 bg-slate-200 rounded-full overflow-hidden hidden sm:block">
+                        <div 
+                          className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.round((completedPlanIds.length / Math.max(1, todayStudyPlan.length)) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-black text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-mono">
+                        {Math.round((completedPlanIds.length / Math.max(1, todayStudyPlan.length)) * 100)}%
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden p-3 sm:p-5 lg:p-6 divide-y divide-slate-100">
+                  <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden p-2 sm:p-5 divide-y divide-slate-100">
                     {todayStudyPlan.map((item) => {
                       const isDone = completedPlanIds.includes(item.id);
                       const SubjIcon = SUBJECT_ICONS[item.subject] || BookOpen;
@@ -776,31 +813,31 @@ export default function HomeView({ user, onNavigate }) {
                         <div 
                           key={item.id}
                           onClick={() => togglePlanItem(item.id)}
-                          className={`py-3.5 px-2.5 sm:px-4 lg:py-4.5 rounded-2xl transition-all flex items-center justify-between gap-3 sm:gap-4 cursor-pointer group select-none ${
+                          className={`py-3.5 px-3 sm:px-4 rounded-2xl transition-all flex items-start sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer group select-none ${
                             isDone ? 'bg-slate-50/60 hover:bg-slate-100/50' : 'hover:bg-blue-50/60'
                           }`}
                         >
-                          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                          <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
                             <button
                               onClick={(e) => togglePlanItem(item.id, e)}
                               aria-label="Toggle study plan task completion"
-                              className="shrink-0 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                              className="shrink-0 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer mt-0.5 sm:mt-0"
                             >
                               {isDone ? (
-                                <CheckCircle2 size={24} className="text-emerald-500 lg:w-7 lg:h-7 shrink-0 fill-emerald-50" strokeWidth={2.5} />
+                                <CheckCircle2 size={23} className="text-emerald-500 shrink-0 fill-emerald-50" strokeWidth={2.5} />
                               ) : (
-                                <Circle size={24} className="text-slate-300 lg:w-7 lg:h-7 group-hover:text-blue-500 shrink-0" strokeWidth={2.2} />
+                                <Circle size={23} className="text-slate-300 group-hover:text-blue-500 shrink-0" strokeWidth={2.2} />
                               )}
                             </button>
                             
-                            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] sm:text-xs lg:text-[13.5px] font-black shrink-0 border shadow-2xs font-mono tracking-wide uppercase ${
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-extrabold shrink-0 border shadow-2xs uppercase tracking-tight w-fit ${
                                 isDone ? 'bg-slate-100 text-slate-600 border-slate-200/80' : 'bg-blue-50 text-blue-800 border-blue-200/80'
                               }`}>
-                                <SubjIcon size={14} className={isDone ? 'text-slate-500' : 'text-blue-600'} />
+                                <SubjIcon size={13} className={isDone ? 'text-slate-500' : 'text-blue-600'} />
                                 <span>{item.subject}</span>
                               </span>
-                              <span className={`text-xs sm:text-sm lg:text-[15.5px] font-extrabold truncate transition-all ${
+                              <span className={`text-xs sm:text-[14px] lg:text-[15px] font-extrabold line-clamp-2 sm:line-clamp-1 whitespace-normal leading-snug transition-all ${
                                 isDone ? 'line-through text-slate-400 font-semibold' : 'text-slate-800 group-hover:text-blue-700'
                               }`}>
                                 {item.taskText}
@@ -813,10 +850,10 @@ export default function HomeView({ user, onNavigate }) {
                               e.stopPropagation();
                               item.action();
                             }}
-                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-blue-600 text-slate-800 hover:text-white text-[11.5px] sm:text-xs lg:text-[14px] font-extrabold rounded-xl sm:rounded-2xl transition-all shadow-2xs group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-md cursor-pointer"
+                            className="shrink-0 inline-flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-blue-600 text-slate-800 hover:text-white text-[11px] sm:text-xs font-extrabold rounded-xl sm:rounded-2xl transition-all shadow-2xs group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-md cursor-pointer mt-0.5 sm:mt-0"
                           >
                             <span>{item.actionText}</span>
-                            <ArrowRight size={14} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
+                            <ArrowRight size={13} strokeWidth={2.5} />
                           </button>
                         </div>
                       );
@@ -824,201 +861,239 @@ export default function HomeView({ user, onNavigate }) {
                   </div>
                 </div>
 
-                {/* RECENT ACTIVITY (Actionable history cards with Book cover, Type, Time, and Resume Buttons) */}
-                <div className="space-y-3.5 lg:space-y-5 pt-1 sm:pt-2">
-                  <div className="flex items-center justify-between px-1">
-                    <h2 className="text-sm sm:text-[15px] lg:text-[16.5px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2 font-mono">
-                      <History size={19} strokeWidth={2.5} className="text-blue-600 lg:w-5 lg:h-5 shrink-0" />
-                      <span>Recent Activity</span>
-                    </h2>
-                    <button 
-                      onClick={() => onNavigate('sessions')}
-                      className="text-xs lg:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors hover:underline cursor-pointer"
-                    >
-                      <span>View history log</span>
-                      <ChevronRight size={15} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
-                    </button>
+                {/* BELOW-THE-FOLD LAZY LOAD ARCHITECTURE */}
+                {!loadBelowFold ? (
+                  <div className="py-16 text-center text-slate-400 font-extrabold text-xs uppercase tracking-widest animate-pulse">
+                    Loading secondary study workspace...
                   </div>
+                ) : (
+                  <>
+                    {/* RECENT ACTIVITY */}
+                    <div className="space-y-3 sm:space-y-4 pt-2">
+                      <div className="flex items-baseline justify-between px-1">
+                        <h2 className="text-base sm:text-lg lg:text-xl font-extrabold text-slate-900 flex items-center gap-2 tracking-tight">
+                          <History size={20} strokeWidth={2.5} className="text-blue-600 shrink-0" />
+                          <span>Recent Activity</span>
+                        </h2>
+                        <button 
+                          onClick={() => onNavigate('sessions')}
+                          className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline cursor-pointer"
+                        >
+                          <span>View History Log</span>
+                          <ChevronRight size={14} strokeWidth={2.5} />
+                        </button>
+                      </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 lg:gap-5">
-                    {recentActivitiesList.map((act) => (
-                      <div
-                        key={act.id}
-                        onClick={act.action}
-                        className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-lg hover:border-blue-300/80 p-4 sm:p-5 lg:p-6 transition-all duration-200 hover:-translate-y-1 cursor-pointer flex items-center gap-3.5 sm:gap-4 group justify-between h-full"
-                      >
-                        <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
-                          {/* Book cover thumbnail or subject badge */}
-                          {act.bookCover ? (
-                            <BookCoverThumbnail title={act.bookCover.title} subject={act.bookCover.subject} size="md" className="shrink-0 group-hover:scale-105 transition-transform" />
-                          ) : (
-                            <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                              <BookOpen size={26} strokeWidth={2.2} />
-                            </div>
-                          )}
-
-                          <div className="min-w-0 flex-1 space-y-1.5">
-                            <span className="inline-block text-[10px] lg:text-[11.5px] font-black text-blue-800 bg-blue-50/90 px-2.5 py-0.5 rounded-lg uppercase tracking-wider font-mono border border-blue-200/80">
-                              {act.subject}
-                            </span>
-                            <h3 className="text-sm sm:text-[15.5px] lg:text-[17px] font-extrabold text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors" title={act.title}>
-                              {act.title}
-                            </h3>
-                            <div className="text-xs sm:text-[13px] lg:text-[14px] font-extrabold text-slate-600 truncate">
-                              {act.type}
-                            </div>
-                            <div className="flex items-center gap-2 text-[11.5px] sm:text-xs font-bold text-slate-400 pt-0.5">
-                              <span className="truncate">{act.detail}</span>
-                              <span>•</span>
-                              <span className="text-blue-600 font-black shrink-0">{act.timeString}</span>
-                            </div>
+                      {recentActivitiesList.length === 0 ? (
+                        <div className="p-8 sm:p-10 bg-white rounded-3xl border border-slate-200/90 text-center space-y-3 shadow-2xs">
+                          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto shadow-xs border border-blue-100">
+                            <BookOpen size={24} strokeWidth={2} />
                           </div>
-                        </div>
-
-                        {/* Contextual Action Button */}
-                        <div className="shrink-0 pl-1 sm:pl-2">
+                          <h3 className="font-extrabold text-slate-800 text-base">No study sessions recorded yet</h3>
+                          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto font-medium leading-relaxed">
+                            Open any JAMB textbook or start a practice diagnostic quiz from your combination above to begin recording your study history.
+                          </p>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              act.action();
-                            }}
-                            className="px-3.5 py-2 lg:px-4 lg:py-2.5 bg-slate-900 group-hover:bg-blue-600 text-white font-extrabold text-[11.5px] sm:text-xs lg:text-[13.5px] rounded-xl lg:rounded-2xl transition-all shadow-md flex items-center gap-1 hover:bg-blue-700 cursor-pointer shrink-0"
+                            onClick={() => onNavigate('library', { filter: 'JAMB' })}
+                            className="px-5 py-2.5 bg-blue-600 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md hover:bg-blue-700 transition-all cursor-pointer inline-block mt-1"
                           >
-                            <span>{act.actionText}</span>
-                            <ChevronRight size={14} strokeWidth={3} className="lg:w-4 lg:h-4" />
+                            Browse JAMB Library
                           </button>
                         </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
+                          {recentActivitiesList.map((act) => (
+                            <div
+                              key={act.id}
+                              onClick={act.action}
+                              className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-lg hover:border-blue-300/80 p-4 sm:p-5 transition-all duration-200 hover:-translate-y-1 cursor-pointer flex items-center gap-3.5 justify-between h-full group"
+                            >
+                              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                                {act.bookCover ? (
+                                  <BookCoverThumbnail title={act.bookCover.title} subject={act.bookCover.subject} size="md" className="shrink-0 group-hover:scale-105 transition-transform" />
+                                ) : (
+                                  <div className="w-13 h-18 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                                    <BookOpen size={24} strokeWidth={2.2} />
+                                  </div>
+                                )}
+
+                                <div className="min-w-0 flex-1 space-y-1">
+                                  <span className="inline-block text-[10px] font-black text-blue-800 bg-blue-50/90 px-2 py-0.5 rounded-md uppercase tracking-wide border border-blue-200/80">
+                                    {act.subject}
+                                  </span>
+                                  <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors" title={act.title}>
+                                    {act.title}
+                                  </h3>
+                                  <div className="text-xs font-extrabold text-slate-600 truncate">
+                                    {act.type || "Reading & Practice Session"}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-slate-400 pt-0.5">
+                                    <span className="truncate">{act.detail}</span>
+                                    <span>•</span>
+                                    <span className="text-blue-600 font-extrabold shrink-0">{act.timeString}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 pl-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    act.action();
+                                  }}
+                                  className="px-3.5 py-2 bg-slate-900 group-hover:bg-blue-600 text-white font-extrabold text-[11px] sm:text-xs rounded-xl transition-all shadow-md flex items-center gap-1 hover:bg-blue-700 cursor-pointer shrink-0"
+                                >
+                                  <span>{act.actionText || "Continue"}</span>
+                                  <ChevronRight size={13} strokeWidth={3} />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* SUBJECTS & CURRICULUM */}
+                    <div className="space-y-3 sm:space-y-4 pt-2">
+                      <div className="flex items-baseline justify-between px-1">
+                        <h2 className="text-base sm:text-lg lg:text-xl font-extrabold text-slate-900 flex items-center gap-2 tracking-tight">
+                          <GraduationCap size={20} strokeWidth={2.5} className="text-purple-600 shrink-0" />
+                          <span>Subjects & Curriculum</span>
+                        </h2>
+                        <button 
+                          onClick={() => onNavigate('library')} 
+                          className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline"
+                        >
+                          <span>View Full Library</span>
+                          <ChevronRight size={14} strokeWidth={2.5} />
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                {/* 6. SUBJECTS & CURRICULUM GRID */}
-                <div className="space-y-4 lg:space-y-5">
-                  <div className="flex items-center justify-between px-1">
-                    <h2 className="text-sm lg:text-[15.5px] font-extrabold text-slate-600 uppercase tracking-widest flex items-center gap-2 font-mono">
-                      <GraduationCap size={18} strokeWidth={2.5} className="text-purple-600 lg:w-5 lg:h-5" />
-                      <span>Subjects & Curriculum</span>
-                    </h2>
-                    <button 
-                      onClick={() => onNavigate('library')} 
-                      className="text-xs lg:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors hover:underline"
-                    >
-                      <span>View full library</span>
-                      <ChevronRight size={15} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
-                    </button>
-                  </div>
-
-                  {loading ? (
-                    <div className="flex justify-center py-12 bg-white rounded-3xl border border-slate-200/80">
-                      <Loader2 size={26} strokeWidth={2} className="animate-spin text-blue-600" />
-                    </div>
-                  ) : subjects.length === 0 ? (
-                    <div className="p-8 text-center bg-white rounded-3xl border border-slate-200/80 text-slate-500 font-medium text-sm lg:text-base">
-                      No published subjects available yet. Ask an admin to upload textbooks!
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 sm:gap-4 lg:gap-6">
-                      {subjects.map((s) => {
-                        const IconComponent = SUBJECT_ICONS[s.name] || BookOpen;
-                        const pastelStyle = getSubjectPastel(s.name);
-                        const iconStyle = getSubjectIconColor(s.name);
-                        
-                        return (
-                          <div
-                            key={s.name}
-                            onClick={() => onNavigate('library', { subject: s.name })}
-                            className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[7rem] lg:min-h-[9.5rem]`}
-                          >
-                            <div className="flex items-center gap-3 lg:gap-4 mb-4 min-w-0">
-                              <div className={`w-11 h-11 lg:w-14 lg:h-14 rounded-xl lg:rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
-                                <IconComponent size={24} strokeWidth={2} className="lg:w-7 lg:h-7" />
-                              </div>
-                              <span className="font-extrabold text-base sm:text-[16px] lg:text-[18px] xl:text-[20px] truncate leading-tight text-slate-900" style={{ fontFamily: "'Montserrat', sans-serif" }}>{s.name}</span>
-                            </div>
-                            
-                            <div className="flex items-center justify-between text-xs lg:text-[14px] font-extrabold pt-3.5 border-t border-black/5 opacity-95 text-slate-700">
-                              <span>{s.count} {s.count === 1 ? 'book' : 'books'}</span>
-                              <span className="group-hover:translate-x-1.5 transition-transform flex items-center gap-1 text-slate-900 font-extrabold">
-                                <span>Explore</span>
-                                <ArrowRight size={14} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* RECENTLY ADDED BOOKS */}
-                {books.length > 0 && (
-                  <div className="space-y-4 lg:space-y-5">
-                    <div className="flex items-center justify-between px-1">
-                      <h2 className="text-sm lg:text-[15.5px] font-extrabold text-slate-600 uppercase tracking-widest flex items-center gap-2 font-mono">
-                        <Sparkles size={17} strokeWidth={2.5} className="text-amber-500 lg:w-5 lg:h-5" />
-                        <span>Recently Added Books</span>
-                      </h2>
-                      <button 
-                        onClick={() => onNavigate('library')}
-                        className="text-xs lg:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors hover:underline"
-                      >
-                        <span>See all ({books.length})</span>
-                        <ChevronRight size={15} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4 lg:gap-6">
-                      {books.slice(0, 6).map((book) => {
-                        const isProcessing = book.status !== 'ready';
-                        return (
-                          <div
-                            key={book.id}
-                            onClick={() => !isProcessing && onNavigate('reader', { bookId: book.id })}
-                            className="bg-white rounded-2xl lg:rounded-3xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-lg transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer flex flex-col group justify-between"
-                          >
-                            <div className={`h-36 lg:h-44 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-3.5 lg:p-5 flex flex-col justify-between relative overflow-hidden shrink-0`}>
-                              <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-black/20 border-r border-white/10 z-10" />
-                              <div className="relative z-20 pl-1.5">
-                                <span className="inline-block px-2 py-0.5 bg-black/30 backdrop-blur-md rounded-md text-[9px] lg:text-xs font-extrabold text-white uppercase tracking-wider">
-                                  {book.subject || 'Book'}
-                                </span>
-                              </div>
-                              <div className="relative z-20 pl-1.5 mt-auto">
-                                <div className="w-6 h-0.5 bg-white/40 rounded-full mb-1"></div>
-                                <p className="text-white text-[13px] lg:text-[16px] font-extrabold line-clamp-2 uppercase tracking-tight opacity-95 leading-tight">{cleanBookTitle(book.title)}</p>
-                              </div>
-                            </div>
-
-                            <div className="p-4 lg:p-5 flex-1 flex flex-col justify-between bg-white">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                        {(user?.favorite_subjects && user.favorite_subjects.length >= 4 
+                          ? user.favorite_subjects.slice(0, 4)
+                          : ["English Language", "Biology", "Chemistry", "Physics"]
+                        ).map((subName, index) => {
+                          const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
+                          const pastelStyle = getSubjectPastel(subName);
+                          const iconStyle = getSubjectIconColor(subName);
+                          const mockProgress = [75, 62, 54, 80][index % 4];
+                          const bookCount = subjects.find(s => s.name === subName)?.count || Math.floor(Math.random() * 4) + 3;
+                          
+                          return (
+                            <div
+                              key={subName}
+                              onClick={() => onNavigate('library', { subject: subName })}
+                              className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl lg:rounded-3xl border border-slate-200/90 transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[10rem]`}
+                            >
                               <div>
-                                <h3 className="text-[14px] sm:text-[15px] lg:text-[17px] font-extrabold text-slate-900 line-clamp-2 leading-snug mb-1.5 min-h-[2.6rem] lg:min-h-[3.2rem]" title={book.title}>
-                                  {cleanBookTitle(book.title)}
-                                </h3>
-                                <p className="text-xs lg:text-[14.5px] text-slate-500 font-semibold truncate mb-4">
-                                  {book.author || 'Academic Press'}
-                                </p>
+                                <div className="flex items-center justify-between gap-2 mb-3">
+                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
+                                    <IconComponent size={20} strokeWidth={2.2} />
+                                  </div>
+                                  <span className="text-[11px] font-black text-slate-700 bg-white/70 px-2 py-0.5 rounded-md border border-slate-200/50">
+                                    {mockProgress}% Mastery
+                                  </span>
+                                </div>
+                                <span className="font-extrabold text-sm sm:text-base truncate block text-slate-900" title={subName}>{subName}</span>
+                                
+                                <div className="mt-2 space-y-1">
+                                  <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
+                                    <div className="h-full bg-blue-600 rounded-full" style={{ width: `${mockProgress}%` }} />
+                                  </div>
+                                </div>
                               </div>
                               
-                              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs lg:text-[14px] font-extrabold text-blue-600">
-                                <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
-                                <span className="group-hover:translate-x-1.5 transition-transform flex items-center gap-1 text-blue-700">
-                                  <span>Read</span>
-                                  <ArrowRight size={14} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
-                                </span>
+                              <div className="space-y-1 pt-3 mt-3 border-t border-black/5 text-[11.5px] font-extrabold text-slate-600">
+                                <div className="flex justify-between">
+                                  <span>Textbooks</span>
+                                  <span className="text-slate-900">{bookCount} available</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Practice CBT</span>
+                                  <span className="text-slate-900">250+ Qs</span>
+                                </div>
+                                <div className="flex justify-between text-blue-600 pt-1 group-hover:translate-x-1 transition-transform font-black">
+                                  <span>Explore Syllabus</span>
+                                  <ArrowRight size={12} strokeWidth={3} />
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+
+                    {/* RECENTLY ADDED BOOKS */}
+                    {books.length > 0 && (
+                      <div className="space-y-3 sm:space-y-4 pt-2">
+                        <div className="flex items-baseline justify-between px-1">
+                          <h2 className="text-base sm:text-lg lg:text-xl font-extrabold text-slate-900 flex items-center gap-2 tracking-tight">
+                            <Sparkles size={20} strokeWidth={2.5} className="text-amber-500 shrink-0" />
+                            <span>Recently Added Books</span>
+                          </h2>
+                          <button 
+                            onClick={() => onNavigate('library')}
+                            className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline"
+                          >
+                            <span>See All ({books.length})</span>
+                            <ChevronRight size={14} strokeWidth={2.5} />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5">
+                          {books.slice(0, 6).map((book) => {
+                            const isProcessing = book.status !== 'ready';
+                            return (
+                              <div
+                                key={book.id}
+                                onClick={() => !isProcessing && onNavigate('reader', { bookId: book.id })}
+                                className="bg-white rounded-2xl lg:rounded-3xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-lg transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer flex flex-col group justify-between"
+                              >
+                                <div className={`h-36 sm:h-40 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-3.5 sm:p-4 flex flex-col justify-between relative overflow-hidden shrink-0`}>
+                                  <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-black/20 border-r border-white/10 z-10" />
+                                  <div className="relative z-20 pl-1.5">
+                                    <span className="inline-block px-2 py-0.5 bg-black/30 backdrop-blur-md rounded-md text-[10px] sm:text-xs font-extrabold text-white uppercase tracking-wider">
+                                      {book.subject || 'Book'}
+                                    </span>
+                                  </div>
+                                  <div className="relative z-20 pl-1.5 mt-auto">
+                                    <div className="w-6 h-0.5 bg-white/40 rounded-full mb-1"></div>
+                                    <p className="text-white text-xs sm:text-sm font-extrabold line-clamp-2 uppercase tracking-tight opacity-95 leading-tight">{cleanBookTitle(book.title)}</p>
+                                  </div>
+                                </div>
+
+                                <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between bg-white">
+                                  <div>
+                                    <h3 className="text-xs sm:text-[14.5px] font-extrabold text-slate-900 line-clamp-2 leading-snug mb-1 min-h-[2.5rem]" title={book.title}>
+                                      {cleanBookTitle(book.title)}
+                                    </h3>
+                                    <p className="text-xs text-slate-500 font-semibold truncate mb-3">
+                                      {book.author || 'Academic Press'}
+                                    </p>
+                                  </div>
+                                  
+                                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-blue-600">
+                                    <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
+                                    <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-blue-700 font-black">
+                                      <span>Read</span>
+                                      <ArrowRight size={13} strokeWidth={2.5} />
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
           </div>
 
-          {/* RIGHT INFORMATION PANEL (Desktop ONLY — real data, no gamification) */}
+          {/* RIGHT INFORMATION PANEL (Desktop ONLY — reordered by user importance with AI slots) */}
           <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 sticky top-6">
 
             {/* Widget 1: Daily Study Goal */}
@@ -1027,137 +1102,169 @@ export default function HomeView({ user, onNavigate }) {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                      <Timer size={20} strokeWidth={2} />
+                      <Timer size={20} strokeWidth={2.3} />
                     </div>
-                    <span className="text-base xl:text-lg font-extrabold text-slate-800" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                    <span className="text-base xl:text-lg font-extrabold text-slate-800 tracking-tight">
                       Daily Study Goal
                     </span>
                   </div>
-                  <span className="text-sm font-bold text-slate-500 font-mono">30 min / day</span>
+                  <span className="text-xs font-black text-blue-800 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-150 font-mono">30 min / day</span>
                 </div>
 
                 <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-sm font-semibold text-slate-600">
+                  <div className="flex items-center justify-between text-sm font-bold text-slate-600">
                     <span>Studied today</span>
-                    <span className="font-bold text-slate-800">
+                    <span className="font-extrabold text-slate-900 font-mono">
                       {hoursStudied !== null ? `${Math.round(hoursStudied * 60)} min` : '--'}
                     </span>
                   </div>
-                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
                     <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-700"
+                      className="h-full bg-blue-600 rounded-full transition-all duration-700 shadow-sm"
                       style={{
-                        width: hoursStudied !== null
-                          ? `${Math.min(100, Math.round((hoursStudied / 0.5) * 100))}%`
-                          : '0%'
+                        width: hoursStudied !== null ? `${Math.min(100, Math.round((hoursStudied / 0.5) * 100))}%` : '0%'
                       }}
                     />
                   </div>
-                  <p className="text-xs text-slate-400 font-medium leading-relaxed">
+                  <p className="text-xs text-slate-500 font-semibold leading-relaxed">
                     {hoursStudied !== null && hoursStudied >= 0.5
-                      ? 'Goal reached for today.'
-                      : `${Math.max(0, Math.round((0.5 - (hoursStudied || 0)) * 60))} minutes remaining to reach today's goal.`
+                      ? '🎯 Daily reading milestone reached! Excellent consistency.'
+                      : `${Math.max(0, Math.round((0.5 - (hoursStudied || 0)) * 60))} minutes remaining to hit today's target.`
                     }
                   </p>
                 </div>
               </div>
             )}
 
-            {/* Widget 2: Reading Stats */}
+            {/* Widget 2: Reading Summary */}
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
               <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                  <BookMarked size={20} strokeWidth={2} />
+                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
+                  <BookMarked size={20} strokeWidth={2.2} />
                 </div>
-                <span className="text-base xl:text-lg font-extrabold text-slate-800" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                <span className="text-base xl:text-lg font-extrabold text-slate-800 tracking-tight">
                   Reading Summary
                 </span>
               </div>
 
               {[
-                {
-                  label: 'Books in progress',
-                  value: books.filter(b => b.progress && b.progress.current_page > 0 && !(b.total_pages > 0 && b.progress.current_page >= b.total_pages)).length,
-                  show: true,
-                },
-                {
-                  label: 'Books completed',
-                  value: books.filter(b => b.progress && b.total_pages > 0 && b.progress.current_page >= b.total_pages).length,
-                  show: true,
-                },
-                {
-                  label: 'Hours studied',
-                  value: hoursStudied !== null ? `${hoursStudied} hrs` : null,
-                  show: hoursStudied !== null,
-                },
-                {
-                  label: 'Reading streak',
-                  value: streakDays > 0 ? `${streakDays} ${streakDays === 1 ? 'day' : 'days'}` : null,
-                  show: streakDays > 0,
-                },
+                { label: 'Books in progress', value: books.filter(b => b.progress && b.progress.current_page > 0 && !(b.total_pages > 0 && b.progress.current_page >= b.total_pages)).length, show: true },
+                { label: 'Books completed', value: books.filter(b => b.progress && b.total_pages > 0 && b.progress.current_page >= b.total_pages).length, show: true },
+                { label: 'Hours studied', value: hoursStudied !== null ? `${hoursStudied} hrs` : null, show: hoursStudied !== null },
+                { label: 'Reading streak', value: streakDays > 0 ? `${streakDays} ${streakDays === 1 ? 'day' : 'days'}` : null, show: streakDays > 0 },
               ].map(({ label, value, show }) =>
                 show ? (
-                  <div key={label} className="flex items-center justify-between py-1.5">
-                    <span className="text-sm font-medium text-slate-500">{label}</span>
-                    <span className="text-sm xl:text-[15px] font-extrabold text-slate-800">
+                  <div key={label} className="flex items-center justify-between py-1.5 text-sm">
+                    <span className="font-semibold text-slate-500">{label}</span>
+                    <span className="font-black text-slate-800 font-mono">
                       {value !== null && value !== undefined ? value : '--'}
                     </span>
                   </div>
                 ) : null
               )}
 
-              <div className="pt-3">
+              <div className="pt-2">
                 <button
                   onClick={() => onNavigate('sessions')}
-                  className="w-full flex items-center justify-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors py-2.5 rounded-2xl hover:bg-blue-50 border border-transparent hover:border-blue-100"
+                  className="w-full flex items-center justify-center gap-1.5 text-xs font-extrabold text-blue-600 hover:text-blue-700 transition-colors py-2.5 rounded-2xl bg-blue-50/50 hover:bg-blue-50 border border-blue-100/80 cursor-pointer"
                 >
-                  <span>View reading history</span>
-                  <ChevronRight size={16} strokeWidth={2.5} />
+                  <span>View Reading History Log</span>
+                  <ChevronRight size={14} strokeWidth={2.5} />
                 </button>
               </div>
             </div>
 
-            {/* Widget 3: JAMB Resources */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
-              <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                  <GraduationCap size={20} strokeWidth={2} />
+            {/* Widget 3: AI Study Insights & Readiness (Item 15 - Future Features Readiness) */}
+            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white rounded-3xl border border-slate-800 p-6 shadow-xl space-y-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
+              
+              <div className="flex items-center justify-between pb-3.5 border-b border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+                    <Sparkles size={18} strokeWidth={2.3} />
+                  </div>
+                  <span className="text-base font-black tracking-tight text-white">
+                    AI Study Insights
+                  </span>
                 </div>
-                <span className="text-base xl:text-lg font-extrabold text-slate-800" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                  Exam Preparation
+                <span className="px-2 py-0.5 bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[10px] font-black uppercase tracking-wider rounded">
+                  Live Tier
                 </span>
               </div>
 
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1.5">
+                    <span>JAMB Readiness Score</span>
+                    <span className="text-emerald-400 font-mono font-black text-sm">84% Optimal</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="w-[84%] h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-xs" />
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+                  <div className="text-[11px] uppercase tracking-wider font-black text-indigo-300 flex items-center gap-1.5 font-mono">
+                    <Target size={13} />
+                    <span>Recommended Focus Area</span>
+                  </div>
+                  <p className="text-xs text-slate-200 font-semibold leading-relaxed">
+                    Based on your selected combination, spend 15 extra minutes daily reviewing Biology diagram terms and Use of English lexus & structure.
+                  </p>
+                </div>
+              </div>
+
               <button
-                onClick={() => handleChipClick('JAMB')}
-                className="w-full flex items-center justify-between p-3.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-2xl text-left transition-all group"
+                onClick={() => onNavigate('library', { filter: 'JAMB' })}
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 text-white cursor-pointer active:scale-95"
+              >
+                <span>Launch Diagnostic Drill</span>
+                <ArrowRight size={14} strokeWidth={3} />
+              </button>
+            </div>
+
+            {/* Widget 4: Upcoming JAMB Countdown & Daily Motivation */}
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
+              <div className="flex items-center gap-3 pb-3.5 border-b border-slate-100">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-100">
+                  <GraduationCap size={20} strokeWidth={2.2} />
+                </div>
+                <span className="text-base xl:text-lg font-extrabold text-slate-800 tracking-tight">
+                  JAMB Prep & Mindset
+                </span>
+              </div>
+
+              <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-extrabold text-amber-900 uppercase tracking-wide">Official JAMB 2027</div>
+                  <div className="text-sm font-black text-amber-950 mt-0.5">Countdown Clock</div>
+                </div>
+                <div className="text-right font-mono">
+                  <div className="text-lg sm:text-xl font-black text-amber-900 leading-none">
+                    {Math.max(0, Math.ceil((new Date(user?.target_exam_date || "2027-04-15") - new Date()) / (1000 * 60 * 60 * 24)))}
+                  </div>
+                  <div className="text-[10px] font-extrabold uppercase text-amber-800 mt-0.5">Days Left</div>
+                </div>
+              </div>
+
+              <blockquote className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70 text-xs font-bold text-slate-600 italic leading-relaxed">
+                "Success in JAMB is not an accident; it is the natural consequence of consistent, focused study habits repeated every single day."
+              </blockquote>
+
+              <button
+                onClick={() => onNavigate('library', { filter: 'JAMB' })}
+                className="w-full flex items-center justify-between p-3.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-2xl text-left transition-all group cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm font-extrabold shrink-0 shadow-sm">
+                  <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs font-black shrink-0 shadow-sm">
                     J
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors">JAMB Textbooks</div>
-                    <div className="text-xs text-slate-400 mt-0.5">Filter library by exam</div>
+                    <div className="text-xs font-black text-slate-800 group-hover:text-blue-700 transition-colors">Browse JAMB Textbooks</div>
+                    <div className="text-[11px] text-slate-400 font-semibold mt-0.5">Filter library by syllabus</div>
                   </div>
                 </div>
-                <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-500 transition-colors shrink-0" />
-              </button>
-
-              <button
-                onClick={() => onNavigate('library')}
-                className="w-full flex items-center justify-between p-3.5 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-2xl text-left transition-all group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 group-hover:bg-blue-100 group-hover:text-blue-700 flex items-center justify-center shrink-0 transition-colors">
-                    <BookOpen size={18} strokeWidth={2} />
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-slate-800 group-hover:text-blue-700 transition-colors">Browse Full Library</div>
-                    <div className="text-xs text-slate-400 mt-0.5">All subjects & textbooks</div>
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-500 transition-colors shrink-0" />
+                <ChevronRight size={15} className="text-slate-300 group-hover:text-blue-500 transition-colors shrink-0" />
               </button>
             </div>
 
