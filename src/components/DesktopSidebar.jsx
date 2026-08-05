@@ -7,11 +7,11 @@ import {
 import { supabase } from '../supabase';
 
 const SidebarSection = ({ label, children }) => (
-  <div className="space-y-2 mb-3">
-    <div className="px-4 pt-6 pb-2 text-[12px] font-black text-slate-400 uppercase tracking-widest font-mono">
+  <div className="space-y-2 mb-4">
+    <div className="px-4.5 pt-6 pb-2 text-[13px] lg:text-[14px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">
       {label}
     </div>
-    <div className="space-y-2 px-1">
+    <div className="space-y-2.5 px-1.5">
       {children}
     </div>
   </div>
@@ -22,23 +22,23 @@ const SidebarLink = ({ item, active, onClick }) => {
   return (
     <button
       onClick={onClick}
-      className={`w-full group flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-[15.5px] lg:text-[16.5px] transition-all duration-200 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+      className={`w-full group flex items-center justify-between px-4.5 py-4 rounded-2xl font-extrabold text-[16px] lg:text-[17.5px] transition-all duration-200 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
         active
-          ? 'bg-blue-600 text-white font-extrabold shadow-lg shadow-blue-600/25 ring-1 ring-blue-500/50 translate-x-1'
-          : 'text-slate-600 font-semibold hover:bg-slate-100/80 hover:text-slate-900 hover:translate-x-1'
+          ? 'bg-blue-600 text-white font-black shadow-xl shadow-blue-600/25 ring-1 ring-blue-500/50 translate-x-1.5'
+          : 'text-slate-600 font-bold hover:bg-slate-100/80 hover:text-slate-950 hover:translate-x-1'
       }`}
     >
-      <div className="flex items-center gap-3.5 min-w-0">
+      <div className="flex items-center gap-4 min-w-0">
         <IconComponent
-          size={22}
+          size={24}
           strokeWidth={active ? 2.6 : 2.2}
           className={active ? 'text-white shrink-0 drop-shadow-2xs' : 'text-slate-500 group-hover:text-blue-600 shrink-0 transition-colors'}
         />
         <span className="truncate tracking-tight">{item.label}</span>
       </div>
       {item.badge && (
-        <span className={`px-2.5 py-0.5 rounded-full text-[11px] lg:text-xs font-black shrink-0 shadow-2xs ${
-          active ? 'bg-white text-blue-700' : 'bg-blue-50 text-blue-600 border border-blue-100'
+        <span className={`px-3 py-1 rounded-full text-xs lg:text-[13px] font-black shrink-0 shadow-2xs ${
+          active ? 'bg-white text-blue-700' : 'bg-blue-50 text-blue-700 border border-blue-150'
         }`}>
           {item.badge}
         </span>

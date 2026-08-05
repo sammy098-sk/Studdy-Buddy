@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   BookOpen, Search, Sparkles, Clock3, ArrowRight, Loader2, Play, 
   CheckCircle2, ChevronRight, Compass, GraduationCap, BookMarked, 
-  Timer, Bookmark
+  Timer, Bookmark, Target, Calendar, Award, Circle, CheckSquare, 
+  Square, History, Flame, FileText, HelpCircle
 } from 'lucide-react';
 import { supabase } from '../supabase';
 import { SUBJECT_ICONS } from '../config';
 import Footer from './Footer';
 import HeroCarousel from './HeroCarousel';
+import { cleanBookTitle, formatRelativeTime, BookCoverThumbnail } from '../utils/bookHelpers';
 
 // Soft pastel background and icon styling for compact subject cards
 const SUBJECT_PASTELE_STYLES = {
@@ -70,6 +72,19 @@ export default function HomeView({ user, onNavigate }) {
   const [loading, setLoading] = useState(true);
   const [streakDays, setStreakDays] = useState(0);
   const [hoursStudied, setHoursStudied] = useState(null);
+  const [recentSessions, setRecentSessions] = useState([]);
+  const [completedPlanIds, setCompletedPlanIds] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('sb_jamb_plan_completed') || '["jamb-plan-0"]'); } catch { return ["jamb-plan-0"]; }
+  });
+
+  const togglePlanItem = (id, e) => {
+    if (e) e.stopPropagation();
+    setCompletedPlanIds(prev => {
+      const next = prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id];
+      try { localStorage.setItem('sb_jamb_plan_completed', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
@@ -118,7 +133,7 @@ export default function HomeView({ user, onNavigate }) {
           // Fetch study sessions for real hours studied and streak calculation
           const { data: sessionsData, error: sessionsError } = await supabase
             .from('study_sessions')
-            .select('started_at, ended_at, duration_minutes')
+            .select('id, started_at, ended_at, duration_minutes, mode, topic, subject')
             .eq('user_id', user.id);
 
           if (!sessionsError && sessionsData && sessionsData.length > 0) {
@@ -186,6 +201,8 @@ export default function HomeView({ user, onNavigate }) {
 
         setStreakDays(streak);
         setHoursStudied(computedHours);
+        const sortedSessions = (sessionsData || []).slice().sort((a, b) => new Date(b.started_at || 0) - new Date(a.started_at || 0));
+        setRecentSessions(sortedSessions.slice(0, 5));
 
         const mergedBooks = (textbooksData || []).map(book => ({
           ...book,
@@ -264,24 +281,172 @@ export default function HomeView({ user, onNavigate }) {
   const inProgressBooksList = books.filter(b => b.progress && b.progress.current_page > 0 && !(b.total_pages > 0 && b.progress.current_page >= b.total_pages));
   const inProgressCount = inProgressBooksList.length;
 
-  const displayInProgress = `${inProgressCount} in progress`;
-  const displayStreak = `${streakDays || 0} ${streakDays === 1 ? 'day' : 'days'}`;
-  const displayHours = hoursStudied !== null ? `${hoursStudied} hrs` : '--';
-  const displayCompleted = `${completedCount} completed`;
+  const displayInProgress = `${inProgressCount} ${inProgressCount === 1 ? 'Book' : 'Books'}`;
+  const displayStreak = `${streakDays || 0} ${streakDays === 1 ? 'Day' : 'Days'}`;
+  const displayHours = hoursStudied !== null ? `${hoursStudied} ${hoursStudied === 1 ? 'Hour' : 'Hours'}` : '0 Hours';
+  const displayCompleted = `${completedCount} ${completedCount === 1 ? 'Book' : 'Books'}`;
+
+  const recentActivity = useMemo(() => {
+    if (recentSessions.length > 0) {
+      const s = recentSessions[0];
+      const matchBook = books.find(b => b.subject === s.subject || b.title?.includes(s.topic || s.subject));
+      return {
+        mode: s.mode || 'textbook',
+        title: matchBook?.title || s.topic || s.subject + ' Textbook',
+        subject: s.subject || matchBook?.subject || 'JAMB Studies',
+        book: matchBook || null,
+        bookId: matchBook?.id || null,
+        page: matchBook?.progress?.current_page || null,
+        time: formatRelativeTime(s.started_at)
+      };
+    }
+    return null;
+  }, [recentSessions, books]);
+
+  // Construct intelligent Today's Study Plan (JAMB Focused)
+  const todayStudyPlan = useMemo(() => {
+    const defaultSubjs = ['Biology', 'English Language', 'Chemistry', 'Physics'];
+    const favs = user?.favorite_subjects && user.favorite_subjects.length > 0 ? user.favorite_subjects : defaultSubjs;
+    const plan = [];
+
+    // Item 1: Continue Reading primary subject / in-progress book
+    const inProg = inProgressBooksList[0] || books.find(b => b.subject === favs[0]) || books[0];
+    if (inProg) {
+      plan.push({
+        id: 'jamb-plan-0',
+        subject: inProg.subject || favs[0] || 'Biology',
+        taskText: `Continue Reading (${inProg.progress?.current_page ? `Page ${inProg.progress.current_page}` : 'Chapter 1'})`,
+        actionText: 'Resume',
+        action: () => onNavigate('reader', { bookId: inProg.id })
+      });
+    } else {
+      plan.push({
+        id: 'jamb-plan-0',
+        subject: favs[0] || 'Biology',
+        taskText: 'Read syllabus introduction & Chapter 1',
+        actionText: 'Open Library',
+        action: () => onNavigate('library')
+      });
+    }
+
+    // Item 2: Compulsory English Practice
+    const sub2 = favs.includes('English Language') ? 'English Language' : (favs[1] || 'English');
+    plan.push({
+      id: 'jamb-plan-1',
+      subject: sub2,
+      taskText: 'Complete 15 Practice Questions (CBT Speed Drill)',
+      actionText: 'Start Drill',
+      action: () => onNavigate('library', { filter: 'JAMB' })
+    });
+
+    // Item 3: Revision
+    const sub3 = favs[2] || 'Chemistry';
+    plan.push({
+      id: 'jamb-plan-2',
+      subject: sub3,
+      taskText: 'Revise Chapter 3 definitions and AI study summaries',
+      actionText: 'Revise',
+      action: () => onNavigate('library')
+    });
+
+    // Item 4: Time goal
+    const sub4 = favs[3] || 'Physics';
+    plan.push({
+      id: 'jamb-plan-3',
+      subject: sub4,
+      taskText: 'Read for 30 minutes to stay on target for exam countdown',
+      actionText: 'Study Now',
+      action: () => onNavigate('library')
+    });
+
+    return plan;
+  }, [user, books, inProgressBooksList, onNavigate]);
+
+  // Construct Actionable Recent Activity list (Enhanced as per user approval)
+  const recentActivitiesList = useMemo(() => {
+    const list = [];
+    const usedIds = new Set();
+
+    // Add up to 3 study sessions from DB
+    recentSessions.slice(0, 3).forEach((s, idx) => {
+      const matchBook = books.find(b => b.subject === s.subject || b.title?.includes(s.topic || s.subject));
+      list.push({
+        id: s.id || `sess-${idx}`,
+        subject: s.subject || matchBook?.subject || 'JAMB Studies',
+        title: cleanBookTitle(matchBook?.title || s.topic || s.subject + ' Reference'),
+        type: s.mode === 'questionnaire' || s.mode === 'quiz' ? 'CBT Practice Drill'
+            : s.mode === 'summary' ? 'AI Summary Generated'
+            : 'Reading Session',
+        detail: matchBook?.progress?.current_page ? `Page ${matchBook.progress.current_page}` : s.topic ? `Topic: ${s.topic}` : 'Chapter review',
+        timeString: formatRelativeTime(s.started_at),
+        actionText: s.mode === 'questionnaire' || s.mode === 'quiz' ? 'Review Quiz'
+                  : s.mode === 'summary' ? 'View Summary'
+                  : 'Continue',
+        action: () => matchBook ? onNavigate('reader', { bookId: matchBook.id }) : onNavigate('sessions'),
+        bookCover: { title: matchBook?.title || s.topic || s.subject, subject: s.subject || matchBook?.subject }
+      });
+      if (matchBook) usedIds.add(matchBook.id);
+    });
+
+    // If fewer than 3 sessions, pad with recent books in progress
+    inProgressBooksList.forEach((book) => {
+      if (list.length < 4 && !usedIds.has(book.id)) {
+        list.push({
+          id: `prog-${book.id}`,
+          subject: book.subject || 'Syllabus Reading',
+          title: cleanBookTitle(book.title),
+          type: 'Reading Session',
+          detail: `Page ${book.progress?.current_page || 1}${book.total_pages ? ` of ${book.total_pages}` : ''}`,
+          timeString: formatRelativeTime(book.progress?.updated_at),
+          actionText: 'Continue',
+          action: () => onNavigate('reader', { bookId: book.id }),
+          bookCover: { title: book.title, subject: book.subject }
+        });
+        usedIds.add(book.id);
+      }
+    });
+
+    // If still empty, add an encouraging welcome placeholder card
+    if (list.length === 0) {
+      list.push({
+        id: 'welcome-card',
+        subject: 'JAMB Prep 2027',
+        title: 'Begin Your First Reading Session',
+        type: 'Onboarding',
+        detail: 'Select a textbook from your library to begin study tracking',
+        timeString: 'Just now',
+        actionText: 'Open Library',
+        action: () => onNavigate('library'),
+        bookCover: { title: 'JAMB Guide', subject: 'General' }
+      });
+    }
+
+    return list;
+  }, [recentSessions, books, inProgressBooksList, onNavigate]);
 
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/70 flex flex-col justify-between">
-      <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6 lg:space-y-8">
+      <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 lg:space-y-8">
         
-        {/* 1. Compact Welcome Message & Header (SaaS style: concise, fast to main content) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
-          <div className="space-y-1 min-w-0">
+        {/* 1. Compact Welcome Message & Header (Req 1: Hidden entirely on mobile to eliminate duplicate greeting & space) */}
+        <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
+          <div className="space-y-1.5 min-w-0">
             <h1 className="text-xl sm:text-2xl lg:text-[28px] xl:text-[30px] font-extrabold text-slate-900 tracking-tight truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
               {getTimeGreeting()}, {user?.name || 'Student'} 👋
             </h1>
             <p className="text-slate-500 text-xs sm:text-sm lg:text-[15px] font-medium truncate">
               Welcome back to your study space. Pick up where you left off or explore new academic resources.
             </p>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-200/80 text-indigo-900 text-xs font-extrabold shadow-2xs">
+                <Target size={14} className="text-indigo-600" />
+                <span>Target Score: {user?.target_score || "250+"} (AI {user?.target_score === "300+" ? "Elite Tier" : "Advanced Tier"})</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200/80 text-blue-900 text-xs font-extrabold shadow-2xs">
+                <Calendar size={14} className="text-blue-600" />
+                <span>JAMB {user?.exam_year || "2027"} Countdown: {Math.max(0, Math.ceil((new Date(user?.target_exam_date || "2027-04-15") - new Date()) / (1000 * 60 * 60 * 24)))} days left</span>
+              </span>
+            </div>
           </div>
           <button 
             onClick={() => onNavigate('library')} 
@@ -293,52 +458,57 @@ export default function HomeView({ user, onNavigate }) {
           </button>
         </div>
 
-        {/* 2. Rotating Promotional Marketing Banner (Dynamic & Responsive) */}
-        <HeroCarousel activeBook={activeBook} onNavigate={onNavigate} />
+        {/* 2. Rotating Promotional Marketing Banner (Req 2: First content block on mobile with 16-24px spacing from top nav) */}
+        <div className="mt-2 md:mt-0">
+          <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} />
+        </div>
 
-        {/* 3. Statistics Cards Grid (Equal card heights, larger icons, and refined text hierarchy) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        {/* 3. Statistics Cards Grid (Req 11 & 12: 20-24px vertical spacing, fixed truncation on mobile) */}
+        <div className="mt-5 sm:mt-6 lg:mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-6">
           {/* Stat 1: Continue Reading Progress */}
-          <div title="Textbooks currently open and in progress" className="bg-white p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-4 lg:gap-5 group h-full">
-            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <BookMarked size={26} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
+          <div title="Textbooks currently open and in progress" className="bg-white p-4.5 sm:p-5 lg:p-6.5 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-3.5 sm:gap-4 lg:gap-5 group h-full">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <BookMarked size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 truncate leading-none">{displayInProgress}</div>
-              <div className="text-xs lg:text-[15px] font-bold text-slate-500 truncate mt-1.5">In Progress</div>
+              <div className="text-[19px] sm:text-2xl lg:text-[32px] xl:text-[34px] font-black text-slate-900 truncate leading-none">{displayInProgress}</div>
+              <div className="text-[11.5px] sm:text-xs lg:text-[15.5px] font-extrabold text-slate-500 truncate mt-1 sm:mt-1.5">In Progress</div>
             </div>
           </div>
 
-          {/* Stat 2: Reading Streak */}
-          <div title="Consecutive daily study streak" className="bg-white p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-4 lg:gap-5 group h-full">
-            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <Clock3 size={26} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
+          {/* Stat 2: Reading Streak / Reading Days */}
+          <div title="Consecutive daily study streak" className="bg-white p-4.5 sm:p-5 lg:p-6.5 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-200 flex items-center gap-3.5 sm:gap-4 lg:gap-5 group h-full">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+              <Clock3 size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 truncate leading-none">{displayStreak}</div>
-              <div className="text-xs lg:text-[15px] font-bold text-slate-500 truncate mt-1.5">Reading Streak</div>
+              <div className="text-[19px] sm:text-2xl lg:text-[32px] xl:text-[34px] font-black text-slate-900 truncate leading-none">{displayStreak}</div>
+              <div className="text-[11.5px] sm:text-xs lg:text-[15.5px] font-extrabold text-slate-500 truncate mt-1 sm:mt-1.5">
+                <span className="md:hidden">Reading Days</span>
+                <span className="hidden md:inline">Reading Streak</span>
+              </div>
             </div>
           </div>
 
           {/* Stat 3: Hours Studied */}
-          <div title="Cumulative recorded hours studying" className="bg-white p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-300/80 transition-all duration-200 flex items-center gap-4 lg:gap-5 group h-full">
-            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-              <Timer size={26} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
+          <div title="Cumulative recorded hours studying" className="bg-white p-4.5 sm:p-5 lg:p-6.5 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-emerald-300/80 transition-all duration-200 flex items-center gap-3.5 sm:gap-4 lg:gap-5 group h-full">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <Timer size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 truncate leading-none">{displayHours}</div>
-              <div className="text-xs lg:text-[15px] font-bold text-slate-500 truncate mt-1.5">Hours Studied</div>
+              <div className="text-[19px] sm:text-2xl lg:text-[32px] xl:text-[34px] font-black text-slate-900 truncate leading-none">{displayHours}</div>
+              <div className="text-[11.5px] sm:text-xs lg:text-[15.5px] font-extrabold text-slate-500 truncate mt-1 sm:mt-1.5">Hours Studied</div>
             </div>
           </div>
 
           {/* Stat 4: Books Completed */}
-          <div title="Total textbooks finished end-to-end" className="bg-white p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300/80 transition-all duration-200 flex items-center gap-4 lg:gap-5 group h-full">
-            <div className="w-14 h-14 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors">
-              <CheckCircle2 size={26} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
+          <div title="Total textbooks finished end-to-end" className="bg-white p-4.5 sm:p-5 lg:p-6.5 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-0.5 hover:border-purple-300/80 transition-all duration-200 flex items-center gap-3.5 sm:gap-4 lg:gap-5 group h-full">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+              <CheckCircle2 size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 truncate leading-none">{displayCompleted}</div>
-              <div className="text-xs lg:text-[15px] font-bold text-slate-500 truncate mt-1.5">Books Completed</div>
+              <div className="text-[19px] sm:text-2xl lg:text-[32px] xl:text-[34px] font-black text-slate-900 truncate leading-none">{displayCompleted}</div>
+              <div className="text-[11.5px] sm:text-xs lg:text-[15.5px] font-extrabold text-slate-500 truncate mt-1 sm:mt-1.5">Completed</div>
             </div>
           </div>
         </div>
@@ -448,7 +618,7 @@ export default function HomeView({ user, onNavigate }) {
             ) : (
               <>
                 {/* 5. CONTINUE READING HERO WIDGET */}
-                {activeBook && (
+                {activeBook && activeBook.progress && activeBook.progress.current_page > 0 && (
                   <div className="space-y-3 lg:space-y-4">
                     <div className="flex items-center justify-between px-1">
                       <h2 className="text-xs lg:text-sm xl:text-base font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-2 font-mono">
@@ -476,7 +646,7 @@ export default function HomeView({ user, onNavigate }) {
                         </div>
 
                         <h3 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-2 group-hover:text-blue-200 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                          {activeBook.title}
+                          {cleanBookTitle(activeBook.title)}
                         </h3>
                         {activeBook.author && (
                           <p className="text-white/80 font-medium text-sm sm:text-base lg:text-lg xl:text-xl mb-6">
@@ -524,6 +694,204 @@ export default function HomeView({ user, onNavigate }) {
                     </div>
                   </div>
                 )}
+
+                {/* 5.5 PERSONALIZED JAMB COMBINATION ROW */}
+                {user?.favorite_subjects && user.favorite_subjects.length > 0 && (
+                  <div className="space-y-4 lg:space-y-5">
+                    <div className="flex items-center justify-between px-1">
+                      <h2 className="text-sm lg:text-[15.5px] font-extrabold text-slate-600 uppercase tracking-widest flex items-center gap-2 font-mono">
+                        <Award size={18} strokeWidth={2.5} className="text-emerald-600 lg:w-5 lg:h-5" />
+                        <span>Your JAMB Combination</span>
+                      </h2>
+                      <button 
+                        onClick={() => onNavigate('profile')} 
+                        className="text-xs lg:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors hover:underline"
+                      >
+                        <span>Edit preferences</span>
+                        <ChevronRight size={15} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 sm:gap-4 lg:gap-6">
+                      {user.favorite_subjects.map((subName) => {
+                        const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
+                        const pastelStyle = getSubjectPastel(subName);
+                        const iconStyle = getSubjectIconColor(subName);
+                        const isCompulsory = subName === "English Language";
+                        const bookCount = subjects.find(s => s.name === subName)?.count || 0;
+
+                        return (
+                          <div
+                            key={subName}
+                            onClick={() => onNavigate('library', { subject: subName })}
+                            className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[7.5rem] lg:min-h-[9.5rem] relative overflow-hidden`}
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
+                              <div className={`w-11 h-11 lg:w-13 lg:h-13 rounded-xl lg:rounded-2xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
+                                <IconComponent size={22} strokeWidth={2.2} />
+                              </div>
+                              {isCompulsory ? (
+                                <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-emerald-200 text-emerald-950 rounded-md">
+                                  Compulsory
+                                </span>
+                              ) : (
+                                <span className="text-[10px] uppercase font-black px-2 py-0.5 bg-blue-200 text-blue-950 rounded-md">
+                                  Elective
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <span className="font-extrabold text-sm sm:text-base lg:text-lg truncate block text-slate-900" title={subName}>{subName}</span>
+                              <div className="flex items-center justify-between text-xs lg:text-sm font-extrabold pt-2.5 mt-2 border-t border-black/5 text-slate-700">
+                                <span>{bookCount} {bookCount === 1 ? 'book' : 'books'}</span>
+                                <span className="group-hover:translate-x-1 transition-transform flex items-center gap-1 text-slate-900">
+                                  <span>Study</span>
+                                  <ArrowRight size={13} strokeWidth={2.5} />
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* TODAY'S STUDY PLAN (JAMB Focused Daily Tasks - NEW FEATURE) */}
+                <div className="space-y-3.5 lg:space-y-5 pt-1 sm:pt-2">
+                  <div className="flex items-center justify-between px-1">
+                    <h2 className="text-sm sm:text-[15px] lg:text-[16.5px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2 font-mono">
+                      <Target size={19} strokeWidth={2.5} className="text-indigo-600 lg:w-5 lg:h-5 shrink-0" />
+                      <span>Today's Study Plan</span>
+                    </h2>
+                    <span className="text-[11px] sm:text-xs lg:text-[13.5px] font-extrabold text-indigo-800 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-200/80 font-mono shadow-2xs">
+                      {completedPlanIds.length} / {todayStudyPlan.length} Completed
+                    </span>
+                  </div>
+
+                  <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden p-3 sm:p-5 lg:p-6 divide-y divide-slate-100">
+                    {todayStudyPlan.map((item) => {
+                      const isDone = completedPlanIds.includes(item.id);
+                      const SubjIcon = SUBJECT_ICONS[item.subject] || BookOpen;
+                      return (
+                        <div 
+                          key={item.id}
+                          onClick={() => togglePlanItem(item.id)}
+                          className={`py-3.5 px-2.5 sm:px-4 lg:py-4.5 rounded-2xl transition-all flex items-center justify-between gap-3 sm:gap-4 cursor-pointer group select-none ${
+                            isDone ? 'bg-slate-50/60 hover:bg-slate-100/50' : 'hover:bg-blue-50/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                            <button
+                              onClick={(e) => togglePlanItem(item.id, e)}
+                              aria-label="Toggle study plan task completion"
+                              className="shrink-0 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                            >
+                              {isDone ? (
+                                <CheckCircle2 size={24} className="text-emerald-500 lg:w-7 lg:h-7 shrink-0 fill-emerald-50" strokeWidth={2.5} />
+                              ) : (
+                                <Circle size={24} className="text-slate-300 lg:w-7 lg:h-7 group-hover:text-blue-500 shrink-0" strokeWidth={2.2} />
+                              )}
+                            </button>
+                            
+                            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] sm:text-xs lg:text-[13.5px] font-black shrink-0 border shadow-2xs font-mono tracking-wide uppercase ${
+                                isDone ? 'bg-slate-100 text-slate-600 border-slate-200/80' : 'bg-blue-50 text-blue-800 border-blue-200/80'
+                              }`}>
+                                <SubjIcon size={14} className={isDone ? 'text-slate-500' : 'text-blue-600'} />
+                                <span>{item.subject}</span>
+                              </span>
+                              <span className={`text-xs sm:text-sm lg:text-[15.5px] font-extrabold truncate transition-all ${
+                                isDone ? 'line-through text-slate-400 font-semibold' : 'text-slate-800 group-hover:text-blue-700'
+                              }`}>
+                                {item.taskText}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              item.action();
+                            }}
+                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-blue-600 text-slate-800 hover:text-white text-[11.5px] sm:text-xs lg:text-[14px] font-extrabold rounded-xl sm:rounded-2xl transition-all shadow-2xs group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-md cursor-pointer"
+                          >
+                            <span>{item.actionText}</span>
+                            <ArrowRight size={14} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* RECENT ACTIVITY (Actionable history cards with Book cover, Type, Time, and Resume Buttons) */}
+                <div className="space-y-3.5 lg:space-y-5 pt-1 sm:pt-2">
+                  <div className="flex items-center justify-between px-1">
+                    <h2 className="text-sm sm:text-[15px] lg:text-[16.5px] font-black text-slate-700 uppercase tracking-widest flex items-center gap-2 font-mono">
+                      <History size={19} strokeWidth={2.5} className="text-blue-600 lg:w-5 lg:h-5 shrink-0" />
+                      <span>Recent Activity</span>
+                    </h2>
+                    <button 
+                      onClick={() => onNavigate('sessions')}
+                      className="text-xs lg:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors hover:underline cursor-pointer"
+                    >
+                      <span>View history log</span>
+                      <ChevronRight size={15} strokeWidth={2.5} className="lg:w-4 lg:h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 lg:gap-5">
+                    {recentActivitiesList.map((act) => (
+                      <div
+                        key={act.id}
+                        onClick={act.action}
+                        className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-lg hover:border-blue-300/80 p-4 sm:p-5 lg:p-6 transition-all duration-200 hover:-translate-y-1 cursor-pointer flex items-center gap-3.5 sm:gap-4 group justify-between h-full"
+                      >
+                        <div className="flex items-center gap-3.5 sm:gap-4 min-w-0 flex-1">
+                          {/* Book cover thumbnail or subject badge */}
+                          {act.bookCover ? (
+                            <BookCoverThumbnail title={act.bookCover.title} subject={act.bookCover.subject} size="md" className="shrink-0 group-hover:scale-105 transition-transform" />
+                          ) : (
+                            <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                              <BookOpen size={26} strokeWidth={2.2} />
+                            </div>
+                          )}
+
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <span className="inline-block text-[10px] lg:text-[11.5px] font-black text-blue-800 bg-blue-50/90 px-2.5 py-0.5 rounded-lg uppercase tracking-wider font-mono border border-blue-200/80">
+                              {act.subject}
+                            </span>
+                            <h3 className="text-sm sm:text-[15.5px] lg:text-[17px] font-extrabold text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors" title={act.title}>
+                              {act.title}
+                            </h3>
+                            <div className="text-xs sm:text-[13px] lg:text-[14px] font-extrabold text-slate-600 truncate">
+                              {act.type}
+                            </div>
+                            <div className="flex items-center gap-2 text-[11.5px] sm:text-xs font-bold text-slate-400 pt-0.5">
+                              <span className="truncate">{act.detail}</span>
+                              <span>•</span>
+                              <span className="text-blue-600 font-black shrink-0">{act.timeString}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Contextual Action Button */}
+                        <div className="shrink-0 pl-1 sm:pl-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              act.action();
+                            }}
+                            className="px-3.5 py-2 lg:px-4 lg:py-2.5 bg-slate-900 group-hover:bg-blue-600 text-white font-extrabold text-[11.5px] sm:text-xs lg:text-[13.5px] rounded-xl lg:rounded-2xl transition-all shadow-md flex items-center gap-1 hover:bg-blue-700 cursor-pointer shrink-0"
+                          >
+                            <span>{act.actionText}</span>
+                            <ChevronRight size={14} strokeWidth={3} className="lg:w-4 lg:h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
                 {/* 6. SUBJECTS & CURRICULUM GRID */}
                 <div className="space-y-4 lg:space-y-5">
@@ -618,14 +986,14 @@ export default function HomeView({ user, onNavigate }) {
                               </div>
                               <div className="relative z-20 pl-1.5 mt-auto">
                                 <div className="w-6 h-0.5 bg-white/40 rounded-full mb-1"></div>
-                                <p className="text-white text-[13px] lg:text-[16px] font-extrabold line-clamp-2 uppercase tracking-tight opacity-95 leading-tight">{book.title}</p>
+                                <p className="text-white text-[13px] lg:text-[16px] font-extrabold line-clamp-2 uppercase tracking-tight opacity-95 leading-tight">{cleanBookTitle(book.title)}</p>
                               </div>
                             </div>
 
                             <div className="p-4 lg:p-5 flex-1 flex flex-col justify-between bg-white">
                               <div>
                                 <h3 className="text-[14px] sm:text-[15px] lg:text-[17px] font-extrabold text-slate-900 line-clamp-2 leading-snug mb-1.5 min-h-[2.6rem] lg:min-h-[3.2rem]" title={book.title}>
-                                  {book.title}
+                                  {cleanBookTitle(book.title)}
                                 </h3>
                                 <p className="text-xs lg:text-[14.5px] text-slate-500 font-semibold truncate mb-4">
                                   {book.author || 'Academic Press'}

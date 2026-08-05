@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, LogOut, Activity, CheckCircle2, Home, Upload } from 'lucide-react';
+import { ChevronRight, LogOut, Activity, CheckCircle2, Home, Upload, Lock, Calendar, Target, Award, Check } from 'lucide-react';
 import { SUBJECTS, isAdminUser } from '../config';
 import Footer from './Footer';
 import { supabase } from '../supabase';
@@ -95,31 +95,76 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
     setTimeout(() => setPwSaved(false), 2000);
   };
 
-  // Study preferences
-  const [favSubjects, setFavSubjects] = useState(user.favorite_subjects || []);
+  // Study & Exam preferences
+  const [favSubjects, setFavSubjects] = useState(() => {
+    const subs = user.favorite_subjects || [];
+    return subs.includes("English Language") ? subs : ["English Language", ...subs];
+  });
   const [dailyGoal, setDailyGoal] = useState(user.daily_goal || "30");
+  const [examYear, setExamYear] = useState(user.exam_year || "2027");
+  const [targetScore, setTargetScore] = useState(user.target_score || "250+");
+  const [targetDate, setTargetDate] = useState(user.target_exam_date ? user.target_exam_date.slice(0, 10) : "2027-04-15");
   const [prefsSaved, setPrefsSaved] = useState(false);
   
-  // Update state if user prop changes (e.g. initial fetch)
+  // Update state if user prop changes
   useEffect(() => {
-    setFavSubjects(user.favorite_subjects || []);
+    const subs = user.favorite_subjects || [];
+    setFavSubjects(subs.includes("English Language") ? subs : ["English Language", ...subs.filter(s => s !== "English Language")]);
     setDailyGoal(user.daily_goal || "30");
     setEditName(user.name || "");
+    setExamYear(user.exam_year || "2027");
+    setTargetScore(user.target_score || "250+");
+    if (user.target_exam_date) {
+      setTargetDate(user.target_exam_date.slice(0, 10));
+    }
   }, [user]);
 
-  const toggleFavSubject = (s) =>
-    setFavSubjects((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  const toggleFavSubject = (s) => {
+    if (s === "English Language") return; // Compulsory and locked
+    setFavSubjects((prev) => {
+      if (prev.includes(s)) {
+        return prev.filter((x) => x !== s);
+      } else {
+        // Only allow up to 3 additional electives (4 total including English)
+        const electives = prev.filter(item => item !== "English Language");
+        if (electives.length >= 3) return prev;
+        return [...prev, s];
+      }
+    });
+  };
     
   const savePreferences = async () => {
+    const targetDateIso = new Date(targetDate).toISOString();
+    const payload = {
+      exam_goal: "JAMB",
+      exam_year: examYear,
+      target_score: targetScore,
+      target_exam_date: targetDateIso,
+      subject_combination: favSubjects,
+      favorite_subjects: favSubjects,
+      daily_goal: dailyGoal
+    };
+
+    if (user?.id && supabase?.auth) {
+      await supabase.auth.updateUser({ data: payload }).catch(() => {});
+    }
+
     const { error } = await supabase.from('profiles').update({ favorite_subjects: favSubjects, daily_goal: dailyGoal }).eq('id', user.id);
     
     if (!error) {
-      onUpdateUser({ favorite_subjects: favSubjects, daily_goal: dailyGoal });
+      localStorage.setItem(`sb_exam_goal_${user.id}`, "JAMB");
+      localStorage.setItem(`sb_exam_year_${user.id}`, examYear);
+      localStorage.setItem(`sb_target_score_${user.id}`, targetScore);
+      localStorage.setItem(`sb_target_date_${user.id}`, targetDateIso);
+      localStorage.setItem(`sb_subjects_${user.id}`, JSON.stringify(favSubjects));
+      localStorage.setItem(`sb_setup_completed_${user.id}`, "true");
+
+      onUpdateUser(payload);
       setPrefsSaved(true);
       setTimeout(() => {
         setPrefsSaved(false);
         onNavigate("study");
-      }, 600);
+      }, 800);
     }
   };
 
@@ -130,7 +175,7 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
   });
 
   const sections = ["edit", "password", "preferences"];
-  const sectionLabels = { edit: "Edit profile", password: "Change password", preferences: "Study preferences" };
+  const sectionLabels = { edit: "Edit profile", password: "Change password", preferences: "Exam & Subject Preferences (JAMB)" };
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col w-full" style={{ background: "#F0F4FF", position: 'relative' }}>
@@ -370,35 +415,128 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
                 )}
 
                 {expanded === key && key === "preferences" && (
-                  <div className="px-5 py-4 flex flex-col gap-4" style={{ background: "#FAFBFF", borderBottom: i < arr.length - 1 ? "1px solid #E3EAFB" : "none" }}>
-                    <div>
-                      <label className="text-xs font-medium mb-2 block" style={{ color: "#5A6B8C" }}>Favorite subjects</label>
+                  <div className="px-5 sm:px-8 py-6 flex flex-col gap-6" style={{ background: "#FAFBFF", borderBottom: i < arr.length - 1 ? "1px solid #E3EAFB" : "none" }}>
+                    
+                    {/* Exam Year & Target Score */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pb-6 border-b border-slate-200/80">
+                      <div>
+                        <label className="text-sm font-extrabold text-slate-800 mb-2 flex items-center gap-2">
+                          <Calendar size={16} className="text-blue-600" />
+                          <span>Target JAMB Exam Year</span>
+                        </label>
+                        <div className="flex gap-2 mb-3">
+                          {["2027", "2028", "Custom"].map((yr) => (
+                            <button
+                              key={yr}
+                              type="button"
+                              onClick={() => {
+                                setExamYear(yr);
+                                if (yr === "2027") setTargetDate("2027-04-15");
+                                if (yr === "2028") setTargetDate("2028-04-15");
+                              }}
+                              className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold border transition-all"
+                              style={examYear === yr ? { background: "#2954E5", borderColor: "#2954E5", color: "#FFFFFF" } : { borderColor: "#D8E3F8", color: "#101C34", background: "#FFFFFF" }}
+                            >
+                              {yr === "Custom" ? "Other" : `JAMB ${yr}`}
+                            </button>
+                          ))}
+                        </div>
+                        <label className="text-xs font-bold text-slate-500 block mb-1">Target Exam Date (Countdown Clock):</label>
+                        <input
+                          type="date"
+                          value={targetDate}
+                          onChange={(e) => setTargetDate(e.target.value)}
+                          className="w-full sm:w-48 px-3 py-2 rounded-xl border border-slate-300 font-bold text-sm text-slate-800 focus:outline-blue-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-sm font-extrabold text-slate-800 mb-2 flex items-center gap-2">
+                          <Target size={16} className="text-indigo-600" />
+                          <span>Target Score (AI Difficulty Tier)</span>
+                        </label>
+                        <p className="text-xs font-semibold text-slate-500 mb-2">
+                          Controls rigor of AI summaries and CBT diagnostic practice.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {["180+", "200+", "250+", "300+"].map((score) => (
+                            <button
+                              key={score}
+                              type="button"
+                              onClick={() => setTargetScore(score)}
+                              className="px-3 py-2.5 rounded-xl text-sm font-extrabold border transition-all flex items-center justify-between"
+                              style={targetScore === score ? { background: "#4F46E5", borderColor: "#4F46E5", color: "#FFFFFF", boxShadow: "0 4px 6px -1px rgba(79, 70, 229, 0.2)" } : { borderColor: "#D8E3F8", color: "#101C34", background: "#FFFFFF" }}
+                            >
+                              <span>{score}</span>
+                              {targetScore === score && <Check size={14} />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Subject Combination */}
+                    <div className="pb-6 border-b border-slate-200/80">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <label className="text-sm font-extrabold text-slate-800 block flex items-center gap-2">
+                            <Award size={16} className="text-purple-600" />
+                            <span>Your JAMB Subject Combination</span>
+                          </label>
+                          <span className="text-xs text-slate-500 font-bold">
+                            English Language is locked. Select exactly 3 additional electives ({favSubjects.filter(s => s !== "English Language").length}/3 selected).
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Locked English Badge */}
+                      <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300 text-emerald-900 font-extrabold text-xs sm:text-sm flex items-center justify-between mb-3">
+                        <span className="flex items-center gap-2">
+                          <CheckCircle2 size={16} className="text-emerald-600" />
+                          <span>✓ English Language / Use of English</span>
+                        </span>
+                        <span className="px-2 py-0.5 bg-emerald-200/80 rounded uppercase tracking-wider text-[10px] font-black flex items-center gap-1">
+                          <Lock size={11} /> Compulsory
+                        </span>
+                      </div>
+
+                      {/* Electives Grid */}
                       <div className="flex flex-wrap gap-2">
-                        {SUBJECTS.map((s) => {
+                        {SUBJECTS.filter(s => s !== "English Language").map((s) => {
                           const active = favSubjects.includes(s);
+                          const electivesCount = favSubjects.filter(sub => sub !== "English Language").length;
+                          const disabled = !active && electivesCount >= 3;
+
                           return (
                             <button
                               key={s}
                               type="button"
+                              disabled={disabled}
                               onClick={() => toggleFavSubject(s)}
-                              className="text-xs px-3 py-1.5 rounded-full border transition-colors"
+                              className={`text-xs sm:text-[13px] font-extrabold px-3.5 py-2 rounded-xl border transition-all flex items-center gap-1.5 ${
+                                disabled ? 'opacity-40 cursor-not-allowed bg-slate-100' : 'cursor-pointer hover:-translate-y-0.5'
+                              }`}
                               style={active ? { background: "#2954E5", borderColor: "#2954E5", color: "#FFFFFF" } : { borderColor: "#D8E3F8", color: "#5A6B8C", background: "#FFFFFF" }}
                             >
-                              {s}
+                              <span>{s}</span>
+                              {active && <span>✓</span>}
                             </button>
                           );
                         })}
                       </div>
                     </div>
+
+                    {/* Daily study goal */}
                     <div>
-                      <label className="text-xs font-medium mb-2 block" style={{ color: "#5A6B8C" }}>Daily study goal</label>
-                      <div className="flex gap-2">
-                        {["15", "30", "60"].map((min) => (
+                      <label className="text-sm font-extrabold text-slate-800 block mb-1">Daily Study Goal (Time Spend)</label>
+                      <p className="text-xs font-semibold text-slate-500 mb-2">Sets daily active reading session milestones on your dashboard.</p>
+                      <div className="flex flex-wrap gap-2">
+                        {["15", "30", "45", "60", "120"].map((min) => (
                           <button
                             key={min}
                             type="button"
                             onClick={() => setDailyGoal(min)}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+                            className="px-4 py-2 rounded-xl text-xs sm:text-sm font-extrabold border transition-all"
                             style={dailyGoal === min ? { background: "#2954E5", borderColor: "#2954E5", color: "#FFFFFF" } : { borderColor: "#D8E3F8", color: "#101C34", background: "#FFFFFF" }}
                           >
                             {min} min
@@ -406,9 +544,17 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
                         ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <button onClick={savePreferences} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ background: "#2954E5" }}>Save preferences</button>
-                      {prefsSaved && <span className="text-xs font-medium" style={{ color: "#16A34A" }}>Saved ✓</span>}
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-4 pt-2">
+                      <button 
+                        onClick={savePreferences} 
+                        className="px-6 py-3 rounded-xl text-sm font-black text-white transition-all hover:opacity-95 active:scale-95 shadow-md flex items-center gap-2 cursor-pointer" 
+                        style={{ background: "#2954E5" }}
+                      >
+                        <span>Save & Update AI Tutor</span>
+                      </button>
+                      {prefsSaved && <span className="text-sm font-extrabold text-emerald-600 flex items-center gap-1">Preferences Updated ✓</span>}
                     </div>
                   </div>
                 )}

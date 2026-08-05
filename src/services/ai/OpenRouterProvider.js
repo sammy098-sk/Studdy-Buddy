@@ -1,5 +1,17 @@
 import { AIProvider } from './AIProvider';
 
+const getDifficultyPrompt = (targetScore = '250+', subjectCombination = ['English Language']) => {
+  const comboStr = Array.isArray(subjectCombination) ? subjectCombination.join(', ') : subjectCombination;
+  let rigor = "ADVANCED TIER (Target Score 250+ in JAMB). Produce challenging questions and comprehensive explanations testing conceptual synthesis and distractor discrimination.";
+  if (targetScore === '300+') {
+    rigor = "ELITE TIER (Target Score 300+ in JAMB). Produce rigorous, complex problem-solving questions involving advanced distractors, edge cases, and multi-step analytical reasoning.";
+  } else if (targetScore === '200+') {
+    rigor = "CORE TIER (Target Score 200+ in JAMB). Focus on essential JAMB syllabus formulas, fundamental definitions, and standard testing patterns.";
+  } else if (targetScore === '180+') {
+    rigor = "FOUNDATION TIER (Target Score 180+ in JAMB). Emphasize clear foundational comprehension, straightforward terminology, and direct mastery of core textbook topics.";
+  }
+  return `STUDENT EXAM PROFILE:\n- JAMB Subject Combination: ${comboStr}\n- Difficulty Rigor: ${rigor}`;
+};
 /**
  * OpenRouter AI Provider for StudyBuddy.
  *
@@ -135,7 +147,7 @@ ${prompt}`;
   // ─────────────────────────────────────────────────────────────────────────
   // 2. Summarize — Structured revision bullet points across study styles & scopes
   // ─────────────────────────────────────────────────────────────────────────
-  async summarize({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', style = 'quick', moduleTitle = null }) {
+  async summarize({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', style = 'quick', moduleTitle = null, targetScore = '250+', subjectCombination = ['English Language'] }) {
     const styleInstructions = {
       quick: "Focus on rapid revision mastery: extract core theoretical takeaways and formula derivations with rich explanations.",
       detailed: "Provide a comprehensive pedagogical study book: elaborate in exhaustive depth on all arguments, foundational intuition, definitions, and proofs.",
@@ -147,6 +159,7 @@ ${prompt}`;
     }[style] || "Provide exhaustive teacher study notes and revision guidance.";
 
     const system = `You are an experienced academic subject specialist and master teacher writing comprehensive revision notes for students preparing for JAMB and higher education examinations.
+${getDifficultyPrompt(targetScore, subjectCombination)}
 Instead of giving short bullet points, brief summaries, or a table of contents outline, you must TEACH the content itself in exhaustive detail based entirely on the extracted textbook data.
 
 Return ONLY a valid JSON object in this exact structure, with no markdown fences, no conversational preamble, and no explanation:
@@ -207,8 +220,9 @@ Generate comprehensive teacher study notes and revision analysis according to th
   // ─────────────────────────────────────────────────────────────────────────
   // 3. Generate Questions — Interactive A–D JAMB Exam MCQs & diagnostic drills
   // ─────────────────────────────────────────────────────────────────────────
-  async generateQuestions({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', count = 15, examMode = true, excludeList = [] }) {
+  async generateQuestions({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', count = 15, examMode = true, excludeList = [], targetScore = '250+', subjectCombination = ['English Language'] }) {
     const system = `You are StudyBuddy AI, an experienced JAMB examination test architect and pedagogical assessment specialist.
+${getDifficultyPrompt(targetScore, subjectCombination)}
 
 Return ONLY a valid JSON array of exactly ${count} multiple-choice practice question objects. No markdown formatting, no conversational preamble, and no extra text.
 

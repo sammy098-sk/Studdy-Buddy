@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   BookOpen, Sparkles, Award, ChevronLeft, ChevronRight, ArrowRight, 
-  BookMarked, Headphones, FileText, Globe, HelpCircle, GraduationCap 
+  BookMarked, Headphones, FileText, Globe, HelpCircle, GraduationCap,
+  Timer, Calendar, Target, Play, Flame
 } from 'lucide-react';
+import { cleanBookTitle, BookCoverThumbnail } from '../utils/bookHelpers';
 
-export default function HeroCarousel({ activeBook, onNavigate }) {
+export default function HeroCarousel({ activeBook, recentActivity, user, onNavigate }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const touchStartX = useRef(null);
@@ -12,128 +14,149 @@ export default function HeroCarousel({ activeBook, onNavigate }) {
 
   const slides = useMemo(() => {
     const promoSlides = [];
+    const hasReadingProgress = activeBook && activeBook.progress && activeBook.progress.current_page > 0;
+    const hasActivity = Boolean(recentActivity);
 
-    // 1. Dynamic Primary Slide: Continue Reading vs JAMB Preparation / AI Tools
-    if (activeBook && activeBook.progress && activeBook.progress.current_page > 0) {
+    // 1. Context-Aware Primary Slide OR Onboarding Welcome
+    if (!hasReadingProgress && !hasActivity) {
+      // Req 7: Auto-hide Continue Reading if never opened a textbook
       promoSlides.push({
-        id: 'continue-reading',
-        title: `Continue Reading: ${activeBook.title}`,
-        description: `You stopped on Page ${activeBook.progress.current_page} ${activeBook.total_pages ? `of ${activeBook.total_pages}` : ''}. Jump directly back into your active study session without losing academic momentum.`,
-        ctaText: `Resume Page ${activeBook.progress.current_page}`,
-        action: () => onNavigate && onNavigate('reader', { bookId: activeBook.id }),
-        gradient: 'from-blue-700 via-indigo-700 to-slate-900',
-        badgeText: 'Active Study Session',
-        icon: BookMarked,
-        accentColor: 'text-blue-200',
+        id: 'welcome-new-student',
+        badgeText: 'Welcome to Studdy Buddy!',
+        title: 'Welcome to Studdy Buddy!',
+        description: 'Choose a subject to begin your JAMB preparation. Experience interactive cloud textbooks, CBT quiz drills, and instant master teacher AI revision support.',
+        ctaText: 'Choose Subject & Begin',
+        action: () => onNavigate && onNavigate('library'),
+        gradient: 'from-blue-700 via-indigo-800 to-slate-900',
+        icon: GraduationCap,
+        accentColor: 'text-sky-200',
         bgGlow: 'bg-blue-500/35'
       });
     } else {
-      promoSlides.push({
-        id: 'jamb-prep-dynamic',
-        title: 'JAMB & Examination Mastery 2026',
-        description: 'Prepare for high-stakes exams with targeted syllabus textbooks, AI CBT practice drills, and detailed option-by-option distractor breakdowns.',
-        ctaText: 'Start Exam Prep',
-        action: () => onNavigate && onNavigate('library', { filter: 'JAMB' }),
-        gradient: 'from-blue-700 via-indigo-800 to-slate-900',
-        badgeText: 'Featured Exam Prep',
-        icon: GraduationCap,
-        accentColor: 'text-sky-200',
-        bgGlow: 'bg-indigo-500/35'
-      });
+      // Req 6: Context-Aware Adaptation based on what the student was last doing
+      const mode = recentActivity?.mode;
+      const targetBook = activeBook || recentActivity?.book;
+      const cleanTitle = cleanBookTitle(targetBook?.title || recentActivity?.title || 'Academic Textbook');
+      const author = targetBook?.author;
+      const currentPage = targetBook?.progress?.current_page || recentActivity?.page || 1;
+      const totalPages = targetBook?.total_pages || 0;
+      const progressPercent = totalPages > 0 ? Math.min(100, Math.round((currentPage / totalPages) * 100)) : null;
+
+      if (mode === 'questionnaire' || mode === 'quiz') {
+        promoSlides.push({
+          id: 'continue-quiz',
+          badgeText: 'Continue Quiz',
+          title: `Continue Quiz: ${cleanTitle}`,
+          subtitle: author ? `By ${author}` : null,
+          description: `Resume your active CBT practice questions on ${recentActivity?.subject || targetBook?.subject || 'this topic'}. Keep checking your answer explanations to masterdistractor options.`,
+          ctaText: 'Resume Quiz',
+          action: () => onNavigate && onNavigate('reader', { bookId: targetBook?.id || recentActivity?.bookId }),
+          gradient: 'from-emerald-700 via-teal-800 to-slate-900',
+          bookCover: { title: cleanTitle, subject: targetBook?.subject || recentActivity?.subject },
+          accentColor: 'text-emerald-200',
+          bgGlow: 'bg-emerald-500/35'
+        });
+      } else if (mode === 'summary') {
+        promoSlides.push({
+          id: 'continue-summary',
+          badgeText: 'Continue Summary',
+          title: `Continue Summary: ${cleanTitle}`,
+          subtitle: author ? `By ${author}` : null,
+          description: `Jump back into your AI-generated master teacher revision guide for ${recentActivity?.subject || targetBook?.subject || 'this textbook'}.`,
+          ctaText: 'Resume Summary',
+          action: () => onNavigate && onNavigate('reader', { bookId: targetBook?.id || recentActivity?.bookId }),
+          gradient: 'from-purple-800 via-violet-900 to-slate-950',
+          bookCover: { title: cleanTitle, subject: targetBook?.subject || recentActivity?.subject },
+          accentColor: 'text-purple-200',
+          bgGlow: 'bg-purple-500/35'
+        });
+      } else {
+        // Default: Continue Reading (Req 3, 4, 5)
+        promoSlides.push({
+          id: 'continue-reading',
+          badgeText: 'Continue Reading',
+          title: cleanTitle,
+          subtitle: author ? `By ${author}` : null,
+          description: progressPercent 
+            ? `You stopped on page ${currentPage} of ${totalPages} (${progressPercent}% complete). Maintain your daily reading rhythm.`
+            : `You stopped on page ${currentPage}. Jump directly back into your active reading session without losing momentum.`,
+          progressInfo: { currentPage, totalPages, progressPercent },
+          ctaText: 'Resume Reading',
+          action: () => onNavigate && onNavigate('reader', { bookId: targetBook?.id }),
+          gradient: 'from-blue-700 via-indigo-800 to-slate-950',
+          bookCover: { title: cleanTitle, subject: targetBook?.subject },
+          accentColor: 'text-blue-200',
+          bgGlow: 'bg-blue-500/35'
+        });
+      }
     }
 
-    // 2. AI Study Assistant
+    // 2. Daily JAMB Challenge (Req 10)
     promoSlides.push({
-      id: 'ai-assistant',
-      title: 'Your Interactive AI Study Assistant',
-      description: 'Stressed by complex theoretical formulas or dense definitions? Ask our experienced AI teacher for deep, lecture-style guidance on any textbook page.',
-      ctaText: 'Explore AI Assistant',
-      action: () => onNavigate && onNavigate('library'),
-      gradient: 'from-indigo-800 via-purple-800 to-slate-950',
-      badgeText: 'Smart Study Tools',
-      icon: Sparkles,
-      accentColor: 'text-purple-200',
+      id: 'daily-jamb-challenge',
+      badgeText: 'Daily JAMB Challenge',
+      title: 'Take Today’s 15-Question CBT Drill',
+      description: 'Sharpen your examination speed and accuracy. Complete a timed quiz across your target JAMB subject combination with real-time diagnostic explanations.',
+      ctaText: 'Start Daily Challenge',
+      action: () => onNavigate && onNavigate('library', { filter: 'JAMB' }),
+      gradient: 'from-indigo-800 via-purple-900 to-slate-950',
+      icon: Flame,
+      accentColor: 'text-amber-300',
       bgGlow: 'bg-purple-500/35'
     });
 
-    // 3. Practice Questions (CBT Quiz Engine)
+    // 3. AI Study Tip (Req 10)
     promoSlides.push({
-      id: 'practice-questions',
-      title: 'One-by-One CBT Practice Quizzes',
-      description: 'Test your retention with 15-question examination drills. Learn faster with immediate diagnostic feedback explaining why every choice is right or wrong.',
-      ctaText: 'Take a Quiz',
+      id: 'ai-study-tip',
+      badgeText: 'AI Study Tip of the Day',
+      title: 'Active Recall vs. Passive Reading',
+      description: 'Testing yourself immediately after reading a chapter boosts long-term memory retention by over 75%. Use our AI Study Assistant to self-test definitions and formulas.',
+      ctaText: 'Explore AI Tools',
       action: () => onNavigate && onNavigate('library'),
-      gradient: 'from-blue-600 via-cyan-800 to-indigo-950',
-      badgeText: 'Diagnostic Testing',
-      icon: HelpCircle,
-      accentColor: 'text-cyan-200',
-      bgGlow: 'bg-cyan-500/35'
-    });
-
-    // 4. Read Aloud Audio
-    promoSlides.push({
-      id: 'read-aloud',
-      title: 'Listen On-The-Go with Read Aloud',
-      description: 'Convert complex textbook chapters into engaging audio lectures. Follow along with real-time word highlighting across desktop, laptop, and mobile.',
-      ctaText: 'Listen to Textbooks',
-      action: () => onNavigate && onNavigate('library'),
-      gradient: 'from-emerald-700 via-teal-800 to-slate-950',
-      badgeText: 'Audio Learning',
-      icon: Headphones,
+      gradient: 'from-emerald-800 via-teal-900 to-slate-950',
+      icon: Sparkles,
       accentColor: 'text-emerald-200',
       bgGlow: 'bg-emerald-500/35'
     });
 
-    // 5. AI Summaries & Revision Notes
+    // 4. Upcoming Exam Countdown (Req 10)
+    const daysLeft = Math.max(0, Math.ceil((new Date(user?.target_exam_date || "2027-04-15") - new Date()) / (1000 * 60 * 60 * 24)));
     promoSlides.push({
-      id: 'ai-summaries',
-      title: 'Master Teacher Revision Guides',
-      description: 'Generate exhaustive chapter study notes and overarching textbook breakdowns in seconds, designed specifically around examination standards.',
-      ctaText: 'Generate Summaries',
-      action: () => onNavigate && onNavigate('library'),
-      gradient: 'from-purple-800 via-pink-800 to-slate-950',
-      badgeText: 'Instant Synthesis',
-      icon: FileText,
-      accentColor: 'text-pink-200',
-      bgGlow: 'bg-pink-500/35'
-    });
-
-    // 6. Study Anywhere
-    promoSlides.push({
-      id: 'study-anywhere',
-      title: 'Study Anywhere, Any Device',
-      description: 'Seamlessly transition between desktop, laptop, tablet, and mobile with automatic cloud synchronization of all saved bookmarks and reading progress.',
-      ctaText: 'Check Reading History',
-      action: () => onNavigate && onNavigate('sessions'),
-      gradient: 'from-sky-700 via-blue-800 to-indigo-950',
-      badgeText: 'Cloud Sync Platform',
-      icon: Globe,
+      id: 'exam-countdown',
+      badgeText: `JAMB ${user?.exam_year || "2027"} Countdown`,
+      title: `${daysLeft} Days Until Examination`,
+      description: `Your current target score is ${user?.target_score || "250+"}. Consistency is key: completing just 30 minutes of targeted reading each day will ensure you complete the entire syllabus on schedule.`,
+      ctaText: 'Review Study Goals',
+      action: () => onNavigate && onNavigate('profile'),
+      gradient: 'from-sky-800 via-blue-900 to-indigo-950',
+      icon: Target,
       accentColor: 'text-sky-200',
       bgGlow: 'bg-sky-500/35'
     });
 
-    // 7. Recently Added Books
+    // 5. Recently Added Books
     promoSlides.push({
       id: 'recently-added',
-      title: 'Recently Added Books & Resources',
-      description: 'Explore verified science textbooks, JAMB preparatory workbooks, and interactive literature in our growing authoritative institutional cloud library.',
-      ctaText: 'Browse Full Library',
-      action: () => onNavigate && onNavigate('library'),
-      gradient: 'from-slate-800 via-indigo-900 to-blue-950',
       badgeText: 'Fresh Study Material',
+      title: 'Explore New Syllabus Textbooks',
+      description: 'Discover newly uploaded verified science textbooks, literature works, and interactive workbooks in our authoritative digital cloud library.',
+      ctaText: 'Browse Library',
+      action: () => onNavigate && onNavigate('library'),
+      gradient: 'from-slate-800 via-indigo-950 to-slate-950',
       icon: BookOpen,
-      accentColor: 'text-blue-200',
+      accentColor: 'text-indigo-300',
       bgGlow: 'bg-indigo-500/35'
     });
 
     return promoSlides;
-  }, [activeBook, onNavigate]);
+  }, [activeBook, recentActivity, user, onNavigate]);
 
+  // Req 9: Auto-slide every 6 seconds, pause on interaction, resume afterward
   useEffect(() => {
     if (isPaused || slides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % slides.length);
-    }, 6000);
+    }, 6500);
     return () => clearInterval(timer);
   }, [isPaused, slides.length]);
 
@@ -147,7 +170,9 @@ export default function HeroCarousel({ activeBook, onNavigate }) {
     setCurrentIndex((prev) => (prev + 1) % slides.length);
   };
 
+  // Req 9: Swipe gestures on mobile
   const handleTouchStart = (e) => {
+    setIsPaused(true);
     touchStartX.current = e.targetTouches[0].clientX;
   };
 
@@ -156,9 +181,10 @@ export default function HeroCarousel({ activeBook, onNavigate }) {
   };
 
   const handleTouchEnd = () => {
+    setIsPaused(false);
     if (!touchStartX.current || !touchEndX.current) return;
     const distance = touchStartX.current - touchEndX.current;
-    const minSwipeDistance = 40;
+    const minSwipeDistance = 45;
     if (distance > minSwipeDistance) {
       handleNext();
     } else if (distance < -minSwipeDistance) {
@@ -180,7 +206,7 @@ export default function HeroCarousel({ activeBook, onNavigate }) {
       onTouchEnd={handleTouchEnd}
     >
       <div 
-        className="flex transition-transform duration-700 ease-in-out h-56 sm:h-64 lg:h-[270px] xl:h-[290px]"
+        className="flex transition-transform duration-700 ease-out min-h-[16rem] sm:min-h-[18rem] lg:min-h-[19.5rem] xl:min-h-[21rem]"
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}
       >
         {slides.map((slide) => {
@@ -188,44 +214,88 @@ export default function HeroCarousel({ activeBook, onNavigate }) {
           return (
             <div 
               key={slide.id} 
-              className={`w-full h-full flex-shrink-0 bg-gradient-to-r ${slide.gradient} relative flex items-center justify-between p-6 sm:p-8 lg:p-10 xl:p-12 overflow-hidden`}
+              className={`w-full h-auto flex-shrink-0 bg-gradient-to-r ${slide.gradient} relative flex items-center justify-between px-6 py-7 sm:p-8 lg:p-10 xl:p-12 pb-14 sm:pb-14 lg:pb-16 overflow-hidden`}
             >
-              {/* Background Architectural Glows */}
-              <div className={`absolute -right-16 -bottom-16 w-80 h-80 lg:w-[420px] lg:h-[420px] rounded-full blur-3xl pointer-events-none ${slide.bgGlow || 'bg-blue-500/30'}`} />
+              {/* Background Glows */}
+              <div className={`absolute -right-16 -bottom-16 w-80 h-80 lg:w-[450px] lg:h-[450px] rounded-full blur-3xl pointer-events-none ${slide.bgGlow || 'bg-blue-500/30'}`} />
               <div className="absolute top-0 right-10 w-72 h-72 bg-white/5 rounded-full blur-2xl pointer-events-none" />
               
-              {/* Left text content with comfortable SaaS desktop typography */}
-              <div className="relative z-10 max-w-xl lg:max-w-3xl xl:max-w-4xl flex flex-col justify-center space-y-2.5 sm:space-y-3 lg:space-y-4">
-                {slide.badgeText && (
-                  <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-white/10 backdrop-blur-md text-white border border-white/20 rounded-full text-[10px] sm:text-xs lg:text-[13px] font-extrabold tracking-wider uppercase font-mono w-fit shadow-xs">
-                    <Sparkles size={14} className={slide.accentColor || 'text-blue-200'} />
-                    <span>{slide.badgeText}</span>
+              <div className="relative z-10 w-full flex items-center justify-between gap-4 sm:gap-6 lg:gap-10">
+                
+                {/* Left Text Content & Controls (Req 8: strict ordering, zero dot overlap) */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center space-y-2.5 sm:space-y-3.5 lg:space-y-4">
+                  {slide.badgeText && (
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-white/15 backdrop-blur-md text-white border border-white/20 rounded-full text-[11px] sm:text-xs lg:text-[13px] font-extrabold tracking-wider uppercase font-mono w-fit shadow-xs">
+                      <Sparkles size={14} className={slide.accentColor || 'text-blue-200'} />
+                      <span>{slide.badgeText}</span>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <h2 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-black text-white tracking-tight drop-shadow-sm leading-tight truncate sm:whitespace-normal" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                      {slide.title}
+                    </h2>
+                    {slide.subtitle && (
+                      <p className="text-white/75 font-semibold text-xs sm:text-sm lg:text-[15px] mt-0.5 truncate">
+                        {slide.subtitle}
+                      </p>
+                    )}
                   </div>
-                )}
-                
-                <h2 className="text-xl sm:text-2xl lg:text-[32px] xl:text-[36px] font-black text-white tracking-tight drop-shadow-sm leading-tight" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                  {slide.title}
-                </h2>
-                
-                <p className="text-white/90 font-semibold text-xs sm:text-sm lg:text-[15.5px] xl:text-[17px] line-clamp-2 max-w-lg lg:max-w-2xl leading-relaxed">
-                  {slide.description}
-                </p>
-                
-                <div className="pt-1 lg:pt-2">
-                  <button
-                    onClick={slide.action}
-                    className="inline-flex items-center gap-2.5 px-5 py-2.5 lg:px-6 lg:py-3.5 bg-white text-slate-900 hover:bg-blue-50 text-xs sm:text-sm lg:text-[15.5px] font-black rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg shadow-black/20 hover:-translate-y-0.5 active:translate-y-0 group/btn cursor-pointer"
-                  >
-                    <span>{slide.ctaText}</span>
-                    <ArrowRight size={17} className="text-blue-600 group-hover/btn:translate-x-1.5 transition-transform" />
-                  </button>
+                  
+                  <p className="text-white/90 font-semibold text-xs sm:text-sm lg:text-[15.5px] xl:text-[16.5px] line-clamp-2 max-w-lg lg:max-w-2xl leading-relaxed">
+                    {slide.description}
+                  </p>
+                  
+                  {/* Req 5: Explicit Progress Bar and numerical score */}
+                  {slide.progressInfo && (
+                    <div className="max-w-md space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between text-[11px] sm:text-xs lg:text-[13px] font-bold text-white/90">
+                        <span>Page {slide.progressInfo.currentPage} {slide.progressInfo.totalPages ? `of ${slide.progressInfo.totalPages}` : ''}</span>
+                        {slide.progressInfo.progressPercent !== null && (
+                          <span className="text-blue-200 font-black">{slide.progressInfo.progressPercent}% Complete</span>
+                        )}
+                      </div>
+                      <div className="w-full h-2.5 sm:h-3 bg-black/40 backdrop-blur-sm rounded-full overflow-hidden p-0.5 border border-white/20">
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-400 via-sky-300 to-emerald-400 rounded-full transition-all duration-1000 shadow-sm"
+                          style={{ width: `${slide.progressInfo.progressPercent || Math.min(100, Math.max(10, (slide.progressInfo.currentPage / 100) * 10))}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Action Button */}
+                  <div className="pt-2 sm:pt-2.5">
+                    <button
+                      onClick={slide.action}
+                      className="inline-flex items-center gap-2.5 px-5 py-2.5 lg:px-6 lg:py-3.5 bg-white text-slate-900 hover:bg-blue-50 text-xs sm:text-sm lg:text-[15.5px] font-black rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg shadow-black/25 hover:-translate-y-0.5 active:translate-y-0 group/btn cursor-pointer"
+                    >
+                      <Play size={16} fill="currentColor" className="text-blue-600 lg:w-5 lg:h-5 shrink-0" />
+                      <span>{slide.ctaText}</span>
+                      <ArrowRight size={17} className="text-blue-600 group-hover/btn:translate-x-1.5 transition-transform" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right Visual Asset: 3D Book Cover (Req 4) or Decorative Icon */}
+                <div className="relative z-10 shrink-0 flex items-center justify-center">
+                  {slide.bookCover ? (
+                    <div className="p-1 sm:p-2">
+                      <BookCoverThumbnail 
+                        title={slide.bookCover.title} 
+                        subject={slide.bookCover.subject} 
+                        size="lg" 
+                        className="shadow-2xl hover:scale-105 transition-transform duration-500 hidden xs:flex sm:flex" 
+                      />
+                    </div>
+                  ) : (
+                    <div className="hidden sm:flex items-center justify-center shrink-0 w-28 h-28 sm:w-32 sm:h-32 lg:w-44 lg:h-44 xl:w-48 xl:h-48 rounded-3xl bg-white/5 border border-white/15 backdrop-blur-sm shadow-2xl mr-2 lg:mr-4 rotate-2 group-hover:rotate-0 transition-transform duration-500">
+                      <IconComp className="w-14 h-14 sm:w-16 sm:h-16 lg:w-24 lg:h-24 xl:w-28 xl:h-28 text-white/95 drop-shadow-md" strokeWidth={1.4} />
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Right Decorative Illustration Icon for Desktop & Tablet */}
-              <div className="relative z-10 hidden sm:flex items-center justify-center shrink-0 w-32 h-32 lg:w-44 lg:h-44 xl:w-48 xl:h-48 rounded-3xl bg-white/5 border border-white/15 backdrop-blur-sm shadow-2xl mr-4 lg:mr-8 rotate-2 group-hover:rotate-0 transition-transform duration-500">
-                <IconComp className="w-16 h-16 lg:w-24 lg:h-24 xl:w-28 xl:h-28 text-white/95 drop-shadow-md" strokeWidth={1.5} />
-              </div>
             </div>
           );
         })}
@@ -237,32 +307,35 @@ export default function HeroCarousel({ activeBook, onNavigate }) {
           <button
             onClick={handlePrev}
             aria-label="Previous Slide"
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-md text-white border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-md cursor-pointer"
+            className="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-lg cursor-pointer hover:scale-105 active:scale-95"
           >
             <ChevronLeft size={22} className="lg:w-6 lg:h-6" />
           </button>
           <button
             onClick={handleNext}
             aria-label="Next Slide"
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-md text-white border border-white/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-md cursor-pointer"
+            className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-lg cursor-pointer hover:scale-105 active:scale-95"
           >
             <ChevronRight size={22} className="lg:w-6 lg:h-6" />
           </button>
         </>
       )}
 
-      {/* Slide Pagination Indicator Dots */}
+      {/* Req 8: Slide Pagination Indicator Dots clearly positioned at the very bottom below action buttons */}
       {slides.length > 1 && (
-        <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20">
+        <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-30 bg-black/30 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 shadow-md">
           {slides.map((_, idx) => (
             <button
               key={idx}
-              onClick={() => setCurrentIndex(idx)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex(idx);
+              }}
               aria-label={`Go to slide ${idx + 1}`}
               className={`transition-all duration-300 rounded-full h-2 cursor-pointer ${
                 idx === currentIndex
-                  ? 'w-8 bg-white shadow-sm'
-                  : 'w-2 bg-white/40 hover:bg-white/75'
+                  ? 'w-7 sm:w-8 bg-white shadow-sm'
+                  : 'w-2 bg-white/40 hover:bg-white/80'
               }`}
             />
           ))}

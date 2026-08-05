@@ -1,6 +1,19 @@
 import { AIProvider } from './AIProvider';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+const getDifficultyPrompt = (targetScore = '250+', subjectCombination = ['English Language']) => {
+  const comboStr = Array.isArray(subjectCombination) ? subjectCombination.join(', ') : subjectCombination;
+  let rigor = "ADVANCED TIER (Target Score 250+ in JAMB). Produce challenging questions and comprehensive explanations testing conceptual synthesis and distractor discrimination.";
+  if (targetScore === '300+') {
+    rigor = "ELITE TIER (Target Score 300+ in JAMB). Produce rigorous, complex problem-solving questions involving advanced distractors, edge cases, and multi-step analytical reasoning.";
+  } else if (targetScore === '200+') {
+    rigor = "CORE TIER (Target Score 200+ in JAMB). Focus on essential JAMB syllabus formulas, fundamental definitions, and standard testing patterns.";
+  } else if (targetScore === '180+') {
+    rigor = "FOUNDATION TIER (Target Score 180+ in JAMB). Emphasize clear foundational comprehension, straightforward terminology, and direct mastery of core textbook topics.";
+  }
+  return `STUDENT EXAM PROFILE:\n- JAMB Subject Combination: ${comboStr}\n- Difficulty Rigor: ${rigor}`;
+};
+
 /**
  * Google Gemini AI Provider for StudyBuddy.
  *
@@ -71,8 +84,10 @@ Student question: ${prompt}`;
   // ─────────────────────────────────────────────────────────────────────────
   // 2. Summarize — Structured revision bullet points
   // ─────────────────────────────────────────────────────────────────────────
-  async summarize({ text = '', topic = 'Current Section', subject = 'General', pageNumber = '', scope = 'page', style = 'quick', moduleTitle = null }) {
+  async summarize({ text = '', topic = 'Current Section', subject = 'General', pageNumber = '', scope = 'page', style = 'quick', moduleTitle = null, targetScore = '250+', subjectCombination = ['English Language'] }) {
     const system = `You are an experienced academic master teacher writing comprehensive study revision notes for Nigerian students preparing for JAMB and university examinations.
+${getDifficultyPrompt(targetScore, subjectCombination)}
+
 Instead of producing short bullet points or a generic textbook outline, you must TEACH the content in comprehensive detail based entirely on the extracted textbook data.
 
 Return ONLY a JSON object in this exact format, with no markdown fences or extra text:
@@ -129,8 +144,9 @@ Summarize this content into comprehensive structured teacher study notes.`;
   // ─────────────────────────────────────────────────────────────────────────
   // 3. Generate Questions — Diagnostic CBT practice questions
   // ─────────────────────────────────────────────────────────────────────────
-  async generateQuestions({ text = '', topic = 'Current Section', subject = 'General', pageNumber = '', scope = 'page', count = 15, examMode = true, excludeList = [] }) {
+  async generateQuestions({ text = '', topic = 'Current Section', subject = 'General', pageNumber = '', scope = 'page', count = 15, examMode = true, excludeList = [], targetScore = '250+', subjectCombination = ['English Language'] }) {
     const system = `You are StudyBuddy AI, an expert JAMB examination question setter and CBT testing architect.
+${getDifficultyPrompt(targetScore, subjectCombination)}
 
 Return ONLY a JSON array of exactly ${count} practice question objects in this exact structure, with no markdown fences or conversational text:
 [

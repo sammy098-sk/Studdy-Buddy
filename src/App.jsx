@@ -5,6 +5,7 @@ import { supabase } from './supabase';
 import DesktopLanding from './components/DesktopLanding';
 import OnboardingFlow from './components/OnboardingFlow';
 import AuthFlow from './components/AuthFlow';
+import ExamSetupWizard from './components/ExamSetupWizard';
 import ChatView from './components/ChatView';
 import HomeView from './components/HomeView';
 import ProfilePage from './components/ProfilePage';
@@ -66,14 +67,28 @@ function MainApp() {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
       const userMeta = session.user.user_metadata || {};
       
-      setUser({ 
+      const favSubjects = data?.favorite_subjects || userMeta.subject_combination || JSON.parse(localStorage.getItem(`sb_subjects_${session.user.id}`) || "null") || [];
+      const examGoal = userMeta.exam_goal || localStorage.getItem(`sb_exam_goal_${session.user.id}`) || "JAMB";
+      const examYear = userMeta.exam_year || localStorage.getItem(`sb_exam_year_${session.user.id}`) || "2027";
+      const targetScore = userMeta.target_score || localStorage.getItem(`sb_target_score_${session.user.id}`) || "250+";
+      const targetDate = userMeta.target_exam_date || localStorage.getItem(`sb_target_date_${session.user.id}`) || new Date("2027-04-15T09:00:00Z").toISOString();
+      const isSetupCompleted = localStorage.getItem(`sb_setup_completed_${session.user.id}`) === "true" || (favSubjects.length >= 3 && userMeta.target_score);
+
+      const updatedUser = { 
         id: session.user.id,
         name: data?.full_name || userMeta.full_name || session.user.email.split("@")[0], 
         email: session.user.email,
-        favorite_subjects: data?.favorite_subjects || [],
+        favorite_subjects: favSubjects,
         daily_goal: data?.daily_goal || "30",
-        role: data?.role || 'student'
-      });
+        role: data?.role || 'student',
+        exam_goal: examGoal,
+        exam_year: examYear,
+        target_score: targetScore,
+        target_exam_date: targetDate,
+        subject_combination: favSubjects
+      };
+      
+      setUser(updatedUser);
 
       // Fetch today's completed topics & log daily app engagement check-in if none exist today
       const todayStart = new Date();
@@ -96,7 +111,7 @@ function MainApp() {
         }
       }
       
-      setStage("app");
+      setStage(isSetupCompleted ? "app" : "exam_setup");
     };
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -138,7 +153,27 @@ function MainApp() {
     return (
       <AuthFlow
         onAuthenticated={(u) => {
+          const isSetupDone = localStorage.getItem(`sb_setup_completed_${u.id}`) === "true" || u.favorite_subjects?.length >= 3;
           setUser(u);
+          setStage(isSetupDone ? "app" : "exam_setup");
+          if (isSetupDone) navigate('/library');
+        }}
+      />
+    );
+  }
+
+  if (stage === "exam_setup") {
+    return (
+      <ExamSetupWizard
+        user={user}
+        onFinish={(updatedPrefs) => {
+          if (user?.id) {
+            localStorage.setItem(`sb_setup_completed_${user.id}`, "true");
+          }
+          setUser(prev => ({
+            ...prev,
+            ...updatedPrefs
+          }));
           setStage("app");
           navigate('/library');
         }}
@@ -199,10 +234,10 @@ function MainApp() {
               </div>
               {/* Desktop Branding (Hidden on mobile) */}
               <div className="hidden md:flex flex-col text-left">
-                <span className="font-extrabold text-[16px] leading-none tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                <span className="font-extrabold text-[18px] lg:text-[20px] leading-none tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                   StudyBuddy
                 </span>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 font-mono">Platform</span>
+                <span className="text-[11px] lg:text-[12px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 font-mono">Platform</span>
               </div>
               {/* Mobile Greeting (Replaces branding text on mobile) */}
               <div className="flex flex-col md:hidden text-left min-w-0">
@@ -230,9 +265,9 @@ function MainApp() {
                 name="topSearch"
                 type="text" 
                 placeholder="Search study library, textbooks, or subjects..."
-                className="w-full pl-10 lg:pl-12 pr-16 py-2 lg:py-3 bg-slate-50 border border-slate-200/80 hover:border-slate-300 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 rounded-xl lg:rounded-2xl text-sm lg:text-[15.5px] font-semibold text-slate-800 placeholder:text-slate-400 outline-none transition-all"
+                className="w-full pl-10 lg:pl-12 pr-16 py-2.5 lg:py-3.5 bg-slate-50 border border-slate-200/80 hover:border-slate-300 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15 rounded-xl lg:rounded-2xl text-sm lg:text-[16px] xl:text-[17px] font-bold text-slate-800 placeholder:text-slate-400 outline-none transition-all"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] lg:text-[13px] font-mono font-bold bg-white text-slate-500 border border-slate-200 px-2 py-0.5 rounded-lg shadow-2xs">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] lg:text-[13px] font-mono font-bold bg-white text-slate-500 border border-slate-200 px-2.5 py-1 rounded-lg shadow-2xs">
                 Library
               </span>
             </form>
@@ -243,34 +278,34 @@ function MainApp() {
               <button
                 onClick={() => navigate('/notifications')}
                 title="Notifications"
-                className="hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs hover:shadow-sm"
+                className="hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs hover:shadow-sm cursor-pointer"
               >
-                <Bell size={20} />
+                <Bell size={20} className="lg:w-5 lg:h-5" />
               </button>
 
               {/* Settings Shortcut */}
               <button
                 onClick={() => navigate('/notifications')}
                 title="Account Settings"
-                className="hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs hover:shadow-sm"
+                className="hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl text-slate-500 hover:text-blue-600 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs hover:shadow-sm cursor-pointer"
               >
-                <Settings size={20} />
+                <Settings size={20} className="lg:w-5 lg:h-5" />
               </button>
 
               {/* Profile User Chip */}
               <button
                 onClick={() => navigate('/profile')}
                 title="View Profile"
-                className="hidden md:flex items-center gap-2.5 lg:gap-3 px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl lg:rounded-2xl border border-slate-200/80 bg-white hover:border-blue-300 hover:shadow-sm transition-all text-left group"
+                className="hidden md:flex items-center gap-2.5 lg:gap-3 px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl lg:rounded-2xl border border-slate-200/80 bg-white hover:border-blue-300 hover:shadow-sm transition-all text-left group cursor-pointer"
               >
                 <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-lg lg:rounded-xl bg-blue-50 text-blue-700 font-extrabold text-xs lg:text-sm flex items-center justify-center border border-blue-100 uppercase group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   {(user?.name || "S")[0]}
                 </div>
                 <div className="min-w-0 pr-1">
-                  <div className="text-[12.5px] lg:text-[15px] font-bold text-slate-800 leading-tight truncate max-w-[120px] lg:max-w-[160px] group-hover:text-blue-600 transition-colors">
+                  <div className="text-[13px] lg:text-[16px] font-extrabold text-slate-900 leading-tight truncate max-w-[120px] lg:max-w-[170px] group-hover:text-blue-600 transition-colors">
                     {user?.name || "Student"}
                   </div>
-                  <div className="text-[10px] lg:text-xs font-medium text-slate-400 capitalize">{user?.role || "Student"}</div>
+                  <div className="text-[11px] lg:text-[13px] font-bold text-slate-400 capitalize">{user?.role || "Student"}</div>
                 </div>
               </button>
 

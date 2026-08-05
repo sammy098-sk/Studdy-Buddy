@@ -7,7 +7,14 @@ import {
   Landmark, 
   Scale, 
   Feather, 
-  Sprout 
+  Sprout,
+  BookMarked,
+  Globe,
+  Briefcase,
+  FileSpreadsheet,
+  History,
+  Monitor,
+  GraduationCap
 } from 'lucide-react';
 
 export const STUDYBUDDY_PERSONA = `You are **StudyBuddy**, an AI exam prep companion built specifically for Nigerian
@@ -64,6 +71,13 @@ export const CURRICULUM = {
   "Government": ["Concepts of Government", "Arms of Government", "The Constitution", "Citizenship", "Political Parties", "Nigerian Government History", "International Organizations"],
   "Literature-in-English": ["Prose Analysis", "Poetry Analysis", "Drama Analysis", "Figures of Speech", "Themes & Characterization", "African Literature", "Non-African Literature"],
   "Agricultural Science": ["Soil Science", "Crop Production", "Animal Husbandry", "Farm Management", "Agricultural Economics", "Pest & Disease Control", "Farm Tools & Machinery"],
+  "Christian Religious Studies": ["Old Testament History", "The Ministry of Jesus Christ", "The Acts of the Apostles", "Christian Ethics & Values", "Selected Themes from the Epistles"],
+  "Islamic Religious Studies": ["Tawhid & Fiqh", "Quranic Studies & Hadith", "History of Islam & Prophet Muhammad", "Islamic Ethics & Social Practice"],
+  "Geography": ["Map Reading & Interpretation", "Physical Geography & Landforms", "Climatology & Weather", "Human & Economic Geography of Nigeria", "Regional Geography"],
+  "Commerce": ["Basic Commercial Concepts", "Forms of Business Units", "Trade & Aid to Trade", "Banking, Insurance & Finance", "Marketing & Consumer Protection"],
+  "Accounting": ["Principles of Double Entry", "Books of Original Entry", "Final Accounts of Sole Traders", "Partnership Accounts", "Company Accounts & Cash Flows"],
+  "History": ["Pre-Colonial Nigerian Societies", "British Conquest and Administration", "Nationalist Movements & Independence", "Post-Independence Nigerian Politics"],
+  "Computer Studies": ["Computer Hardware & Software", "Data Processing & Storage", "Computer Networks & Internet", "Programming Fundamentals & Logic", "Information Security & Ethics"]
 };
 
 export const SUBJECTS = Object.keys(CURRICULUM);
@@ -78,6 +92,13 @@ export const SUBJECT_ICONS = {
   "Government": Scale,
   "Literature-in-English": Feather,
   "Agricultural Science": Sprout,
+  "Christian Religious Studies": BookMarked,
+  "Islamic Religious Studies": BookMarked,
+  "Geography": Globe,
+  "Commerce": Briefcase,
+  "Accounting": FileSpreadsheet,
+  "History": History,
+  "Computer Studies": Monitor
 };
 
 export const isAdminUser = (user) => {

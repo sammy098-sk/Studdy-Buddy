@@ -255,11 +255,35 @@ class StudyToolsService {
   }
 
   /**
+   * Helper to fetch user target score and subject combination from session/storage for adaptive AI difficulty.
+   */
+  async #getUserPreferences() {
+    let targetScore = "250+";
+    let subjectCombination = ["English Language"];
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        targetScore = localStorage.getItem(`sb_target_score_${session.user.id}`) || session.user.user_metadata?.target_score || "250+";
+        const storedSubs = localStorage.getItem(`sb_subjects_${session.user.id}`);
+        if (storedSubs) {
+          subjectCombination = JSON.parse(storedSubs);
+        } else if (session.user.user_metadata?.subject_combination) {
+          subjectCombination = session.user.user_metadata.subject_combination;
+        }
+      }
+    } catch (e) {
+      console.warn('[StudyToolsService] Using default user preferences:', e.message);
+    }
+    return { targetScore, subjectCombination };
+  }
+
+  /**
    * Generate Summary for current study scope with selectable styling formats.
    */
   async generateSummary({ bookId, pageNumber, scope = 'page', style = 'quick', subject = 'Subject', topic = 'Topic', contextText = '', forceRefresh = false, moduleTitle = null }) {
     const provider = getAIProvider();
-    const cacheKey = this.#getCacheKey(bookId, pageNumber, `sum_${scope}_${style}_${moduleTitle || 'default'}`, `${subject}_${topic}_${provider.name}`);
+    const { targetScore, subjectCombination } = await this.#getUserPreferences();
+    const cacheKey = this.#getCacheKey(bookId, pageNumber, `sum_${scope}_${style}_${moduleTitle || 'default'}_${targetScore}`, `${subject}_${topic}_${provider.name}`);
 
     if (forceRefresh) {
       this.cache.delete(cacheKey);
@@ -287,7 +311,9 @@ class StudyToolsService {
         pageNumber,
         scope,
         style,
-        moduleTitle
+        moduleTitle,
+        targetScore,
+        subjectCombination
       });
     });
 
@@ -305,7 +331,8 @@ class StudyToolsService {
    */
   async generateQuestions({ bookId, pageNumber, scope = 'page', examMode = true, subject = 'Subject', topic = 'Topic', count = 15, contextText = '', excludeList = [] }) {
     const provider = getAIProvider();
-    const cacheKey = this.#getCacheKey(bookId, pageNumber, `quiz_${scope}_${examMode ? 'jamb' : 'std'}_${count}`, `${subject}_${topic}_${provider.name}`);
+    const { targetScore, subjectCombination } = await this.#getUserPreferences();
+    const cacheKey = this.#getCacheKey(bookId, pageNumber, `quiz_${scope}_${examMode ? 'jamb' : 'std'}_${count}_${targetScore}`, `${subject}_${topic}_${provider.name}`);
 
     const scoped = await this.getScopedContext({ bookId, scope, pageNumber, query: `JAMB practice exam questions on ${topic}` });
     const textToUse = contextText || scoped.text || '';
@@ -330,7 +357,9 @@ class StudyToolsService {
         scope,
         count,
         examMode,
-        excludeList
+        excludeList,
+        targetScore,
+        subjectCombination
       });
     });
 
