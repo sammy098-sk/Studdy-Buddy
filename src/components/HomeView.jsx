@@ -10,6 +10,7 @@ import { SUBJECT_ICONS } from '../config';
 import Footer from './Footer';
 import HeroCarousel from './HeroCarousel';
 import { cleanBookTitle, formatRelativeTime, BookCoverThumbnail } from '../utils/bookHelpers';
+import { cbtQuestionService } from '../services/CBTQuestionService';
 
 // Soft pastel background and icon styling for compact subject cards
 const SUBJECT_PASTELE_STYLES = {
@@ -73,6 +74,8 @@ export default function HomeView({ user, onNavigate }) {
   const [streakDays, setStreakDays] = useState(0);
   const [hoursStudied, setHoursStudied] = useState(null);
   const [recentSessions, setRecentSessions] = useState([]);
+  const [todayMinutes, setTodayMinutes] = useState(0);
+  const [cbtCounts, setCbtCounts] = useState({});
   const [completedPlanIds, setCompletedPlanIds] = useState(() => {
     try { return JSON.parse(localStorage.getItem('sb_jamb_plan_completed') || '["jamb-plan-0"]'); } catch { return ["jamb-plan-0"]; }
   });
@@ -142,18 +145,28 @@ export default function HomeView({ user, onNavigate }) {
             .select('id, started_at, ended_at, duration_minutes, mode, topic, subject')
             .eq('user_id', user.id);
 
+          let calculatedTodayMinutes = 0;
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+
           if (!sessionsError && sessionsData && sessionsData.length > 0) {
             let totalMinutes = 0;
             let countValid = 0;
             sessionsData.forEach(s => {
+              let duration = 0;
               if (typeof s.duration_minutes === 'number' && s.duration_minutes > 0) {
-                totalMinutes += s.duration_minutes;
-                countValid++;
+                duration = s.duration_minutes;
               } else if (s.started_at && s.ended_at) {
                 const diffMs = new Date(s.ended_at) - new Date(s.started_at);
                 if (diffMs > 0) {
-                  totalMinutes += Math.round(diffMs / 60000);
-                  countValid++;
+                  duration = Math.round(diffMs / 60000);
+                }
+              }
+              if (duration > 0) {
+                totalMinutes += duration;
+                countValid++;
+                if (s.started_at && new Date(s.started_at) >= todayStart) {
+                  calculatedTodayMinutes += duration;
                 }
               }
             });
@@ -161,6 +174,7 @@ export default function HomeView({ user, onNavigate }) {
               computedHours = Math.round((totalMinutes / 60) * 10) / 10;
             }
           }
+          setTodayMinutes(calculatedTodayMinutes);
 
           // Compute Reading Streak: consecutive calendar days ending today or yesterday
           const activeDates = new Set();
@@ -241,6 +255,9 @@ export default function HomeView({ user, onNavigate }) {
         subjectArray.sort((a, b) => a.name.localeCompare(b.name));
         setSubjects(subjectArray);
 
+        const retrievedCbtCounts = await cbtQuestionService.getCBTQuestionCountsBySubject();
+        setCbtCounts(retrievedCbtCounts);
+
       } catch (err) {
         console.error("Failed to fetch dashboard data:", err);
       } finally {
@@ -292,6 +309,63 @@ export default function HomeView({ user, onNavigate }) {
   const displayHours = hoursStudied !== null ? `${hoursStudied} ${hoursStudied === 1 ? 'Hour' : 'Hours'}` : '0 Hours';
   const displayCompleted = `${completedCount} ${completedCount === 1 ? 'Book' : 'Books'}`;
 
+  // Compute verified subject analytics directly from real database metrics (Zero fabrication rule)
+  const subjectMetadata = useMemo(() => {
+    const meta = {};
+    const allSubs = new Set([...(user?.favorite_subjects || []), ...subjects.map(s => s.name)]);
+    
+    allSubs.forEach(sub => {
+      const subBooks = books.filter(b => b.subject === sub || (b.title && b.title.toLowerCase().includes(sub.toLowerCase())));
+      const textbookCount = subBooks.length;
+      const cbtCount = cbtCounts[sub] || 0;
+
+      // Calculate genuine mastery from actual reading progress
+      let totalPages = 0;
+      let readPages = 0;
+      let hasProgress = false;
+
+      subBooks.forEach(b => {
+        if (b.total_pages && b.total_pages > 0) {
+          totalPages += b.total_pages;
+          if (b.progress && b.progress.current_page > 0) {
+            readPages += Math.min(b.total_pages, b.progress.current_page);
+            hasProgress = true;
+          }
+        } else if (b.progress && b.progress.current_page > 0) {
+          hasProgress = true;
+          readPages += b.progress.current_page;
+          totalPages += (b.progress.total_pages || b.progress.current_page * 2);
+        }
+      });
+
+      const mastery = (totalPages > 0 && hasProgress) ? Math.min(100, Math.round((readPages / totalPages) * 100)) : 0;
+
+      // Determine real last studied timestamp from database sessions or reading progress
+      let latestTime = 0;
+      subBooks.forEach(b => {
+        if (b.progress?.updated_at) {
+          const t = new Date(b.progress.updated_at).getTime();
+          if (t > latestTime) latestTime = t;
+        }
+      });
+      recentSessions.forEach(s => {
+        if (s.subject === sub || (s.topic && s.topic.toLowerCase().includes(sub.toLowerCase()))) {
+          const t = new Date(s.started_at || 0).getTime();
+          if (t > latestTime) latestTime = t;
+        }
+      });
+
+      meta[sub] = {
+        textbookCount,
+        cbtCount,
+        mastery,
+        hasProgress: hasProgress || latestTime > 0,
+        lastOpenedText: latestTime > 0 ? formatRelativeTime(new Date(latestTime).toISOString()) : null
+      };
+    });
+    return meta;
+  }, [books, cbtCounts, recentSessions, subjects, user]);
+
   const recentActivity = useMemo(() => {
     if (recentSessions.length > 0) {
       const s = recentSessions[0];
@@ -309,66 +383,70 @@ export default function HomeView({ user, onNavigate }) {
     return null;
   }, [recentSessions, books]);
 
-  // Construct intelligent Today's Study Plan (JAMB Focused)
+  // Construct intelligent database-driven Today's Study Plan (No hardcoded demo subjects)
   const todayStudyPlan = useMemo(() => {
-    const defaultSubjs = ['Biology', 'English Language', 'Chemistry', 'Physics'];
-    const favs = user?.favorite_subjects && user.favorite_subjects.length > 0 ? user.favorite_subjects : defaultSubjs;
+    const favs = user?.favorite_subjects && user.favorite_subjects.length > 0 ? user.favorite_subjects : [];
     const plan = [];
 
     // Item 1: Continue Reading primary subject / in-progress book
-    const inProg = inProgressBooksList[0] || books.find(b => b.subject === favs[0]) || books[0];
+    const inProg = inProgressBooksList[0];
     if (inProg) {
       plan.push({
         id: 'jamb-plan-0',
-        subject: inProg.subject || favs[0] || 'Biology',
-        taskText: `Continue Reading (${inProg.progress?.current_page ? `Page ${inProg.progress.current_page}` : 'Chapter 1'})`,
+        subject: inProg.subject || 'Syllabus Reading',
+        taskText: `Continue Reading (${inProg.progress?.current_page ? `Page ${inProg.progress.current_page}` : 'Chapter 1'}) - ${inProg.title}`,
         actionText: 'Resume',
         action: () => onNavigate('reader', { bookId: inProg.id })
       });
-    } else {
+    }
+
+    // Item 2: Compulsory English or first selected subject practice if CBT questions exist
+    if (favs.length > 0) {
+      const cbtSubj = favs.includes('English Language') ? 'English Language' : favs[0];
+      const availQs = subjectMetadata[cbtSubj]?.cbtCount || 0;
+      if (availQs > 0) {
+        plan.push({
+          id: 'jamb-plan-1',
+          subject: cbtSubj,
+          taskText: `Complete practice speed diagnostic quiz (${availQs} verified Qs available)`,
+          actionText: 'Start Drill',
+          action: () => onNavigate('library', { subject: cbtSubj })
+        });
+      }
+    }
+
+    // Item 3: Revision for second favorite subject if it has textbooks or progress
+    if (favs.length > 1) {
+      const revSubj = favs[1];
+      const hasBooks = subjectMetadata[revSubj]?.textbookCount > 0;
+      if (hasBooks || inProgressBooksList.length > 0) {
+        plan.push({
+          id: 'jamb-plan-2',
+          subject: revSubj,
+          taskText: `Revise key chapter terms and review study progress for ${revSubj}`,
+          actionText: 'Revise',
+          action: () => onNavigate('library', { subject: revSubj })
+        });
+      }
+    }
+
+    // Item 4: Time goal target
+    const goalMin = user?.daily_goal || 30;
+    if (favs.length > 0 && todayMinutes < goalMin) {
+      const remaining = goalMin - todayMinutes;
       plan.push({
-        id: 'jamb-plan-0',
-        subject: favs[0] || 'Biology',
-        taskText: 'Read syllabus introduction & Chapter 1',
-        actionText: 'Open Library',
+        id: 'jamb-plan-3',
+        subject: favs[2] || favs[0] || 'Daily Target',
+        taskText: `Study for ${remaining} more ${remaining === 1 ? 'minute' : 'minutes'} today to maintain exam momentum`,
+        actionText: 'Study Now',
         action: () => onNavigate('library')
       });
     }
 
-    // Item 2: Compulsory English Practice
-    const sub2 = favs.includes('English Language') ? 'English Language' : (favs[1] || 'English');
-    plan.push({
-      id: 'jamb-plan-1',
-      subject: sub2,
-      taskText: 'Complete 15 Practice Questions (CBT Speed Drill)',
-      actionText: 'Start Drill',
-      action: () => onNavigate('library', { filter: 'JAMB' })
-    });
-
-    // Item 3: Revision
-    const sub3 = favs[2] || 'Chemistry';
-    plan.push({
-      id: 'jamb-plan-2',
-      subject: sub3,
-      taskText: 'Revise Chapter 3 definitions and AI study summaries',
-      actionText: 'Revise',
-      action: () => onNavigate('library')
-    });
-
-    // Item 4: Time goal
-    const sub4 = favs[3] || 'Physics';
-    plan.push({
-      id: 'jamb-plan-3',
-      subject: sub4,
-      taskText: 'Read for 30 minutes to stay on target for exam countdown',
-      actionText: 'Study Now',
-      action: () => onNavigate('library')
-    });
-
     return plan;
-  }, [user, books, inProgressBooksList, onNavigate]);
+  }, [user, books, inProgressBooksList, todayMinutes, subjectMetadata, onNavigate]);
 
-  // Construct Actionable Recent Activity list (Enhanced as per user approval)
+  // Construct Actionable Recent Activity list from verified sessions (No welcome placeholder cards)
   const recentActivitiesList = useMemo(() => {
     const list = [];
     const usedIds = new Set();
@@ -411,21 +489,6 @@ export default function HomeView({ user, onNavigate }) {
         usedIds.add(book.id);
       }
     });
-
-    // If still empty, add an encouraging welcome placeholder card
-    if (list.length === 0) {
-      list.push({
-        id: 'welcome-card',
-        subject: 'JAMB Prep 2027',
-        title: 'Begin Your First Reading Session',
-        type: 'Onboarding',
-        detail: 'Select a textbook from your library to begin study tracking',
-        timeString: 'Just now',
-        actionText: 'Open Library',
-        action: () => onNavigate('library'),
-        bookCover: { title: 'JAMB Guide', subject: 'General' }
-      });
-    }
 
     return list;
   }, [recentSessions, books, inProgressBooksList, onNavigate]);
@@ -717,9 +780,9 @@ export default function HomeView({ user, onNavigate }) {
                     </button>
                   </div>
 
-                  {(!user?.favorite_subjects || user.favorite_subjects.length <= 1) && (
-                    <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border border-blue-500/40">
-                      <div className="space-y-1">
+                  {(!user?.favorite_subjects || user.favorite_subjects.length === 0) ? (
+                    <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border border-blue-500/40">
+                      <div className="space-y-1.5">
                         <div className="font-extrabold text-sm sm:text-base flex items-center gap-2">
                           <Sparkles size={18} className="text-amber-300 animate-pulse" />
                           <span>Personalize Your Study Workspace</span>
@@ -735,50 +798,55 @@ export default function HomeView({ user, onNavigate }) {
                         Choose Subjects
                       </button>
                     </div>
-                  )}
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                      {user.favorite_subjects.slice(0, 4).map((subName) => {
+                        const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
+                        const pastelStyle = getSubjectPastel(subName);
+                        const iconStyle = getSubjectIconColor(subName);
+                        const isCompulsory = subName === "English Language" || subName === "Use of English";
+                        const stats = subjectMetadata[subName] || { textbookCount: 0, cbtCount: 0, lastOpenedText: null };
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                    {(user?.favorite_subjects && user.favorite_subjects.length >= 4 
-                      ? user.favorite_subjects.slice(0, 4)
-                      : [...(user?.favorite_subjects || ["English Language"]), "Biology", "Chemistry", "Physics"].slice(0, 4)
-                    ).map((subName) => {
-                      const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
-                      const pastelStyle = getSubjectPastel(subName);
-                      const iconStyle = getSubjectIconColor(subName);
-                      const isCompulsory = subName === "English Language" || subName === "Use of English";
-                      const bookCount = subjects.find(s => s.name === subName)?.count || Math.floor(Math.random() * 5) + 3;
-
-                      return (
-                        <div
-                          key={subName}
-                          onClick={() => onNavigate('library', { subject: subName })}
-                          className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl lg:rounded-3xl border border-slate-200/90 transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[8rem] lg:min-h-[9.5rem] relative overflow-hidden`}
-                        >
-                          <div>
-                            <div className="flex items-center justify-between gap-2 mb-2.5 min-w-0">
-                              <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
-                                <IconComponent size={20} strokeWidth={2.3} />
+                        return (
+                          <div
+                            key={subName}
+                            onClick={() => onNavigate('library', { subject: subName })}
+                            className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl lg:rounded-3xl border border-slate-200/90 transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[9rem] lg:min-h-[10.5rem] relative overflow-hidden`}
+                          >
+                            <div>
+                              <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
+                                <div className={`w-10 h-10 lg:w-11 lg:h-11 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
+                                  <IconComponent size={20} strokeWidth={2.3} />
+                                </div>
+                                <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-md ${
+                                  isCompulsory ? 'bg-emerald-200 text-emerald-950' : 'bg-blue-200/80 text-blue-950'
+                                }`}>
+                                  {isCompulsory ? 'Compulsory' : 'Elective'}
+                                </span>
                               </div>
-                              <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-md ${
-                                isCompulsory ? 'bg-emerald-200 text-emerald-950' : 'bg-blue-200/80 text-blue-950'
-                              }`}>
-                                {isCompulsory ? 'Compulsory' : 'Elective'}
+                              <span className="font-extrabold text-sm sm:text-[15px] lg:text-base truncate block text-slate-900" title={subName}>{subName}</span>
+                              
+                              <div className="mt-2 text-[11px] font-bold text-slate-600 flex items-center gap-1">
+                                <Clock3 size={11} className="text-slate-400" />
+                                <span>Last opened: <strong className="text-slate-800">{stats.lastOpenedText || 'Never'}</strong></span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs font-extrabold pt-2.5 mt-3 border-t border-black/5 text-slate-700">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
+                                <span>{stats.textbookCount} {stats.textbookCount === 1 ? 'book' : 'books'}</span>
+                                <span className="hidden sm:inline text-slate-300">•</span>
+                                <span className="text-[11px] text-indigo-700 font-bold">{stats.cbtCount} Qs</span>
+                              </div>
+                              <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-blue-600 font-black">
+                                <ArrowRight size={14} strokeWidth={2.5} />
                               </span>
                             </div>
-                            <span className="font-extrabold text-sm sm:text-[15px] lg:text-base truncate block text-slate-900" title={subName}>{subName}</span>
                           </div>
-
-                          <div className="flex items-center justify-between text-xs font-extrabold pt-2.5 mt-3 border-t border-black/5 text-slate-700">
-                            <span>{bookCount} books</span>
-                            <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-blue-600 font-black">
-                              <span>Quick Study</span>
-                              <ArrowRight size={13} strokeWidth={2.5} />
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* TODAY'S STUDY PLAN */}
@@ -790,76 +858,96 @@ export default function HomeView({ user, onNavigate }) {
                     </h2>
                     
                     {/* Rich Progress Indicator */}
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="text-xs sm:text-sm font-extrabold text-slate-600">
-                        {completedPlanIds.length} of {todayStudyPlan.length} Tasks Completed
-                      </span>
-                      <div className="w-16 sm:w-24 h-2 bg-slate-200 rounded-full overflow-hidden hidden sm:block">
-                        <div 
-                          className="h-full bg-indigo-600 rounded-full transition-all duration-300"
-                          style={{ width: `${Math.round((completedPlanIds.length / Math.max(1, todayStudyPlan.length)) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs font-black text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-mono">
-                        {Math.round((completedPlanIds.length / Math.max(1, todayStudyPlan.length)) * 100)}%
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden p-2 sm:p-5 divide-y divide-slate-100">
-                    {todayStudyPlan.map((item) => {
-                      const isDone = completedPlanIds.includes(item.id);
-                      const SubjIcon = SUBJECT_ICONS[item.subject] || BookOpen;
-                      return (
-                        <div 
-                          key={item.id}
-                          onClick={() => togglePlanItem(item.id)}
-                          className={`py-3.5 px-3 sm:px-4 rounded-2xl transition-all flex items-start sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer group select-none ${
-                            isDone ? 'bg-slate-50/60 hover:bg-slate-100/50' : 'hover:bg-blue-50/60'
-                          }`}
-                        >
-                          <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                            <button
-                              onClick={(e) => togglePlanItem(item.id, e)}
-                              aria-label="Toggle study plan task completion"
-                              className="shrink-0 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer mt-0.5 sm:mt-0"
-                            >
-                              {isDone ? (
-                                <CheckCircle2 size={23} className="text-emerald-500 shrink-0 fill-emerald-50" strokeWidth={2.5} />
-                              ) : (
-                                <Circle size={23} className="text-slate-300 group-hover:text-blue-500 shrink-0" strokeWidth={2.2} />
-                              )}
-                            </button>
-                            
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-extrabold shrink-0 border shadow-2xs uppercase tracking-tight w-fit ${
-                                isDone ? 'bg-slate-100 text-slate-600 border-slate-200/80' : 'bg-blue-50 text-blue-800 border-blue-200/80'
-                              }`}>
-                                <SubjIcon size={13} className={isDone ? 'text-slate-500' : 'text-blue-600'} />
-                                <span>{item.subject}</span>
-                              </span>
-                              <span className={`text-xs sm:text-[14px] lg:text-[15px] font-extrabold line-clamp-2 sm:line-clamp-1 whitespace-normal leading-snug transition-all ${
-                                isDone ? 'line-through text-slate-400 font-semibold' : 'text-slate-800 group-hover:text-blue-700'
-                              }`}>
-                                {item.taskText}
-                              </span>
-                            </div>
-                          </div>
-
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              item.action();
-                            }}
-                            className="shrink-0 inline-flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-blue-600 text-slate-800 hover:text-white text-[11px] sm:text-xs font-extrabold rounded-xl sm:rounded-2xl transition-all shadow-2xs group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-md cursor-pointer mt-0.5 sm:mt-0"
-                          >
-                            <span>{item.actionText}</span>
-                            <ArrowRight size={13} strokeWidth={2.5} />
-                          </button>
+                    {todayStudyPlan.length > 0 && (
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <span className="text-xs sm:text-sm font-extrabold text-slate-600">
+                          {completedPlanIds.length} of {todayStudyPlan.length} Tasks Completed
+                        </span>
+                        <div className="w-16 sm:w-24 h-2 bg-slate-200 rounded-full overflow-hidden hidden sm:block">
+                          <div 
+                            className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.round((completedPlanIds.length / Math.max(1, todayStudyPlan.length)) * 100)}%` }}
+                          />
                         </div>
-                      );
-                    })}
+                        <span className="text-xs font-black text-indigo-800 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-mono">
+                          {Math.round((completedPlanIds.length / Math.max(1, todayStudyPlan.length)) * 100)}%
+                        </span>
+                      </div>
+                    )}
                   </div>
+
+                  {todayStudyPlan.length === 0 ? (
+                    <div className="p-8 sm:p-10 bg-white rounded-3xl border border-slate-200/90 text-center space-y-3 shadow-2xs">
+                      <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto shadow-xs border border-indigo-100">
+                        <Target size={24} strokeWidth={2} />
+                      </div>
+                      <h3 className="font-extrabold text-slate-800 text-base">No study tasks active today</h3>
+                      <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto font-medium leading-relaxed">
+                        Select your official JAMB subjects or begin reading a textbook to automatically generate your personalized daily study timeline and practice goals.
+                      </p>
+                      <button
+                        onClick={() => onNavigate(user?.favorite_subjects?.length > 0 ? 'library' : 'profile')}
+                        className="px-5 py-2.5 bg-indigo-600 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md hover:bg-indigo-700 transition-all cursor-pointer inline-block mt-1"
+                      >
+                        {user?.favorite_subjects?.length > 0 ? 'Browse Library' : 'Choose Subjects'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden p-2 sm:p-5 divide-y divide-slate-100">
+                      {todayStudyPlan.map((item) => {
+                        const isDone = completedPlanIds.includes(item.id);
+                        const SubjIcon = SUBJECT_ICONS[item.subject] || BookOpen;
+                        return (
+                          <div 
+                            key={item.id}
+                            onClick={() => togglePlanItem(item.id)}
+                            className={`py-3.5 px-3 sm:px-4 rounded-2xl transition-all flex items-start sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer group select-none ${
+                              isDone ? 'bg-slate-50/60 hover:bg-slate-100/50' : 'hover:bg-blue-50/60'
+                            }`}
+                          >
+                            <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                              <button
+                                onClick={(e) => togglePlanItem(item.id, e)}
+                                aria-label="Toggle study plan task completion"
+                                className="shrink-0 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer mt-0.5 sm:mt-0"
+                              >
+                                {isDone ? (
+                                  <CheckCircle2 size={23} className="text-emerald-500 shrink-0 fill-emerald-50" strokeWidth={2.5} />
+                                ) : (
+                                  <Circle size={23} className="text-slate-300 group-hover:text-blue-500 shrink-0" strokeWidth={2.2} />
+                                )}
+                              </button>
+                              
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-extrabold shrink-0 border shadow-2xs uppercase tracking-tight w-fit ${
+                                  isDone ? 'bg-slate-100 text-slate-600 border-slate-200/80' : 'bg-blue-50 text-blue-800 border-blue-200/80'
+                                }`}>
+                                  <SubjIcon size={13} className={isDone ? 'text-slate-500' : 'text-blue-600'} />
+                                  <span>{item.subject}</span>
+                                </span>
+                                <span className={`text-xs sm:text-[14px] lg:text-[15px] font-extrabold line-clamp-2 sm:line-clamp-1 whitespace-normal leading-snug transition-all ${
+                                  isDone ? 'line-through text-slate-400 font-semibold' : 'text-slate-800 group-hover:text-blue-700'
+                                }`}>
+                                  {item.taskText}
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                item.action();
+                              }}
+                              className="shrink-0 inline-flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-blue-600 text-slate-800 hover:text-white text-[11px] sm:text-xs font-extrabold rounded-xl sm:rounded-2xl transition-all shadow-2xs group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-md cursor-pointer mt-0.5 sm:mt-0"
+                            >
+                              <span>{item.actionText}</span>
+                              <ArrowRight size={13} strokeWidth={2.5} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* BELOW-THE-FOLD LAZY LOAD ARCHITECTURE */}
@@ -970,59 +1058,82 @@ export default function HomeView({ user, onNavigate }) {
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                        {(user?.favorite_subjects && user.favorite_subjects.length >= 4 
-                          ? user.favorite_subjects.slice(0, 4)
-                          : ["English Language", "Biology", "Chemistry", "Physics"]
-                        ).map((subName, index) => {
-                          const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
-                          const pastelStyle = getSubjectPastel(subName);
-                          const iconStyle = getSubjectIconColor(subName);
-                          const mockProgress = [75, 62, 54, 80][index % 4];
-                          const bookCount = subjects.find(s => s.name === subName)?.count || Math.floor(Math.random() * 4) + 3;
-                          
-                          return (
-                            <div
-                              key={subName}
-                              onClick={() => onNavigate('library', { subject: subName })}
-                              className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl lg:rounded-3xl border border-slate-200/90 transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[10rem]`}
-                            >
-                              <div>
-                                <div className="flex items-center justify-between gap-2 mb-3">
-                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
-                                    <IconComponent size={20} strokeWidth={2.2} />
+                      {((user?.favorite_subjects && user.favorite_subjects.length > 0 ? user.favorite_subjects : subjects.map(s => s.name)).length === 0) ? (
+                        <div className="p-8 bg-white rounded-3xl border border-slate-200/90 text-center space-y-3 shadow-2xs">
+                          <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto shadow-xs border border-purple-100">
+                            <GraduationCap size={24} strokeWidth={2} />
+                          </div>
+                          <h3 className="font-extrabold text-slate-800 text-base">No curriculum subjects available yet</h3>
+                          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto font-medium leading-relaxed">
+                            Upload textbooks to the library or customize your subject combination to view syllabus mastery tracking and practice resources.
+                          </p>
+                          <button
+                            onClick={() => onNavigate('library')}
+                            className="px-5 py-2.5 bg-purple-600 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md hover:bg-purple-700 transition-all cursor-pointer inline-block mt-1"
+                          >
+                            Browse Full Library
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+                          {(user?.favorite_subjects && user.favorite_subjects.length > 0 
+                            ? user.favorite_subjects 
+                            : subjects.map(s => s.name).slice(0, 4)
+                          ).map((subName) => {
+                            const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
+                            const pastelStyle = getSubjectPastel(subName);
+                            const iconStyle = getSubjectIconColor(subName);
+                            const stats = subjectMetadata[subName] || { textbookCount: 0, cbtCount: 0, mastery: 0, hasProgress: false };
+                            
+                            return (
+                              <div
+                                key={subName}
+                                onClick={() => onNavigate('library', { subject: subName })}
+                                className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl lg:rounded-3xl border border-slate-200/90 transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[10rem]`}
+                              >
+                                <div>
+                                  <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
+                                      <IconComponent size={20} strokeWidth={2.2} />
+                                    </div>
+                                    <span className={`text-[11px] font-black px-2 py-0.5 rounded-md border shrink-0 ${
+                                      stats.hasProgress && stats.mastery > 0 ? 'text-blue-950 bg-blue-100 border-blue-200/60' : 'text-slate-600 bg-white/70 border-slate-200/50'
+                                    }`}>
+                                      {stats.hasProgress && stats.mastery > 0 ? `${stats.mastery}% Mastery` : 'No progress yet'}
+                                    </span>
                                   </div>
-                                  <span className="text-[11px] font-black text-slate-700 bg-white/70 px-2 py-0.5 rounded-md border border-slate-200/50">
-                                    {mockProgress}% Mastery
-                                  </span>
+                                  <span className="font-extrabold text-sm sm:text-base truncate block text-slate-900" title={subName}>{subName}</span>
+                                  
+                                  <div className="mt-2 space-y-1">
+                                    {stats.hasProgress && stats.mastery > 0 ? (
+                                      <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
+                                        <div className="h-full bg-blue-600 rounded-full transition-all duration-500" style={{ width: `${stats.mastery}%` }} />
+                                      </div>
+                                    ) : (
+                                      <div className="text-[10.5px] font-semibold text-slate-500 italic">Start reading to track mastery</div>
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="font-extrabold text-sm sm:text-base truncate block text-slate-900" title={subName}>{subName}</span>
                                 
-                                <div className="mt-2 space-y-1">
-                                  <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
-                                    <div className="h-full bg-blue-600 rounded-full" style={{ width: `${mockProgress}%` }} />
+                                <div className="space-y-1 pt-3 mt-3 border-t border-black/5 text-[11.5px] font-extrabold text-slate-600">
+                                  <div className="flex justify-between">
+                                    <span>Textbooks</span>
+                                    <span className="text-slate-900">{stats.textbookCount} available</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Practice CBT</span>
+                                    <span className="text-slate-900">{stats.cbtCount} Qs</span>
+                                  </div>
+                                  <div className="flex justify-between text-blue-600 pt-1 group-hover:translate-x-1 transition-transform font-black">
+                                    <span>{stats.hasProgress && stats.mastery > 0 ? 'Continue Studying' : 'Explore Syllabus'}</span>
+                                    <ArrowRight size={12} strokeWidth={3} />
                                   </div>
                                 </div>
                               </div>
-                              
-                              <div className="space-y-1 pt-3 mt-3 border-t border-black/5 text-[11.5px] font-extrabold text-slate-600">
-                                <div className="flex justify-between">
-                                  <span>Textbooks</span>
-                                  <span className="text-slate-900">{bookCount} available</span>
-                                </div>
-                                <div className="flex justify-between">
-                                  <span>Practice CBT</span>
-                                  <span className="text-slate-900">250+ Qs</span>
-                                </div>
-                                <div className="flex justify-between text-blue-600 pt-1 group-hover:translate-x-1 transition-transform font-black">
-                                  <span>Explore Syllabus</span>
-                                  <ArrowRight size={12} strokeWidth={3} />
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     {/* RECENTLY ADDED BOOKS */}
@@ -1098,44 +1209,44 @@ export default function HomeView({ user, onNavigate }) {
           <div className="hidden lg:flex lg:col-span-4 flex-col gap-6 sticky top-6">
 
             {/* Widget 1: Daily Study Goal */}
-            {hoursStudied !== null && (
-              <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-                      <Timer size={20} strokeWidth={2.3} />
-                    </div>
-                    <span className="text-base xl:text-lg font-extrabold text-slate-800 tracking-tight">
-                      Daily Study Goal
-                    </span>
+            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                    <Timer size={20} strokeWidth={2.3} />
                   </div>
-                  <span className="text-xs font-black text-blue-800 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-150 font-mono">30 min / day</span>
+                  <span className="text-base xl:text-lg font-extrabold text-slate-800 tracking-tight">
+                    Daily Study Goal
+                  </span>
                 </div>
-
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-sm font-bold text-slate-600">
-                    <span>Studied today</span>
-                    <span className="font-extrabold text-slate-900 font-mono">
-                      {hoursStudied !== null ? `${Math.round(hoursStudied * 60)} min` : '--'}
-                    </span>
-                  </div>
-                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
-                    <div
-                      className="h-full bg-blue-600 rounded-full transition-all duration-700 shadow-sm"
-                      style={{
-                        width: hoursStudied !== null ? `${Math.min(100, Math.round((hoursStudied / 0.5) * 100))}%` : '0%'
-                      }}
-                    />
-                  </div>
-                  <p className="text-xs text-slate-500 font-semibold leading-relaxed">
-                    {hoursStudied !== null && hoursStudied >= 0.5
-                      ? '🎯 Daily reading milestone reached! Excellent consistency.'
-                      : `${Math.max(0, Math.round((0.5 - (hoursStudied || 0)) * 60))} minutes remaining to hit today's target.`
-                    }
-                  </p>
-                </div>
+                <span className="text-xs font-black text-blue-800 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-150 font-mono">{user?.daily_goal || 30} min / day</span>
               </div>
-            )}
+
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between text-sm font-bold text-slate-600">
+                  <span>Studied today</span>
+                  <span className="font-extrabold text-slate-900 font-mono">
+                    {Math.max(todayMinutes, Math.round((hoursStudied || 0) * 60))} min
+                  </span>
+                </div>
+                <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200/60">
+                  <div
+                    className="h-full bg-blue-600 rounded-full transition-all duration-700 shadow-sm"
+                    style={{
+                      width: `${Math.min(100, Math.round((Math.max(todayMinutes, Math.round((hoursStudied || 0) * 60)) / (user?.daily_goal || 30)) * 100))}%`
+                    }}
+                  />
+                </div>
+                <p className="text-xs text-slate-500 font-semibold leading-relaxed">
+                  {Math.max(todayMinutes, Math.round((hoursStudied || 0) * 60)) >= (user?.daily_goal || 30)
+                    ? '🎯 Daily reading milestone reached! Excellent consistency.'
+                    : Math.max(todayMinutes, Math.round((hoursStudied || 0) * 60)) === 0
+                      ? "You haven't logged any reading time yet today. Open a textbook or start a drill to begin tracking your progress!"
+                      : `${Math.max(0, (user?.daily_goal || 30) - Math.max(todayMinutes, Math.round((hoursStudied || 0) * 60)))} minutes remaining to hit today's target.`
+                  }
+                </p>
+              </div>
+            </div>
 
             {/* Widget 2: Reading Summary */}
             <div className="bg-white rounded-3xl border border-slate-200/90 p-6 shadow-2xs space-y-4">
@@ -1149,20 +1260,18 @@ export default function HomeView({ user, onNavigate }) {
               </div>
 
               {[
-                { label: 'Books in progress', value: books.filter(b => b.progress && b.progress.current_page > 0 && !(b.total_pages > 0 && b.progress.current_page >= b.total_pages)).length, show: true },
-                { label: 'Books completed', value: books.filter(b => b.progress && b.total_pages > 0 && b.progress.current_page >= b.total_pages).length, show: true },
-                { label: 'Hours studied', value: hoursStudied !== null ? `${hoursStudied} hrs` : null, show: hoursStudied !== null },
-                { label: 'Reading streak', value: streakDays > 0 ? `${streakDays} ${streakDays === 1 ? 'day' : 'days'}` : null, show: streakDays > 0 },
-              ].map(({ label, value, show }) =>
-                show ? (
-                  <div key={label} className="flex items-center justify-between py-1.5 text-sm">
-                    <span className="font-semibold text-slate-500">{label}</span>
-                    <span className="font-black text-slate-800 font-mono">
-                      {value !== null && value !== undefined ? value : '--'}
-                    </span>
-                  </div>
-                ) : null
-              )}
+                { label: 'Books in progress', value: displayInProgress },
+                { label: 'Books completed', value: displayCompleted },
+                { label: 'Hours studied', value: displayHours },
+                { label: 'Reading streak', value: displayStreak },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex items-center justify-between py-1.5 text-sm">
+                  <span className="font-semibold text-slate-500">{label}</span>
+                  <span className="font-black text-slate-800 font-mono">
+                    {value || '--'}
+                  </span>
+                </div>
+              ))}
 
               <div className="pt-2">
                 <button
@@ -1175,7 +1284,7 @@ export default function HomeView({ user, onNavigate }) {
               </div>
             </div>
 
-            {/* Widget 3: AI Study Insights & Readiness (Item 15 - Future Features Readiness) */}
+            {/* Widget 3: AI Study Insights & Readiness (Verified Database Diagnostics) */}
             <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white rounded-3xl border border-slate-800 p-6 shadow-xl space-y-4 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-36 h-36 bg-blue-500/10 rounded-full blur-2xl pointer-events-none" />
               
@@ -1193,33 +1302,67 @@ export default function HomeView({ user, onNavigate }) {
                 </span>
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1.5">
-                    <span>JAMB Readiness Score</span>
-                    <span className="text-emerald-400 font-mono font-black text-sm">84% Optimal</span>
-                  </div>
-                  <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div className="w-[84%] h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-xs" />
-                  </div>
-                </div>
+              {(() => {
+                const favs = user?.favorite_subjects || [];
+                const hasActivity = recentSessions.length > 0 || inProgressBooksList.length > 0 || completedBooksList.length > 0;
+                
+                let readinessScore = 0;
+                let focusSubject = favs[0] || 'core syllabus topics';
+                
+                if (hasActivity && favs.length > 0) {
+                  let totalMastery = 0;
+                  let lowestMastery = 100;
+                  favs.forEach(s => {
+                    const m = subjectMetadata[s]?.mastery || 0;
+                    totalMastery += m;
+                    if (m <= lowestMastery) {
+                      lowestMastery = m;
+                      focusSubject = s;
+                    }
+                  });
+                  const avg = Math.round(totalMastery / favs.length);
+                  const streakBonus = Math.min(20, (streakDays || 0) * 3);
+                  readinessScore = Math.min(100, avg + (recentSessions.length * 2) + streakBonus);
+                }
 
-                <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
-                  <div className="text-[11px] uppercase tracking-wider font-black text-indigo-300 flex items-center gap-1.5 font-mono">
-                    <Target size={13} />
-                    <span>Recommended Focus Area</span>
+                return (
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between items-center text-xs font-bold text-slate-300 mb-1.5">
+                        <span>JAMB Readiness Score</span>
+                        <span className="text-emerald-400 font-mono font-black text-sm">
+                          {!hasActivity ? 'No Data Yet' : `${readinessScore}% (${readinessScore >= 70 ? 'Optimal' : readinessScore >= 40 ? 'On Track' : 'Developing'})`}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full shadow-xs transition-all duration-700" 
+                          style={{ width: `${hasActivity ? readinessScore : 0}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+                      <div className="text-[11px] uppercase tracking-wider font-black text-indigo-300 flex items-center gap-1.5 font-mono">
+                        <Target size={13} />
+                        <span>Recommended Focus Area</span>
+                      </div>
+                      <p className="text-xs text-slate-200 font-semibold leading-relaxed">
+                        {!hasActivity 
+                          ? 'Complete at least one study session or practice quiz to unlock personalized AI diagnostic feedback and syllabus mastery recommendations.'
+                          : `Based on your recent progress and subject combination, prioritize practice drills in ${focusSubject} to reinforce concepts and improve exam confidence.`
+                        }
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-200 font-semibold leading-relaxed">
-                    Based on your selected combination, spend 15 extra minutes daily reviewing Biology diagram terms and Use of English lexus & structure.
-                  </p>
-                </div>
-              </div>
+                );
+              })()}
 
               <button
-                onClick={() => onNavigate('library', { filter: 'JAMB' })}
+                onClick={() => onNavigate(user?.favorite_subjects?.length > 0 ? 'library' : 'profile')}
                 className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 text-white cursor-pointer active:scale-95"
               >
-                <span>Launch Diagnostic Drill</span>
+                <span>{recentSessions.length > 0 ? 'Launch Diagnostic Drill' : 'Start Study Session'}</span>
                 <ArrowRight size={14} strokeWidth={3} />
               </button>
             </div>
