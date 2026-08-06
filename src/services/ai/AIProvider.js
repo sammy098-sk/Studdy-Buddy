@@ -53,9 +53,9 @@ export class AIProvider {
   }
 
   /**
-   * Generate a standalone academic topic summary independent of textbook databases.
+   * Generate comprehensive, teacher-level study notes on an academic topic with recursive concept expansion.
    * @param {Object} params - { topic, userPrompt }
-   * @returns {Promise<string>} - Concise 200-500 word summary string
+   * @returns {Promise<string>} - Complete educational study notes string
    */
   async generateGeneralSummary(params) {
     throw new Error(`AIProvider [${this.name}]: generateGeneralSummary() not implemented.`);
