@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Menu, X, Send, Bot, MessageCircle, ChevronLeft, Loader2, User, Sparkles } from 'lucide-react';
+import { Menu, X, Send, Bot, MessageCircle, ChevronLeft, Loader2, User, Sparkles, Paperclip, Mic, CheckCircle2, BookOpen } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { supabase } from '../supabase';
 import { getAIProvider } from '../services/ai/AIProviderFactory';
 import AnimatedSuggestions from './AnimatedSuggestions';
@@ -54,7 +55,7 @@ export default function FullAITutorPage({ user, onNavigate }) {
         if (data) {
           setCurrentSessionId(data.id);
           setSessions(prev => [data, ...prev]);
-          setMessages([{ role: 'assistant', content: `Hi there! I'm ready to help you with ${location.state.topic}. What would you like to know?` }]);
+          // Removed the automatic "Hi there!" message to preserve the empty hero state.
           fetchChips(location.state.topic, []);
         }
       }
@@ -78,7 +79,7 @@ export default function FullAITutorPage({ user, onNavigate }) {
       setMessages(data);
       fetchChips(session.topic, data);
     } else {
-      setMessages([{ role: 'assistant', content: `Hi there! Let's talk about ${session.topic}. What's on your mind?` }]);
+      setMessages([]);
       fetchChips(session.topic, []);
     }
   };
@@ -180,56 +181,79 @@ export default function FullAITutorPage({ user, onNavigate }) {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col md:ml-72 min-w-0 relative h-full bg-[#F9FAFB]">
-        {/* Header (Glassmorphism) */}
-        <header className="h-16 flex items-center justify-between px-4 sm:px-6 bg-white/70 backdrop-blur-xl border-b border-slate-200/50 sticky top-0 z-30">
-          <div className="flex items-center gap-4">
-            <button className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg" onClick={() => setSidebarOpen(true)}>
-              <Menu size={20} />
-            </button>
-            <div className="flex flex-col justify-center">
-              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-600 mb-0.5">
-                <Sparkles size={11} className="text-amber-500" />
-                AI Tutor
-              </div>
-              <h2 className="text-[15px] font-extrabold text-slate-900 truncate tracking-tight">{topic}</h2>
-            </div>
-          </div>
-        </header>
+      <div className="flex-1 flex flex-col md:ml-72 min-w-0 relative h-full bg-[#F9FAFB] items-center">
+        {/* Messages Container */}
+        <div className="flex-1 w-full max-w-4xl overflow-y-auto px-4 sm:px-6 lg:px-12 py-8 pb-48 space-y-8 scroll-smooth">
+          
+          <button className="md:hidden p-2 mb-4 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg" onClick={() => setSidebarOpen(true)}>
+            <Menu size={20} />
+          </button>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-20 py-8 pb-40 space-y-8 scroll-smooth">
-          {!currentSessionId && (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 fade-in">
-              <div className="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-indigo-100/50">
-                <Sparkles size={32} className="text-indigo-400" />
+          {/* Topic Card & Learning Progress */}
+          {currentSessionId && (
+            <div className="flex flex-col items-center mb-10 mt-4 fade-in">
+              <div className="bg-white border border-slate-200/80 shadow-sm rounded-2xl p-5 max-w-md w-full flex items-start gap-4 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 to-emerald-400" />
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <BookOpen size={20} strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1 block">Current Lesson</span>
+                  <h2 className="text-[16px] font-bold text-slate-900 leading-tight mb-2">{topic}</h2>
+                  <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-500">
+                    <div className="flex items-center gap-1"><CheckCircle2 size={12} className="text-emerald-500" /> Reading Completed</div>
+                    <div className="flex items-center gap-1"><MessageCircle size={12} className="text-indigo-500" /> AI Discussion Active</div>
+                  </div>
+                </div>
               </div>
-              <p className="text-lg font-bold text-slate-700">Ready to learn?</p>
-              <p className="text-sm text-slate-500 mt-2">Select a session from the sidebar or start a new topic from the dashboard.</p>
+            </div>
+          )}
+
+          {/* Empty State Hero */}
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center mt-20 text-center fade-in max-w-xl mx-auto">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 mb-6 shadow-sm border border-indigo-200/50">
+                <Bot size={32} />
+              </div>
+              <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Ask StudyBuddy</h1>
+              <div className="inline-block bg-indigo-50 text-indigo-800 text-xs font-bold px-3 py-1 rounded-full mb-6">
+                Currently Studying: {topic}
+              </div>
+              <p className="text-[15px] font-medium text-slate-500 leading-relaxed max-w-md">
+                Ask any question about this topic. I'll explain concepts, provide examples, compare ideas, or prepare you for JAMB.
+              </p>
             </div>
           )}
           
           {messages.map((m, idx) => (
             <div key={idx} className={`flex w-full ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`flex max-w-[85%] sm:max-w-[75%] gap-4 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`flex max-w-[95%] sm:max-w-[85%] gap-4 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                 {/* Avatar */}
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm mt-1 ${m.role === 'user' ? 'bg-slate-200 text-slate-500' : 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-indigo-200/50'}`}>
                   {m.role === 'user' ? <User size={15} strokeWidth={2.5} /> : <Sparkles size={15} strokeWidth={2.5} />}
                 </div>
                 
                 {/* Bubble */}
-                <div className={`px-5 py-3.5 rounded-2xl text-[15px] leading-relaxed shadow-sm font-medium
+                <div className={`px-6 py-4 rounded-3xl text-[15px] leading-relaxed shadow-sm font-medium
                   ${m.role === 'user' 
                     ? 'bg-slate-900 text-white rounded-tr-sm' 
                     : 'bg-white border border-slate-100 text-slate-800 rounded-tl-sm shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)]'
                   }`}>
-                  {/* Handle line breaks correctly */}
-                  {m.content.split('\n').map((line, i) => (
-                    <React.Fragment key={i}>
-                      {line}
-                      {i !== m.content.split('\n').length - 1 && <br />}
-                    </React.Fragment>
-                  ))}
+                  
+                  {m.role === 'user' ? (
+                    // Plain text for user messages
+                    m.content.split('\n').map((line, i) => (
+                      <React.Fragment key={i}>
+                        {line}
+                        {i !== m.content.split('\n').length - 1 && <br />}
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    // Interactive Textbook (Markdown) for AI responses
+                    <div className="prose prose-sm sm:prose-base max-w-none prose-slate prose-headings:font-bold prose-headings:tracking-tight prose-a:text-indigo-600 prose-p:leading-relaxed prose-pre:bg-slate-50 prose-pre:border prose-pre:border-slate-200">
+                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -241,7 +265,7 @@ export default function FullAITutorPage({ user, onNavigate }) {
                 <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm mt-1 bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
                   <Sparkles size={15} strokeWidth={2.5} />
                 </div>
-                <div className="px-5 py-4 rounded-2xl bg-white border border-slate-100 text-slate-400 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] rounded-tl-sm flex items-center gap-1.5 h-[52px]">
+                <div className="px-5 py-4 rounded-3xl bg-white border border-slate-100 text-slate-400 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] rounded-tl-sm flex items-center gap-1.5 h-[56px]">
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '0ms' }}></span>
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '150ms' }}></span>
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '300ms' }}></span>
@@ -255,38 +279,51 @@ export default function FullAITutorPage({ user, onNavigate }) {
         {/* Floating Input Area */}
         <div className="absolute bottom-0 left-0 right-0 pt-10 pb-6 px-4 sm:px-6 z-20 pointer-events-none">
           {/* Gradient overlay to smoothly fade out text behind the input bar */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#F9FAFB] via-[#F9FAFB] to-transparent z-[-1]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#F9FAFB] via-[#F9FAFB] 80% to-transparent z-[-1]" />
           
-          <div className="max-w-3xl mx-auto flex flex-col gap-4 pointer-events-auto">
+          <div className="max-w-4xl mx-auto flex flex-col gap-5 pointer-events-auto">
             {/* Animated Chips */}
             {chips.length > 0 && (
               <AnimatedSuggestions suggestions={chips} onSelect={(t) => handleSend(t)} />
             )}
             
-            {/* Pill-shaped Input Dock */}
+            {/* Multi-modal Pill-shaped Input Dock */}
             <form 
               onSubmit={(e) => { e.preventDefault(); handleSend(); }} 
-              className="relative flex items-center gap-2 bg-white/80 backdrop-blur-xl rounded-full border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.08)] focus-within:border-indigo-300/50 transition-all p-2"
+              className="relative flex items-end gap-2 bg-white/80 backdrop-blur-xl rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.06)] focus-within:shadow-[0_12px_40px_rgb(0,0,0,0.1)] focus-within:border-indigo-300/50 transition-all p-2.5"
             >
+              <div className="flex items-center gap-1 px-2 pb-1.5 shrink-0 text-slate-400">
+                <button type="button" className="p-2 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors">
+                  <Paperclip size={18} strokeWidth={2.5} />
+                </button>
+              </div>
+
               <div className="flex-1 relative flex items-center">
-                <input
-                  type="text"
+                <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask a follow-up question..."
-                  className="w-full bg-transparent outline-none py-2 px-5 text-[15px] font-medium text-slate-800 placeholder:text-slate-400"
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                  placeholder={`Ask anything about ${topic}...`}
+                  className="w-full bg-transparent resize-none outline-none py-3 px-2 text-[15px] font-medium text-slate-800 placeholder:text-slate-400 min-h-[48px] max-h-32"
+                  rows="1"
                   disabled={loading}
                 />
               </div>
-              <button
-                type="submit"
-                disabled={!input.trim() || loading}
-                className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center shrink-0 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 transition-all shadow-sm"
-              >
-                <Send size={16} className="ml-0.5" />
-              </button>
+
+              <div className="flex items-center gap-2 px-1 pb-1 shrink-0">
+                <button type="button" className="w-10 h-10 flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 rounded-full transition-colors">
+                  <Mic size={18} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="submit"
+                  disabled={!input.trim() || loading}
+                  className="w-11 h-11 rounded-full bg-slate-900 text-white flex items-center justify-center shrink-0 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-900 transition-all shadow-sm"
+                >
+                  <Send size={16} className="ml-0.5" />
+                </button>
+              </div>
             </form>
-            <div className="text-center">
+            <div className="text-center pb-2">
               <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">StudyBuddy AI can make mistakes. Check important info.</span>
             </div>
           </div>

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 body {
   margin: 0;
@@ -6,10 +7,13 @@ body {
 }
 
 @keyframes steamFade {
-  0% { opacity: 0; transform: translateY(15px) scale(0.95); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+  15% { opacity: 1; transform: translateY(0) scale(1); }
+  85% { opacity: 1; transform: translateY(-8px) scale(1); }
+  100% { opacity: 0; transform: translateY(-20px) scale(0.95); }
 }
 
 .steam-chip {
-  animation: steamFade 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: steamFade 10s linear infinite;
+  animation-fill-mode: both;
 }
