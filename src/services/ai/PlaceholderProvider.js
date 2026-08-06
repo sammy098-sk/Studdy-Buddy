@@ -189,7 +189,13 @@ export class PlaceholderProvider extends AIProvider {
   }
 
   async explainGeneralConcept({ topic = '' }) {
-    await this.#delay(750);
-    return `### Understanding ${topic || 'This Concept'} Step by Step\n\nImagine you are learning this for the very first time. Let's break down **${topic || 'this topic'}** using simple everyday logic without confusing academic jargon!\n\n#### 1. What is it? (The Simple Idea)\nAt its simplest, think of **${topic || 'this concept'}** like an everyday accounting system or basic building rule: everything has a purpose, a starting point, and a natural consequence. When one component shifts, the entire framework responds in a very logical, predictable way.\n\n#### 2. A Real-World Analogy\nIf you imagine a water tank with a valve, adjusting the valve doesn't change the amount of water available—it simply changes the rate and force of flow. In the same way, ${topic || 'this theoretical mechanism'} balances internal inputs with external outputs without violating natural laws.\n\n#### 3. Step-by-Step Breakdown\n1. **First Stage (Initiation)**: The initial conditions establish baseline parameters.\n2. **Second Stage (Interaction)**: Forces or economic variables influence the central structure.\n3. **Final Stage (Equilibrium / Outcome)**: The system achieves balance or resolves into a permanent state.\n\nWe have covered the fundamental explanation of ${topic || 'this concept'} from start to finish!`;
+    await this.#delay(600);
+    const title = topic || 'Concept';
+    return `⚠️ [AI Provider Not Connected] This is a simulated master teacher lesson for "${title}".\n\nImagine I am standing at a whiteboard explaining this to you. First, let's break down the basic idea: this concept revolves around fundamental physical properties.\n\nHere is a simple analogy: think of it like a crowded bus. The passengers represent internal energy, and the doors are the boundary limits.\n\n*Notice how we didn't use any complex formulas yet?* That's because understanding the 'why' is more important than memorizing the 'how'. When you tackle JAMB questions on this, always remember the bus analogy!`;
+  }
+
+  async chatAboutTopic({ topic = '', userMessage = '', chatHistory = [] }) {
+    await this.#delay(500);
+    return `[Mock Offline AI] You asked "${userMessage}" about ${topic || 'the topic'}. Since I am offline, I'll just say: "That is an excellent question! In a live environment, I would break down exactly how ${topic} relates to what you just asked using simple examples."`;
   }
 }

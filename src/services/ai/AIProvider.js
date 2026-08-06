@@ -62,11 +62,20 @@ export class AIProvider {
   }
 
   /**
-   * Generate a comprehensive teacher-style lesson on any academic concept in simple beginner language.
+   * Explain a concept thoroughly step-by-step.
    * @param {Object} params - { topic, userPrompt }
-   * @returns {Promise<string>} - Complete structured lesson string
+   * @returns {Promise<string>}
    */
   async explainGeneralConcept(params) {
     throw new Error(`AIProvider [${this.name}]: explainGeneralConcept() not implemented.`);
+  }
+
+  /**
+   * Have a contextual conversational follow-up chat specifically about a generated topic.
+   * @param {Object} params - { topic, userMessage, chatHistory }
+   * @returns {Promise<string>} - The AI's conversational response
+   */
+  async chatAboutTopic(params) {
+    throw new Error(`AIProvider [${this.name}]: chatAboutTopic() not implemented.`);
   }
 }

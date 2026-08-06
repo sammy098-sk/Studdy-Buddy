@@ -422,4 +422,62 @@ Teach me this complete concept step-by-step from beginning to end in simple, beg
 
     return await this.#generate(system, user);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 8. Contextual Follow-Up Chat — Ask StudyBuddy
+  // ─────────────────────────────────────────────────────────────────────────
+  async chatAboutTopic({ topic = '', userMessage = '', chatHistory = [] }) {
+    const system = `You are an empathetic, world-class academic master teacher for StudyBuddy.
+The student has just finished reading comprehensive study notes on the topic: "${topic}".
+They are now asking follow-up questions to clarify their understanding.
+
+CRITICAL INSTRUCTIONS:
+- Answer ONLY in the context of the current topic ("${topic}") unless the student explicitly requests a different topic.
+- If they ask "Explain atoms again", they mean atoms in the context of "${topic}".
+- Keep your answers highly conversational, encouraging, and easy to understand (like a friendly teacher chatting with a student).
+- Do NOT generate long, exhaustive study notes here. Provide direct, focused answers to their specific question.
+- Use formatting (bolding, lists) to make your chat response readable.`;
+
+    // Construct the message array including history
+    const messages = [
+      { role: 'system', content: system }
+    ];
+
+    // Append history
+    if (Array.isArray(chatHistory)) {
+      chatHistory.forEach(msg => {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push({ role: msg.role, content: msg.content });
+        }
+      });
+    }
+
+    // Append the latest question
+    messages.push({ role: 'user', content: userMessage });
+
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: this.modelId,
+          messages: messages,
+          temperature: 0.6
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0]?.message?.content?.trim() || '';
+    } catch (err) {
+      console.error('[OpenRouter] Chat error:', err);
+      throw new Error("I'm having trouble responding right now. Please check your connection and try again.");
+    }
+  }
 }

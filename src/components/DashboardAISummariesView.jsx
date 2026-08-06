@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Sparkles, Search, Loader2, BookOpen, Bookmark, Star, Share2, CheckCircle2, Circle, ChevronDown, ChevronUp, ArrowRight, FileText, RefreshCw, Trophy } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Search, Loader2, BookOpen, Bookmark, Star, Share2, CheckCircle2, Circle, ChevronDown, ChevronUp, ArrowRight, FileText, RefreshCw, Trophy, MessageCircle, X, Send, Bot, User } from 'lucide-react';
 import BackToHomeButton from './BackToHomeButton';
 import Footer from './Footer';
 import { getAIProvider } from '../services/ai/AIProviderFactory';
@@ -137,6 +137,23 @@ export default function DashboardAISummariesView({ user, onNavigate }) {
   const [bookmarked, setBookmarked] = useState(false);
   const [shared, setShared] = useState(false);
 
+  // Contextual Chat State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (isChatOpen) {
+      scrollToBottom();
+    }
+  }, [chatHistory, isChatOpen]);
+
   const handleGenerate = async (targetTopic) => {
     const inputTopic = (targetTopic || topic).trim();
     if (!inputTopic) return;
@@ -152,6 +169,9 @@ export default function DashboardAISummariesView({ user, onNavigate }) {
     setExpandedSections({ 1: true });
     setSaved(false);
     setBookmarked(false);
+    setIsChatOpen(false);
+    setChatHistory([]);
+    setChatInput('');
 
     try {
       const ai = getAIProvider();
@@ -200,6 +220,39 @@ export default function DashboardAISummariesView({ user, onNavigate }) {
     }
     setTimeout(() => setShared(false), 2500);
   };
+
+  const handleChatSubmit = async (e, textOverride) => {
+    if (e) e.preventDefault();
+    const textToSubmit = (textOverride || chatInput).trim();
+    if (!textToSubmit || isChatLoading) return;
+
+    setChatInput('');
+    setChatHistory(prev => [...prev, { role: 'user', content: textToSubmit }]);
+    setIsChatLoading(true);
+
+    try {
+      const ai = getAIProvider();
+      const response = await ai.chatAboutTopic({
+        topic: notesData?.title || topic,
+        userMessage: textToSubmit,
+        chatHistory: chatHistory
+      });
+
+      setChatHistory(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (err) {
+      setChatHistory(prev => [...prev, { role: 'assistant', content: "Sorry, I had trouble processing that question. Please try again." }]);
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  const SUGGESTED_CHIPS = [
+    { icon: '🧪', text: 'Explain atoms again' },
+    { icon: '⚛️', text: 'Difference between atom & molecule' },
+    { icon: '🧬', text: 'Explain chemical bonding' },
+    { icon: '👶', text: "Explain like I'm 10" },
+    { icon: '📝', text: 'Give me JAMB likely questions' }
+  ];
 
   const totalSections = notesData?.sections?.length || 0;
   const completedCount = completedSections.length;
@@ -471,6 +524,25 @@ export default function DashboardAISummariesView({ user, onNavigate }) {
               })}
             </div>
 
+            {/* Contextual Ask StudyBuddy CTA */}
+            <div className="bg-white rounded-2xl p-6 sm:p-8 text-center shadow-sm border border-slate-200 mb-8 transition-all hover:shadow-md hover:border-slate-300">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 text-blue-600 mb-4">
+                <MessageCircle size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">
+                Still confused about this topic?
+              </h3>
+              <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto font-medium">
+                Ask anything about "{notesData.title || 'this topic'}" and get a simple, friendly explanation while the material is fresh!
+              </p>
+              <button
+                onClick={() => setIsChatOpen(true)}
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-slate-900 text-white font-bold shadow hover:bg-slate-800 transition-colors hover:scale-[1.02] transform"
+              >
+                <span>💬 Have questions? Ask StudyBuddy</span>
+              </button>
+            </div>
+
             {/* Final Call to Action Box */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-8 sm:p-10 text-white text-center shadow-xl relative overflow-hidden">
               <div className="max-w-xl mx-auto relative z-10">
@@ -492,6 +564,104 @@ export default function DashboardAISummariesView({ user, onNavigate }) {
                   </span>
                   <ArrowRight size={18} strokeWidth={2.5} />
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Contextual Chat Bottom Sheet / Modal */}
+        {isChatOpen && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 transition-opacity">
+            <div className="bg-white w-full sm:w-[500px] h-[85vh] sm:h-[650px] rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden transform animate-fade-in">
+              {/* Chat Header */}
+              <div className="bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+                <div>
+                  <div className="text-xs font-black uppercase tracking-wider text-blue-600 mb-0.5 flex items-center gap-1.5"><Bot size={13}/> Ask StudyBuddy</div>
+                  <h3 className="text-[15px] font-bold text-slate-900 truncate pr-4">Topic: {notesData?.title || 'Current Topic'}</h3>
+                </div>
+                <button onClick={() => setIsChatOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors shrink-0">
+                  <X size={18} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 flex flex-col gap-5">
+                {chatHistory.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-100 text-blue-600 mb-4 shadow-sm">
+                      <Bot size={28} />
+                    </div>
+                    <p className="text-[15px] font-bold text-slate-800 mb-1">Ask me anything about this topic!</p>
+                    <p className="text-xs font-medium text-slate-500 mb-8">I'm here to clarify concepts and give examples.</p>
+                    
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {SUGGESTED_CHIPS.map((chip, idx) => (
+                        <button
+                          key={idx}
+                          onClick={(e) => handleChatSubmit(e, chip.text)}
+                          className="px-3.5 py-2 rounded-full border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors shadow-sm text-left flex items-center hover:scale-[1.02] transform"
+                        >
+                          <span className="mr-2 text-base">{chip.icon}</span>
+                          {chip.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-6">
+                      {chatHistory.map((msg, idx) => (
+                        <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`flex max-w-[85%] gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-slate-200 text-slate-500' : 'bg-blue-600 text-white'}`}>
+                              {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+                            </div>
+                            <div className={`px-4.5 py-3 rounded-2xl text-[15px] font-medium leading-relaxed ${msg.role === 'user' ? 'bg-slate-900 text-white rounded-tr-sm shadow-md' : 'bg-white border border-slate-200 text-slate-800 shadow-sm rounded-tl-sm'}`}>
+                              {msg.content}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {isChatLoading && (
+                        <div className="flex justify-start">
+                          <div className="flex max-w-[85%] gap-2.5 flex-row">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm bg-blue-600 text-white">
+                              <Bot size={16} />
+                            </div>
+                            <div className="px-5 py-4 rounded-2xl bg-white border border-slate-200 text-slate-400 shadow-sm rounded-tl-sm flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div ref={messagesEndRef} className="h-2" />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Chat Input */}
+              <div className="bg-white border-t border-slate-200 p-4 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
+                <form onSubmit={handleChatSubmit} className="relative">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    placeholder="Type your question..."
+                    disabled={isChatLoading}
+                    className="w-full pl-5 pr-14 py-3.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-slate-50/50 text-[15px] font-medium disabled:opacity-50 transition-all shadow-inner"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!chatInput.trim() || isChatLoading}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-lg bg-blue-600 text-white disabled:opacity-40 disabled:bg-slate-400 hover:bg-blue-700 transition-all shadow-sm"
+                  >
+                    <Send size={16} className={chatInput.trim() && !isChatLoading ? "ml-1" : ""} strokeWidth={2.5} />
+                  </button>
+                </form>
               </div>
             </div>
           </div>
