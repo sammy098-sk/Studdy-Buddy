@@ -322,7 +322,7 @@ function MainApp() {
         </header>
       )}
 
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onNavigate={navigateTo} currentPage={window.location.pathname.slice(1)} user={user} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onNavigate={navigateTo} currentPage={window.location.pathname.slice(1)} user={user} onLogout={handleLogout} />}
 
       {/* Main Application Container: Centered (max-w-[1400px]) on standard routes, Full Screen on Reader */}
       <div className={`flex-1 overflow-hidden relative flex flex-col md:flex-row ${!isReaderRoute ? 'max-w-[1400px] w-full mx-auto' : 'w-full'}`}>
