@@ -108,9 +108,32 @@ export default function FullAITutorPage({ user, onNavigate }) {
 
   const handleSend = async (overrideText) => {
     const text = (overrideText || input).trim();
-    if (!text || loading || !currentSessionId) return;
+    if (!text || loading) return;
 
-    const userMsg = { role: 'user', content: text, session_id: currentSessionId };
+    let activeSessionId = currentSessionId;
+
+    // Create a session on the fly if one doesn't exist (e.g. navigated directly to /chat)
+    if (!activeSessionId && user?.id) {
+      setLoading(true); // briefly show loading while creating session
+      const { data } = await supabase
+        .from('study_sessions')
+        .insert({ user_id: user.id, topic: topic, mode: 'chat' })
+        .select()
+        .single();
+      
+      if (data) {
+        activeSessionId = data.id;
+        setCurrentSessionId(data.id);
+        setSessions(prev => [data, ...prev]);
+      } else {
+        setLoading(false);
+        return; // Failed to create session
+      }
+    }
+
+    if (!activeSessionId) return;
+
+    const userMsg = { role: 'user', content: text, session_id: activeSessionId };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setLoading(true);
@@ -127,7 +150,7 @@ export default function FullAITutorPage({ user, onNavigate }) {
         chatHistory: messages
       });
 
-      const assistantMsg = { role: 'assistant', content: replyText, session_id: currentSessionId };
+      const assistantMsg = { role: 'assistant', content: replyText, session_id: activeSessionId };
       setMessages(prev => [...prev, assistantMsg]);
       await supabase.from('messages').insert(assistantMsg);
 
@@ -277,11 +300,11 @@ export default function FullAITutorPage({ user, onNavigate }) {
         </div>
 
         {/* Floating Input Area */}
-        <div className="absolute bottom-0 left-0 right-0 pt-10 pb-6 px-4 sm:px-6 z-20 pointer-events-none">
+        <div className="absolute bottom-0 left-0 right-0 pt-10 pb-6 px-4 sm:px-6 z-20">
           {/* Gradient overlay to smoothly fade out text behind the input bar */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#F9FAFB] via-[#F9FAFB] 80% to-transparent z-[-1]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#F9FAFB] via-[#F9FAFB] 80% to-transparent z-[-1] pointer-events-none" />
           
-          <div className="max-w-4xl mx-auto flex flex-col gap-5 pointer-events-auto">
+          <div className="max-w-4xl mx-auto flex flex-col gap-5">
             {/* Animated Chips */}
             {chips.length > 0 && (
               <AnimatedSuggestions suggestions={chips} onSelect={(t) => handleSend(t)} />
