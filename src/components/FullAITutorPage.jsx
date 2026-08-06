@@ -48,7 +48,7 @@ export default function FullAITutorPage({ user, onNavigate }) {
         // Create new session for this topic
         const { data } = await supabase
           .from('study_sessions')
-          .insert({ user_id: user.id, topic: location.state.topic, mode: 'chat' })
+          .insert({ user_id: user.id, subject: 'General Study', topic: location.state.topic, mode: 'chat' })
           .select()
           .single();
         
@@ -117,7 +117,7 @@ export default function FullAITutorPage({ user, onNavigate }) {
       setLoading(true); // briefly show loading while creating session
       const { data } = await supabase
         .from('study_sessions')
-        .insert({ user_id: user.id, topic: topic, mode: 'chat' })
+        .insert({ user_id: user.id, subject: 'General Study', topic: topic, mode: 'chat' })
         .select()
         .single();
       
