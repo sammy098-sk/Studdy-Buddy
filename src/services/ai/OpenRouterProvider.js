@@ -446,14 +446,16 @@ CRITICAL INSTRUCTIONS:
     // Append history
     if (Array.isArray(chatHistory)) {
       chatHistory.forEach(msg => {
-        if (msg.role === 'user' || msg.role === 'assistant') {
-          messages.push({ role: msg.role, content: msg.content });
+        if ((msg.role === 'user' || msg.role === 'assistant') && msg.content && msg.content.trim() !== '') {
+          messages.push({ role: msg.role, content: msg.content.trim() });
         }
       });
     }
 
     // Append the latest question
-    messages.push({ role: 'user', content: userMessage });
+    if (userMessage && userMessage.trim() !== '') {
+      messages.push({ role: 'user', content: userMessage.trim() });
+    }
 
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -463,7 +465,7 @@ CRITICAL INSTRUCTIONS:
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: this.modelId,
+          model: this.modelName,
           messages: messages,
           temperature: 0.6
         })
