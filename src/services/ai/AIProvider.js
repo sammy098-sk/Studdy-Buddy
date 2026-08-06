@@ -57,8 +57,8 @@ export class AIProvider {
    * @param {Object} params - { topic, userPrompt }
    * @returns {Promise<string>} - Complete educational study notes string
    */
-  async generateGeneralSummary(params) {
-    throw new Error(`AIProvider [${this.name}]: generateGeneralSummary() not implemented.`);
+  async generateStudyNotes(params) {
+    throw new Error(`AIProvider [${this.name}]: generateStudyNotes() not implemented.`);
   }
 
   /**

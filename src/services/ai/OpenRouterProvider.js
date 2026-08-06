@@ -346,7 +346,7 @@ Teach this content completely and thoroughly following the required academic lec
   // ─────────────────────────────────────────────────────────────────────────
   // 6. Dashboard AI Study Notes — Comprehensive educational note generator
   // ─────────────────────────────────────────────────────────────────────────
-  async generateGeneralSummary({ topic = '', userPrompt = '', isRetry = false }) {
+  async generateStudyNotes({ topic = '', userPrompt = '', isRetry = false }) {
     const system = `You are an intelligent educational study note generator and master teacher for StudyBuddy.
 Your task is to generate comprehensive, well-structured study notes detailed enough that a student can study directly from them without consulting a textbook.
 
@@ -393,7 +393,7 @@ Generate complete, comprehensive teacher study notes for this topic returning ON
       console.warn('[OpenRouter] Study Notes JSON generation failed.', err);
       if (!isRetry) {
         console.log('[OpenRouter] Initiating automatic retry for Study Notes...');
-        return await this.generateGeneralSummary({ topic, userPrompt, isRetry: true });
+        return await this.generateStudyNotes({ topic, userPrompt, isRetry: true });
       }
       throw new Error("We couldn't generate your study notes right now. Please try again.");
     }

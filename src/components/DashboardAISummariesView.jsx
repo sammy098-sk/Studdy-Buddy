@@ -155,7 +155,7 @@ export default function DashboardAISummariesView({ user, onNavigate }) {
 
     try {
       const ai = getAIProvider();
-      const result = await ai.generateGeneralSummary({
+      const result = await ai.generateStudyNotes({
         topic: inputTopic,
         userPrompt: inputTopic
       });
