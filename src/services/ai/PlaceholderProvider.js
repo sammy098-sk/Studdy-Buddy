@@ -109,7 +109,83 @@ export class PlaceholderProvider extends AIProvider {
   async generateGeneralSummary({ topic = '' }) {
     await this.#delay(700);
     const title = topic || 'Introduction to Chemistry';
-    return `# Comprehensive Study Notes: ${title}\n\n## 1. Core Definitions & Fundamental Concepts\n**${title}** explores the nature, properties, composition, and transformations of matter. To master this subject, every fundamental particle and system must be systematically examined without skipping foundational derivations.\n\n### Atomic Structure & Sub-Atomic Particles\nAn **atom** is the smallest particle of an element that retains the chemical properties of that element. Every neutral atom consists of three primary fundamental particles:\n* **Protons (+)**: Positively charged particles found within the compact central nucleus. Their count defines the atomic identity.\n* **Neutrons (0)**: Electrically neutral particles located inside the nucleus alongside protons, contributing to isotopic mass.\n* **Electrons (-)**: Negatively charged particles moving rapidly around the nucleus in quantization shells or energy levels.\n\n> **Worked Example / Atomic Comparison**:\n> * **Hydrogen (H)** possesses exactly 1 proton and 1 electron (no neutrons in protium).\n> * **Carbon (C-12)** consists of 6 protons, 6 neutrons (most abundant isotope), and 6 orbiting electrons.\n> * *JAMB Exam Tip*: The Atomic Number ($Z$) of an element ALWAYS equals the total number of protons in its nucleus.\n\n---\n\n## 2. Elements vs. Compounds & Chemical Bonding\n### Elements\nAn **element** is a primary substance that cannot be separated into simpler substances by ordinary chemical processes. Examples include pure gases like *Hydrogen* ($H_2$) and *Oxygen* ($O_2$), or solids like *Carbon* ($C$) and *Iron* ($Fe$).\n\n### Compounds & Formation Mechanisms\nA **compound** is a purely homogeneous substance formed when two or more distinct elements chemically unite in definite weight proportions. Unlike mixtures, compounds possess brand new chemical qualities.\n* **Common Exam Examples**: Water ($H_2O$), Carbon dioxide ($CO_2$), and Sodium chloride ($NaCl$).\n\n#### Chemical Bonding Types\nAtoms combine through structural valence bonding to achieve stable noble-gas octet configurations:\n1. **Ionic (Electrovalent) Bonding**: Complete transfer of valence electrons from an electropositive metal to an electronegative non-metal (e.g., $Na^+ + Cl^- \\rightarrow NaCl$).\n2. **Covalent Bonding**: Mutual sharing of valence electron pairs between non-metallic atoms (e.g., two Hydrogen atoms sharing electron pairs in $H_2$).\n3. **Metallic Bonding**: Electrostatic attraction between positive metallic cations and a submerged delocalized "sea of mobile electrons," explaining electrical conductivity.\n\n---\n\n## 3. The Scientific Method in Practice\nSystematic investigation requires strict empirical progression through five non-negotiable diagnostic stages:\n1. **Observation**: Initial identification of natural patterns or anomalies.\n   * *Example*: Notice that a potted green plant kept indoors under prolonged darkness grows chloric and stunted.\n2. **Hypothesis**: Formulating a testable scientific proposition.\n   * *Example*: "Chlorophyll synthesis and physical cell elongation require ultraviolet solar flux."\n3. **Experiment Setup**: Testing controlled variables against independent test groups.\n   * *Example*: Grow Control Specimen A in open solar light and Experimental Specimen B entirely sealed in darkness for 14 days.\n4. **Data Collection**: Systematically recording quantitative and qualitative structural variations over time.\n5. **Conclusion & Theory Verification**: Confirming whether experimental evidence justifies or invalidates the underlying hypothesis.\n\n---\n\n## 4. Standard Units of Measurement (SI Units Table)\nEvery academic laboratory parameter relies upon absolute international measurement standards:\n\n| Physical Quantity | SI Unit | Unit Symbol | Practical Real-World Example |\n| :--- | :--- | :--- | :--- |\n| **Length / Distance** | Metre | m | Measuring the precise focal height of a student |\n| **Mass / Inertia** | Kilogram | kg | Determining the bulk weight of a commercial rice sack |\n| **Time / Duration** | Second | s | Stopwatch recording of a laboratory reaction period |\n| **Thermodynamic Temp** | Kelvin | K | Absolute thermal core state of a biological system |\n| **Electric Current** | Ampere | A | Current magnitude running across a resistance circuit |\n\n---\n\n## 5. Organic Chemistry Fundamentals\n**Organic Chemistry** is specifically the structural study of carbon-based chemical compounds (hydrocarbons and their functional derivatives), excluding simple carbonates, cyanides, and gaseous oxides.\n* **Why "Organic"?**: Originally derived from historically documented biological organisms, carbon exhibits unique *catenation* capability—chaining covalently onto itself to produce infinitely diverse architectures.\n* **Foundational Examples**: *Methane* ($CH_4$, simple natural gas), *Ethanol* ($C_2H_5OH$, industrial alcohol), and *Benzene* ($C_6H_6$, aromatic ring resonance).\n* **Everyday Industrial Uses**: Refined Petroleum fuels (petrol/diesel), LPG liquefied domestic cooking gas, synthetic pharmaceuticals (medicines), and resilient polymers (plastics).\n\n*(Note: Displaying offline simulated teacher study notes. Connect your OpenRouter API key in settings for live, real-time AI educational note generation on any academic topic without brevity constraints.)*`;
+    
+    return {
+      title: title,
+      estimatedTimeMinutes: 18,
+      subjectCategory: "JAMB Chemistry • Core Topic",
+      roadmap: [
+        "Core Definitions & Concepts",
+        "Atomic Structure & Particles",
+        "Elements vs. Compounds",
+        "The Scientific Method",
+        "Standard Units (SI Table)"
+      ],
+      sections: [
+        {
+          id: 1,
+          title: "Core Definitions & Concepts",
+          blocks: [
+            { type: "paragraph", content: "Chemistry explores the nature, properties, composition, and transformations of matter. To master this subject, every fundamental particle and system must be systematically examined." },
+            { type: "definition", content: "Chemistry is the branch of science that studies the structure, properties, behavior of matter, and the chemical changes it undergoes." },
+            { type: "jamb_fact", content: "JAMB often tests your ability to distinguish between chemical changes (new substances formed) and physical changes (only state changes)." }
+          ]
+        },
+        {
+          id: 2,
+          title: "Atomic Structure & Particles",
+          blocks: [
+            { type: "paragraph", content: "An atom is the smallest particle of an element that retains the chemical properties of that element. Every neutral atom consists of three primary fundamental particles:" },
+            { type: "list", content: [
+              "Protons (+): Positively charged particles found within the compact central nucleus.",
+              "Neutrons (0): Electrically neutral particles located inside the nucleus alongside protons.",
+              "Electrons (-): Negatively charged particles moving rapidly around the nucleus."
+            ]},
+            { type: "example", content: {
+              title: "Atomic Composition Examples",
+              details: [
+                "Hydrogen (H): 1 proton, 1 electron, 0 neutrons (in protium).",
+                "Carbon (C-12): 6 protons, 6 neutrons, 6 electrons."
+              ]
+            }},
+            { type: "jamb_fact", content: "The Atomic Number (Z) of an element ALWAYS equals the total number of protons in its nucleus." }
+          ]
+        },
+        {
+          id: 3,
+          title: "Elements vs. Compounds",
+          blocks: [
+            { type: "definition", content: "An element is a primary substance that cannot be separated into simpler substances by ordinary chemical processes." },
+            { type: "paragraph", content: "Conversely, a compound is a purely homogeneous substance formed when two or more distinct elements chemically unite in definite weight proportions." },
+            { type: "example", content: {
+              title: "Common Compounds",
+              details: [
+                "Water (H₂O)",
+                "Carbon dioxide (CO₂)",
+                "Sodium chloride (NaCl)"
+              ]
+            }}
+          ]
+        },
+        {
+          id: 4,
+          title: "Standard Units of Measurement",
+          blocks: [
+            { type: "paragraph", content: "Every academic laboratory parameter relies upon absolute international measurement standards (SI Units)." },
+            { type: "table", content: {
+              headers: ["Physical Quantity", "SI Unit", "Symbol", "Practical Example"],
+              rows: [
+                ["Length", "Metre", "m", "Height of a student"],
+                ["Mass", "Kilogram", "kg", "Weight of a commercial rice sack"],
+                ["Time", "Second", "s", "Duration of a laboratory reaction"],
+                ["Temperature", "Kelvin", "K", "Absolute thermal state"],
+                ["Electric Current", "Ampere", "A", "Current across a circuit"]
+              ]
+            }}
+          ]
+        }
+      ]
+    };
   }
 
   async explainGeneralConcept({ topic = '' }) {

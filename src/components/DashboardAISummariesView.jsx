@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Search, Loader2, BookOpen, Copy, Check, ArrowRight, FileText } from 'lucide-react';
+import { Sparkles, Search, Loader2, BookOpen, Bookmark, Star, Share2, CheckCircle2, Circle, ChevronDown, ChevronUp, ArrowRight, FileText, RefreshCw, Trophy } from 'lucide-react';
 import BackToHomeButton from './BackToHomeButton';
 import Footer from './Footer';
 import { getAIProvider } from '../services/ai/AIProviderFactory';
@@ -13,164 +13,486 @@ const SAMPLE_TOPICS = [
   "Newton's Laws & Force Derivations"
 ];
 
+// Helper to render distinct pedagogical content blocks
+function BlockRenderer({ block, index }) {
+  if (!block || !block.type) return null;
+
+  switch (block.type) {
+    case 'paragraph':
+      return (
+        <p key={index} className="text-slate-700 leading-relaxed text-[16px] mb-4 font-normal">
+          {block.content}
+        </p>
+      );
+
+    case 'definition':
+      return (
+        <div key={index} className="bg-blue-50/80 border-l-4 border-blue-600 p-4.5 rounded-r-xl my-4 text-slate-800 shadow-xs">
+          <div className="flex items-center gap-1.5 text-blue-700 font-bold text-xs uppercase tracking-wider mb-1.5">
+            <span className="text-base">🟦</span>
+            <span>Definition</span>
+          </div>
+          <p className="font-medium text-[15px] leading-relaxed italic text-blue-950">
+            {typeof block.content === 'string' ? `"${block.content}"` : JSON.stringify(block.content)}
+          </p>
+        </div>
+      );
+
+    case 'jamb_fact':
+      return (
+        <div key={index} className="bg-amber-50/90 border-l-4 border-amber-500 p-4.5 rounded-r-xl my-4 text-slate-900 shadow-xs">
+          <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs uppercase tracking-wider mb-1">
+            <span className="text-base">🟨</span>
+            <span>JAMB Focus & Exam Tip</span>
+          </div>
+          <p className="font-semibold text-[15px] text-amber-950 leading-relaxed">
+            {block.content}
+          </p>
+        </div>
+      );
+
+    case 'example':
+      const contentObj = typeof block.content === 'object' && block.content !== null ? block.content : { title: "Practical Example", details: [String(block.content)] };
+      return (
+        <div key={index} className="bg-emerald-50/80 border-l-4 border-emerald-600 p-4.5 rounded-r-xl my-4 text-slate-800 shadow-xs">
+          <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs uppercase tracking-wider mb-2">
+            <span className="text-base">🟩</span>
+            <span>Example & Real-World Applications</span>
+          </div>
+          {contentObj.title && (
+            <h4 className="font-bold text-sm text-emerald-950 mb-1.5">{contentObj.title}</h4>
+          )}
+          {Array.isArray(contentObj.details) ? (
+            <ul className="list-disc list-inside text-sm space-y-1 text-emerald-900 font-medium">
+              {contentObj.details.map((dt, idx) => (
+                <li key={idx} className="leading-relaxed">{dt}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-emerald-900 font-medium">{String(contentObj.details || contentObj)}</p>
+          )}
+        </div>
+      );
+
+    case 'list':
+      const items = Array.isArray(block.content) ? block.content : [String(block.content)];
+      return (
+        <ul key={index} className="list-disc list-inside text-slate-700 space-y-2 mb-4 text-[15px] pl-2 font-medium">
+          {items.map((it, i) => (
+            <li key={i} className="leading-relaxed">{it}</li>
+          ))}
+        </ul>
+      );
+
+    case 'table':
+      const tableData = block.content || {};
+      const headers = Array.isArray(tableData.headers) ? tableData.headers : [];
+      const rows = Array.isArray(tableData.rows) ? tableData.rows : [];
+      return (
+        <div key={index} className="overflow-x-auto my-5 rounded-xl border border-slate-200 shadow-sm">
+          <table className="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="bg-slate-100 border-b border-slate-200 text-slate-800">
+                {headers.map((hdr, hIdx) => (
+                  <th key={hIdx} className="p-3.5 font-bold tracking-tight text-xs uppercase text-slate-700">
+                    {hdr}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {rows.map((row, rIdx) => (
+                <tr key={rIdx} className="hover:bg-slate-50/80 transition-colors">
+                  {Array.isArray(row) && row.map((cell, cIdx) => (
+                    <td key={cIdx} className="p-3.5 text-slate-700 font-medium">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+
+    default:
+      return (
+        <div key={index} className="text-slate-700 text-base mb-4">
+          {typeof block.content === 'string' ? block.content : JSON.stringify(block.content)}
+        </div>
+      );
+  }
+}
+
 export default function DashboardAISummariesView({ user, onNavigate }) {
   const [topic, setTopic] = useState('');
-  const [customNotes, setCustomNotes] = useState('');
-  const [summary, setSummary] = useState(null);
+  const [notesData, setNotesData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleSummarize = async (targetTopic) => {
+  // UX State tracking for interactive Notion experience
+  const [expandedSections, setExpandedSections] = useState({ 1: true }); // Section 1 open by default
+  const [completedSections, setCompletedSections] = useState([]);
+  const [saved, setSaved] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
+  const [shared, setShared] = useState(false);
+
+  const handleGenerate = async (targetTopic) => {
     const inputTopic = (targetTopic || topic).trim();
     if (!inputTopic) return;
 
-    if (targetTopic && typeof targetTopic === 'string') {
+    if (typeof targetTopic === 'string') {
       setTopic(targetTopic);
     }
 
     setLoading(true);
     setError(null);
-    setSummary(null);
+    setNotesData(null);
+    setCompletedSections([]);
+    setExpandedSections({ 1: true });
+    setSaved(false);
+    setBookmarked(false);
 
     try {
       const ai = getAIProvider();
       const result = await ai.generateGeneralSummary({
         topic: inputTopic,
-        userPrompt: customNotes.trim() ? `${inputTopic} (${customNotes.trim()})` : inputTopic
+        userPrompt: inputTopic
       });
-      setSummary(result);
+
+      // Guard against malformed structure
+      if (!result || typeof result !== 'object' || !Array.isArray(result.sections)) {
+        throw new Error("Received malformed content structure.");
+      }
+
+      setNotesData(result);
     } catch (err) {
-      console.error('[DashboardAIStudyNotes] Error generating notes:', err);
-      setError("We encountered an issue generating your study notes. Please verify your connection or AI provider setup in settings and try again.");
+      console.error('[DashboardAIStudyNotes] Generation Error:', err);
+      setError("We couldn't generate your study notes right now. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCopy = () => {
-    if (!summary) return;
-    navigator.clipboard.writeText(summary);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const toggleSection = (id) => {
+    setExpandedSections(prev => {
+      const isCurrentlyOpen = !!prev[id];
+      const nextState = { ...prev, [id]: !isCurrentlyOpen };
+      // Automatically check off section in Roadmap if opened for the first time
+      if (!isCurrentlyOpen && !completedSections.includes(id)) {
+        setCompletedSections(old => [...old, id]);
+      }
+      return nextState;
+    });
   };
 
+  const toggleCheckSection = (id, e) => {
+    e.stopPropagation();
+    setCompletedSections(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleShare = () => {
+    setShared(true);
+    if (navigator.share) {
+      navigator.share({ title: notesData?.title || 'Study Buddy Notes', text: `Check out these study notes on ${notesData?.title} from StudyBuddy!` }).catch(() => {});
+    }
+    setTimeout(() => setShared(false), 2500);
+  };
+
+  const totalSections = notesData?.sections?.length || 0;
+  const completedCount = completedSections.length;
+  const progressPercent = totalSections > 0 ? Math.round((completedCount / totalSections) * 100) : 0;
+  const allCompleted = totalSections > 0 && completedCount === totalSections;
+
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: '#F4F7FC' }}>
-      <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8">
+    <div className="flex flex-col min-h-screen font-sans" style={{ background: '#F8FAFC' }}>
+      <div className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8">
         <BackToHomeButton onNavigate={onNavigate} />
 
-        {/* Hero Section */}
-        <div 
-          className="rounded-3xl p-6 sm:p-10 text-white mb-8 relative overflow-hidden shadow-xl"
-          style={{ background: 'linear-gradient(135deg, #2954E5 0%, #4D72EA 60%, #7E9DF3 100%)' }}
-        >
-          <div className="relative z-10 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-sm font-semibold mb-4 text-white">
-              <FileText size={15} className="text-amber-300" />
-              <span>Intelligent Educational Note Generator</span>
-            </div>
-            <h1 className="text-2xl sm:text-4xl font-extrabold mb-3 tracking-tight" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-              AI Study Notes Generator
-            </h1>
-            <p className="text-sm sm:text-base text-blue-100 leading-relaxed">
-              Enter any academic concept or subject area. Get comprehensive, teacher-level study notes with definitions, worked examples, formulas, and recursive sub-topic expansions—detailed enough to master directly without consulting another textbook.
-            </p>
-          </div>
-          <div className="absolute right-0 bottom-0 pointer-events-none opacity-20 transform translate-x-10 translate-y-10 sm:translate-x-4 sm:translate-y-4">
-            <BookOpen size={280} />
-          </div>
-        </div>
-
-        {/* Input & Control Box */}
-        <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border mb-8" style={{ borderColor: '#E2EAFA' }}>
-          <label className="block text-sm font-bold text-gray-800 mb-2 uppercase tracking-wider" style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#5A6B8C' }}>
-            What topic do you need complete study notes for?
-          </label>
-          
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSummarize()}
-                placeholder="e.g. Introduction to Chemistry, Electrolysis, Elasticity of Demand, Cell Division..."
-                className="w-full pl-11 pr-4 py-3.5 rounded-xl border text-base font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow"
-                style={{ borderColor: '#D8E3F8', background: '#FAFBFF' }}
-              />
-              <Search size={20} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            </div>
-            
-            <button
-              onClick={() => handleSummarize()}
-              disabled={loading || !topic.trim()}
-              className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold shadow-md transition-all duration-200 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ background: '#2954E5' }}
+        {/* Input & Hero Search Area */}
+        {!notesData && (
+          <>
+            <div 
+              className="rounded-3xl p-6 sm:p-10 text-white mb-8 relative overflow-hidden shadow-xl"
+              style={{ background: 'linear-gradient(135deg, #1E40AF 0%, #3B82F6 60%, #60A5FA 100%)' }}
             >
-              {loading ? <Loader2 size={19} className="animate-spin" /> : <Sparkles size={19} />}
-              <span>{loading ? 'Writing Study Notes...' : 'Generate Study Notes'}</span>
-            </button>
-          </div>
-
-          <div className="mb-2">
-            <span className="text-xs font-semibold text-gray-500 block mb-2">Try an authoritative study topic:</span>
-            <div className="flex flex-wrap gap-2">
-              {SAMPLE_TOPICS.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => handleSummarize(item)}
-                  disabled={loading}
-                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:border-blue-400 hover:bg-blue-50/60"
-                  style={{ borderColor: '#E2EAFA', background: '#F7F9FF', color: '#3A4D70' }}
-                >
-                  {item}
-                </button>
-              ))}
+              <div className="relative z-10 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold mb-3">
+                  <FileText size={14} className="text-amber-300" />
+                  <span>Notion-Style Interactive Learning</span>
+                </div>
+                <h1 className="text-2xl sm:text-4xl font-extrabold mb-3 tracking-tight">
+                  AI Study Notes Generator
+                </h1>
+                <p className="text-sm sm:text-base text-blue-100 leading-relaxed">
+                  Enter any academic concept to generate beautiful, structured study notes with collapsible sections, highlighted JAMB exam traps, and an interactive Learning Roadmap.
+                </p>
+              </div>
+              <div className="absolute right-0 bottom-0 pointer-events-none opacity-20 transform translate-x-10 translate-y-10 sm:translate-x-4 sm:translate-y-4">
+                <BookOpen size={260} />
+              </div>
             </div>
-          </div>
-        </div>
+
+            <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 mb-8">
+              <label className="block text-xs font-extrabold text-slate-500 mb-2 uppercase tracking-wider">
+                What topic are you mastering today?
+              </label>
+              
+              <div className="flex flex-col sm:flex-row gap-3 mb-5">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={topic}
+                    onChange={(e) => setTopic(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleGenerate()}
+                    placeholder="e.g. Introduction to Chemistry, Chemical Bonding, Electrolysis..."
+                    className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-300 text-base font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50/50"
+                  />
+                  <Search size={20} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                </div>
+                
+                <button
+                  onClick={() => handleGenerate()}
+                  disabled={loading || !topic.trim()}
+                  className="flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl text-white font-bold shadow-md transition-all duration-200 hover:shadow-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                >
+                  {loading ? <Loader2 size={19} className="animate-spin" /> : <Sparkles size={19} />}
+                  <span>{loading ? 'Generating Notes...' : 'Generate Study Notes'}</span>
+                </button>
+              </div>
+
+              <div>
+                <span className="text-xs font-semibold text-slate-400 block mb-2">Popular JAMB study topics:</span>
+                <div className="flex flex-wrap gap-2">
+                  {SAMPLE_TOPICS.map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => handleGenerate(item)}
+                      disabled={loading}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-slate-100/70 text-slate-700 transition-all hover:border-blue-400 hover:bg-blue-50"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Error Feedback */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800 font-medium mb-8">
-            {error}
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center my-8 shadow-sm">
+            <p className="text-base font-semibold text-red-800 mb-4">
+              {error}
+            </p>
+            <button
+              onClick={() => handleGenerate()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-red-600 text-white text-sm font-bold shadow hover:bg-red-700 transition-colors"
+            >
+              <RefreshCw size={15} />
+              <span>Try Again</span>
+            </button>
           </div>
         )}
 
-        {/* Results Area */}
-        {summary && (
-          <div className="bg-white rounded-2xl p-6 sm:p-10 shadow-md border animate-fade-in transition-all" style={{ borderColor: '#E2EAFA' }}>
-            <div className="flex items-center justify-between border-b pb-4 mb-6" style={{ borderColor: '#EDF2FD' }}>
+        {/* Notion / Medium Style Results Area */}
+        {notesData && !loading && (
+          <div className="animate-fade-in pb-12">
+            {/* Minimalist Top Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6 mb-8">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 block mb-0.5">Comprehensive Study Notes</span>
-                <h2 className="text-lg sm:text-2xl font-bold text-gray-900" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                  {topic || 'Academic Study Notes'}
-                </h2>
+                <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight mb-2">
+                  {notesData.title}
+                </h1>
+                <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-500">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700">
+                    📚 {notesData.subjectCategory || 'JAMB Study Profile'}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    ⏱ {notesData.estimatedTimeMinutes || 15} min read
+                  </span>
+                </div>
               </div>
-              
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-gray-50"
-                style={{ borderColor: '#D8E3F8', color: '#5A6B8C' }}
-              >
-                {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                <span>{copied ? 'Copied to Clipboard' : 'Copy'}</span>
-              </button>
+
+              {/* Floating Action Buttons */}
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <button
+                  onClick={() => setSaved(!saved)}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${saved ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  title="Save to library"
+                >
+                  <Star size={14} className={saved ? 'fill-amber-500 text-amber-500' : ''} />
+                  <span>{saved ? 'Saved' : 'Save'}</span>
+                </button>
+                <button
+                  onClick={() => setBookmarked(!bookmarked)}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${bookmarked ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                  title="Bookmark topic"
+                >
+                  <Bookmark size={14} className={bookmarked ? 'fill-blue-600 text-blue-600' : ''} />
+                  <span>{bookmarked ? 'Bookmarked' : 'Bookmark'}</span>
+                </button>
+                <button
+                  onClick={handleShare}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+                  title="Share notes"
+                >
+                  <Share2 size={14} />
+                  <span>{shared ? 'Shared!' : 'Share'}</span>
+                </button>
+                <button
+                  onClick={() => setNotesData(null)}
+                  className="ml-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                >
+                  New Topic
+                </button>
+              </div>
             </div>
 
-            <div className="prose max-w-none text-gray-800 text-[15px] sm:text-[16px] leading-relaxed whitespace-pre-wrap font-sans">
-              {summary}
+            {/* Learning Roadmap Feature Card */}
+            <div className="bg-gradient-to-r from-blue-900 to-indigo-950 rounded-2xl p-6 sm:p-7 text-white mb-10 shadow-lg relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-blue-800/80 pb-4 mb-4">
+                <div>
+                  <div className="text-amber-400 text-xs font-black uppercase tracking-widest flex items-center gap-1.5 mb-1">
+                    <Trophy size={14} />
+                    <span>Today's Lesson Roadmap</span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-white">
+                    Mastery Checklist ({completedCount} of {totalSections} completed)
+                  </h3>
+                </div>
+
+                {/* Progress Visual */}
+                <div className="w-full sm:w-48">
+                  <div className="flex items-center justify-between text-xs font-bold text-blue-200 mb-1.5">
+                    <span>Progress</span>
+                    <span className="text-white">{progressPercent}%</span>
+                  </div>
+                  <div className="w-full h-2.5 bg-blue-950 rounded-full overflow-hidden border border-blue-700">
+                    <div 
+                      className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-500 rounded-full" 
+                      style={{ width: `${progressPercent}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-sm">
+                {notesData.sections && notesData.sections.map((sec, idx) => {
+                  const isDone = completedSections.includes(sec.id);
+                  return (
+                    <div 
+                      key={sec.id || idx}
+                      onClick={(e) => toggleCheckSection(sec.id, e)}
+                      className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${isDone ? 'bg-emerald-900/40 border-emerald-500/60 text-emerald-200' : 'bg-white/5 border-white/10 text-blue-100 hover:bg-white/10'}`}
+                    >
+                      {isDone ? (
+                        <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
+                      ) : (
+                        <Circle size={18} className="text-blue-300/50 shrink-0" />
+                      )}
+                      <span className={`font-semibold ${isDone ? 'line-through opacity-90 text-emerald-200' : ''}`}>
+                        {sec.title}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-xs text-blue-200/70 mt-4 font-medium">
+                Tip: Tap any item above or expand sections below as you finish reading to track your study progress.
+              </p>
             </div>
 
-            <div className="mt-8 pt-5 border-t flex items-center justify-between text-xs text-gray-500" style={{ borderColor: '#EDF2FD' }}>
-              <span>Exhaustive educational notes structured directly around your topic without brevity constraints.</span>
-              <button 
-                onClick={() => onNavigate('jamb-practice')}
-                className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline"
-              >
-                Ready to practice questions? Try JAMB Practice <ArrowRight size={13} />
-              </button>
+            {/* Collapsible Section Cards (No monolithic markdown wall!) */}
+            <div className="space-y-4 mb-12">
+              {notesData.sections && notesData.sections.map((sec, sIdx) => {
+                const isOpen = !!expandedSections[sec.id];
+                const isChecked = completedSections.includes(sec.id);
+
+                return (
+                  <div 
+                    key={sec.id || sIdx} 
+                    className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-200 hover:border-slate-300"
+                  >
+                    {/* Accordion Header */}
+                    <button
+                      onClick={() => toggleSection(sec.id)}
+                      className="w-full px-6 py-4.5 flex items-center justify-between gap-4 text-left bg-white hover:bg-slate-50/50 transition-colors focus:outline-none"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-600 font-extrabold text-xs shrink-0">
+                          {sIdx + 1}
+                        </span>
+                        <h3 className="text-lg font-bold text-slate-900 tracking-tight truncate">
+                          {sec.title}
+                        </h3>
+                        {isChecked && (
+                          <span className="text-xs bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold inline-flex items-center gap-1 shrink-0 border border-emerald-200">
+                            ✓ Done
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0 text-slate-400">
+                        <span className="text-xs font-semibold hidden sm:inline text-slate-500">
+                          {isOpen ? 'Collapse' : 'Expand'}
+                        </span>
+                        {isOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      </div>
+                    </button>
+
+                    {/* Accordion Body */}
+                    {isOpen && (
+                      <div className="px-6 pb-8 pt-4 border-t border-slate-100 bg-white">
+                        <div className="max-w-prose">
+                          {sec.blocks && sec.blocks.map((blk, bIdx) => (
+                            <BlockRenderer key={bIdx} block={blk} index={bIdx} />
+                          ))}
+                        </div>
+
+                        {/* Section Completion Toggle Footing */}
+                        <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                          <button
+                            onClick={(e) => toggleCheckSection(sec.id, e)}
+                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${isChecked ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                          >
+                            {isChecked ? <CheckCircle2 size={15} /> : <Circle size={15} />}
+                            <span>{isChecked ? 'Completed Section' : 'Mark as Completed'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Final Call to Action Box */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-8 sm:p-10 text-white text-center shadow-xl relative overflow-hidden">
+              <div className="max-w-xl mx-auto relative z-10">
+                <span className="inline-block text-4xl mb-3">🎉</span>
+                <h2 className="text-2xl sm:text-3xl font-black mb-3">
+                  You've completed the study notes!
+                </h2>
+                <p className="text-blue-100 text-sm sm:text-base mb-6 font-medium">
+                  Put your comprehension to the test with real JAMB questions designed around this subject.
+                </p>
+
+                <button
+                  onClick={() => onNavigate('jamb-practice')}
+                  className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-2xl bg-white text-blue-700 font-black text-base shadow-lg hover:bg-blue-50 transition-all transform hover:-translate-y-0.5"
+                >
+                  <span>🟦 Test Your Understanding</span>
+                  <span className="text-xs font-bold bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full ml-1">
+                    10 JAMB Questions
+                  </span>
+                  <ArrowRight size={18} strokeWidth={2.5} />
+                </button>
+              </div>
             </div>
           </div>
         )}

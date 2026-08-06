@@ -1,4 +1,5 @@
 import { AIProvider } from './AIProvider';
+import { parseJsonLoose } from '../../utils/api';
 
 const getDifficultyPrompt = (targetScore = '250+', subjectCombination = ['English Language']) => {
   const comboStr = Array.isArray(subjectCombination) ? subjectCombination.join(', ') : subjectCombination;
@@ -345,30 +346,57 @@ Teach this content completely and thoroughly following the required academic lec
   // ─────────────────────────────────────────────────────────────────────────
   // 6. Dashboard AI Study Notes — Comprehensive educational note generator
   // ─────────────────────────────────────────────────────────────────────────
-  async generateGeneralSummary({ topic = '', userPrompt = '' }) {
-    const system = `You are an intelligent educational study note generator, expert JAMB tutor, and experienced secondary school master teacher for StudyBuddy.
-Your task is to generate comprehensive, well-structured study notes similar to those prepared by a world-class teacher writing comprehensive notes on the whiteboard.
+  async generateGeneralSummary({ topic = '', userPrompt = '', isRetry = false }) {
+    const system = `You are an intelligent educational study note generator and master teacher for StudyBuddy.
+Your task is to generate comprehensive, well-structured study notes detailed enough that a student can study directly from them without consulting a textbook.
 
-CRITICAL BEHAVIORAL COVENANT (THE NOTE WRITER COVENANT):
-- DO NOT behave as a simple summarizer that compresses information into short paragraphs or superficial overviews.
-- PRIORITIZE EDUCATIONAL COMPLETENESS OVER BREVITY: The generated notes should be sufficiently detailed and exhaustive that a student can study the topic directly without consulting another textbook.
-- NO SUPERFICIAL MENTIONS: Every major concept introduced MUST be expanded before moving to the next concept. Never merely mention a keyword without breaking it down.
-- STRUCTURE OF EXPLANATIONS: Definitions MUST be immediately followed by explanations, worked examples, relevant illustrations or visual descriptions where appropriate, comparisons, and practical everyday examples.
-- RECURSIVE SUB-TOPIC EXPANSION: You must recursively explain every important sub-topic naturally within the flow of notes:
-  * If explaining "Introduction to Chemistry", mentioning atoms MUST automatically trigger an expanded section on atomic structure (Protons [+], Neutrons [0], Electrons [-], electron shells, and concrete examples like Hydrogen vs. Carbon, plus essential JAMB Tips like atomic number equalling proton counts).
-  * Mentioning elements vs. compounds MUST trigger definitions, clear comparisons, examples (H₂O, CO₂, NaCl), and expand into chemical bonding (Ionic, Covalent, Metallic bonds with definitions, real-life examples, and simple structural descriptions).
-  * Mentioning experimental science or the Scientific Method MUST expand into all 5 stages (1. Observation, 2. Hypothesis, 3. Experiment, 4. Data Collection with sample table formatting, 5. Conclusion with real-life examples for each step).
-  * Mentioning measurement or SI Units MUST display a clean comparative Markdown table with columns: Quantity | SI Unit | Symbol | Example (e.g., Length, Mass, Time, Temperature, Electric current).
-  * Mentioning specialized fields like Organic Chemistry MUST explain what it is, why it is called organic, foundational hydrocarbon examples (Methane, Ethanol, Benzene), and everyday applications (Petrol, Cooking gas, Medicines, Plastics).
-- ORGANIZATIONAL CLARITY: Present content impeccably using clear Markdown headings (##, ###), indented lists, bold keyword emphasis, structured bullet points, and markdown tables where useful.
-- DO NOT assume or add unsolicited non-content filler (such as meta-chat or generic welcome intros); dive straight into the authoritative, beautifully structured teacher study notes.`;
+CRITICAL INSTRUCTION:
+You MUST return ONLY valid JSON matching the flexible block schema below. DO NOT include raw Markdown outside of the JSON, and do NOT use markdown symbols (like #, ##, **, ---) inside your text blocks. The frontend will handle all rendering.
+
+JSON SCHEMA:
+{
+  "title": "Main Topic Title",
+  "estimatedTimeMinutes": 18,
+  "subjectCategory": "JAMB Subject • Topic Category",
+  "roadmap": ["Section 1 Title", "Section 2 Title", "Section 3 Title"],
+  "sections": [
+    {
+      "id": 1,
+      "title": "Section Title",
+      "blocks": [
+        { "type": "paragraph", "content": "Plain text explanation..." },
+        { "type": "definition", "content": "Direct definition text..." },
+        { "type": "jamb_fact", "content": "Critical exam fact..." },
+        { "type": "example", "content": { "title": "Example Name", "details": ["Detail 1", "Detail 2"] } },
+        { "type": "list", "content": ["List item 1", "List item 2"] },
+        { "type": "table", "content": { "headers": ["Col1", "Col2"], "rows": [["Val1", "Val2"]] } }
+      ]
+    }
+  ]
+}
+
+FLEXIBILITY RULES:
+- Use multiple blocks per section (e.g., paragraph -> definition -> paragraph -> example -> jamb_fact).
+- Recursively explain every sub-topic introduced before moving on.
+- Use the most appropriate block type for the content. Do not force every section to have every block type.
+- Prioritize educational completeness over brevity.`;
 
     const user = `Academic Topic for Study Notes: ${topic || userPrompt}
 ${userPrompt && userPrompt !== topic ? `Additional instructions from student: ${userPrompt}` : ''}
 
-Please generate complete, comprehensive teacher study notes for this topic following all recursive elaboration rules.`;
+Generate complete, comprehensive teacher study notes for this topic returning ONLY valid JSON.`;
 
-    return await this.#generate(system, user);
+    try {
+      const raw = await this.#generate(system, user);
+      return parseJsonLoose(raw);
+    } catch (err) {
+      console.warn('[OpenRouter] Study Notes JSON generation failed.', err);
+      if (!isRetry) {
+        console.log('[OpenRouter] Initiating automatic retry for Study Notes...');
+        return await this.generateGeneralSummary({ topic, userPrompt, isRetry: true });
+      }
+      throw new Error("We couldn't generate your study notes right now. Please try again.");
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
