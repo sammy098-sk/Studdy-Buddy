@@ -117,6 +117,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
         let progressMap = {};
         let streak = 0;
         let computedHours = null;
+        let sessionsData = null;
 
         if (user?.id) {
           const { data: progressData, error: progressError } = await supabase
@@ -140,10 +141,11 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
             .eq('user_id', user.id);
 
           // Fetch study sessions for real hours studied and streak calculation
-          const { data: sessionsData, error: sessionsError } = await supabase
+          const { data: fetchedSessionsData, error: sessionsError } = await supabase
             .from('study_sessions')
             .select('id, started_at, ended_at, duration_minutes, mode, topic, subject')
             .eq('user_id', user.id);
+          sessionsData = fetchedSessionsData || [];
 
           let calculatedTodayMinutes = 0;
           const todayStart = new Date();
