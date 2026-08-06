@@ -51,4 +51,22 @@ export class AIProvider {
   async explainPage(params) {
     throw new Error(`AIProvider [${this.name}]: explainPage() not implemented.`);
   }
+
+  /**
+   * Generate a standalone academic topic summary independent of textbook databases.
+   * @param {Object} params - { topic, userPrompt }
+   * @returns {Promise<string>} - Concise 200-500 word summary string
+   */
+  async generateGeneralSummary(params) {
+    throw new Error(`AIProvider [${this.name}]: generateGeneralSummary() not implemented.`);
+  }
+
+  /**
+   * Generate a comprehensive teacher-style lesson on any academic concept in simple beginner language.
+   * @param {Object} params - { topic, userPrompt }
+   * @returns {Promise<string>} - Complete structured lesson string
+   */
+  async explainGeneralConcept(params) {
+    throw new Error(`AIProvider [${this.name}]: explainGeneralConcept() not implemented.`);
+  }
 }

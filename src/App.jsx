@@ -19,6 +19,9 @@ import ContactPage from './components/ContactPage';
 import MobileMenuDrawer from './components/MobileMenuDrawer';
 import NowPlayingBar from './components/NowPlayingBar';
 import DesktopSidebar from './components/DesktopSidebar';
+import DashboardAISummariesView from './components/DashboardAISummariesView';
+import DashboardJAMBPracticeView from './components/DashboardJAMBPracticeView';
+import DashboardExplainConceptView from './components/DashboardExplainConceptView';
 import { readerPreferencesService } from './services/ReaderPreferencesService';
 
 function useIsDesktop() {
@@ -338,9 +341,9 @@ function MainApp() {
             <Route path="/book/:id" element={<Navigate to="read" replace />} />
             <Route path="/book/:id/read" element={<ReaderRouteWrapper user={user} />} />
             <Route path="/study" element={<HomeView user={user} onNavigate={navigateTo} mobileMenuOpen={mobileMenuOpen} />} />
-            <Route path="/ai-summaries" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
-            <Route path="/jamb-practice" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
-            <Route path="/explain-concept" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />
+            <Route path="/ai-summaries" element={<DashboardAISummariesView user={user} onNavigate={navigateTo} />} />
+            <Route path="/jamb-practice" element={<DashboardJAMBPracticeView user={user} onNavigate={navigateTo} />} />
+            <Route path="/explain-concept" element={<DashboardExplainConceptView user={user} onNavigate={navigateTo} />} />
             <Route path="/about" element={<InfoPage bgVariant="about" onNavigate={navigateTo} />} />
             <Route path="/how-it-works" element={<InfoPage bgVariant="how-it-works" onNavigate={navigateTo} />} />
             <Route path="/help" element={<InfoPage bgVariant="help" onNavigate={navigateTo} />} />

@@ -341,4 +341,49 @@ Teach this content completely and thoroughly following the required academic lec
 
     return await this.#generate(system, user);
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 6. Dashboard AI Summary — Independent concise summary without unsolicited extras
+  // ─────────────────────────────────────────────────────────────────────────
+  async generateGeneralSummary({ topic = '', userPrompt = '' }) {
+    const system = `You are an academic subject specialist and concise summary assistant for StudyBuddy.
+Your task is to write a short, well-structured, easy-to-understand summary of the academic topic requested by the user (around 200–500 words).
+
+CRITICAL BEHAVIORAL COVENANT:
+- You MUST focus ONLY on explaining the user's requested topic concisely and accurately.
+- Do NOT automatically add practice questions, JAMB tips, memory tricks, extra notes, common mistakes, or revision drills unless the user explicitly asks for them in their request.
+- Respond directly to the user's conversational intent without assuming they want extra sections or following a rigid boilerplate template.
+- Use clear markdown formatting with logical paragraphs or brief bullet points where appropriate.`;
+
+    const user = `Academic Topic to Summarize: ${topic || userPrompt}
+${userPrompt && userPrompt !== topic ? `Additional instructions from student: ${userPrompt}` : ''}
+
+Please generate a concise, focused academic summary of this topic.`;
+
+    return await this.#generate(system, user);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 7. Dashboard Explain Concept — Real teacher comprehensive step-by-step lesson
+  // ─────────────────────────────────────────────────────────────────────────
+  async explainGeneralConcept({ topic = '', userPrompt = '' }) {
+    const system = `You are an empathetic, world-class academic master teacher and educator for StudyBuddy.
+Your task is to generate a complete, comprehensive lesson or study note that teaches the exact topic the user enters from beginning to end, behaving like a supportive real-world teacher.
+
+CRITICAL BEHAVIORAL COVENANT:
+- Do NOT produce a short summary or superficial outline. Teach the complete concept naturally and thoroughly from beginning to end.
+- Explain in very simple, lucid language (as if teaching a beginner or a 10-year-old), breaking down complex academic terminology into clear everyday concepts.
+- Build the explanation logically step by step from foundational concepts up to full comprehension.
+- Use relatable real-world analogies and concrete everyday examples where they genuinely aid understanding.
+- Continue explaining until the topic is fully covered and demystified.
+- STRICT EXCLUSIONS: You MUST NOT automatically add JAMB exam tips, memory tricks, common student mistakes, mini recaps, revision questions, or notes on related topics unless the user specifically requests them in their prompt.
+- Focus purely on teaching exactly what the user asked with zero unsolicited revision extras or rigid study templates.`;
+
+    const user = `Concept to Explain Like a Teacher: ${topic || userPrompt}
+${userPrompt && userPrompt !== topic ? `Student's specific question or focus: ${userPrompt}` : ''}
+
+Teach me this complete concept step-by-step from beginning to end in simple, beginner-friendly language.`;
+
+    return await this.#generate(system, user);
+  }
 }
