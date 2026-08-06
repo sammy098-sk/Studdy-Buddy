@@ -88,7 +88,8 @@ function MainApp() {
         exam_year: examYear,
         target_score: targetScore,
         target_exam_date: targetDate,
-        subject_combination: favSubjects
+        subject_combination: favSubjects,
+        avatar_url: data?.avatar_url || null
       };
       
       setUser(updatedUser);

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronRight, LogOut, Activity, CheckCircle2, Home, Upload, Lock, Calendar, Target, Award, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ChevronRight, LogOut, Activity, CheckCircle2, Home, Upload, Lock, Calendar, Target, Award, Check, Camera, Sparkles, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { SUBJECTS, isAdminUser } from '../config';
 import Footer from './Footer';
 import { supabase } from '../supabase';
@@ -65,6 +65,64 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
       fetchWeeklyProgress();
     }
   }, [user]);
+
+  // Avatar Upload State
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleAvatarSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setShowAvatarMenu(false);
+    setUploadingAvatar(true);
+
+    try {
+      // Client-side canvas crop & compress
+      const img = new Image();
+      img.src = URL.createObjectURL(file);
+      await new Promise(res => img.onload = res);
+
+      const canvas = document.createElement('canvas');
+      const size = Math.min(img.width, img.height, 500);
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      
+      const offsetX = (img.width - size) / 2;
+      const offsetY = (img.height - size) / 2;
+      ctx.drawImage(img, offsetX, offsetY, size, size, 0, 0, size, size);
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) throw new Error("Failed to process image");
+        
+        const fileName = `${user.id}_${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
+
+        const { error: dbError } = await supabase.from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', user.id);
+
+        if (dbError) throw dbError;
+
+        onUpdateUser({ avatar_url: publicUrl });
+      }, 'image/jpeg', 0.85);
+    } catch (err) {
+      console.error("Avatar upload error:", err);
+      alert("Failed to upload avatar. Please ensure the 'avatars' storage bucket exists and is public.");
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Edit profile
   const [editName, setEditName] = useState(user.name);
@@ -289,16 +347,51 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
             }}
           >
             {/* Avatar circle with a subtle ring */}
-            <div
-              className="w-14 h-14 lg:w-20 lg:h-20 rounded-full lg:rounded-2xl flex items-center justify-center text-lg lg:text-2xl font-extrabold text-white shrink-0"
-              style={{
-                background: "linear-gradient(135deg, #2954E5, #4f46e5)",
-                boxShadow: "0 0 0 3px rgba(41,84,229,0.15)",
-              }}
-            >
-              {initials}
+            <div className="relative group shrink-0">
+              <div
+                className="w-16 h-16 lg:w-24 lg:h-24 rounded-full flex items-center justify-center text-xl lg:text-3xl font-extrabold text-white overflow-hidden relative cursor-pointer"
+                style={{
+                  background: user.avatar_url ? '#fff' : "linear-gradient(135deg, #2954E5, #4f46e5)",
+                  boxShadow: "0 0 0 3px rgba(41,84,229,0.15)",
+                }}
+                onClick={() => setShowAvatarMenu(!showAvatarMenu)}
+              >
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
+                
+                {/* Hover overlay for upload */}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {uploadingAvatar ? <Loader2 size={24} className="animate-spin text-white" /> : <Camera size={24} className="text-white" />}
+                </div>
+              </div>
+
+              {/* Upload Menu */}
+              {showAvatarMenu && (
+                <div className="absolute top-[105%] left-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden py-1">
+                  <button onClick={() => fileInputRef.current?.click()} className="w-full px-4 py-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors">
+                    <Camera size={16} className="text-blue-600" />
+                    Upload from device
+                  </button>
+                  <button disabled className="w-full px-4 py-3 text-left text-sm font-semibold text-slate-400 flex items-center gap-2.5 cursor-not-allowed border-t border-slate-100">
+                    <Sparkles size={16} />
+                    Generate AI Avatar <span className="ml-auto text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-bold text-slate-400 uppercase tracking-wider">Soon</span>
+                  </button>
+                </div>
+              )}
+              
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleAvatarSelect} 
+                accept="image/*" 
+                className="hidden" 
+              />
             </div>
-            <div className="min-w-0">
+            
+            <div className="min-w-0 flex-1">
               <div className="text-[15px] sm:text-lg lg:text-2xl font-extrabold truncate" style={{ color: "#101C34" }}>{user.name || "Student"}</div>
               <div className="text-sm lg:text-base font-medium truncate mt-0.5" style={{ color: "#8493B0" }}>{user.email || "—"}</div>
             </div>

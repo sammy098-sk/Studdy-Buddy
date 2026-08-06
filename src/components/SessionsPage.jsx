@@ -59,14 +59,16 @@ export default function SessionsPage({ userId, onNavigate, onResume }) {
   const handleClearHistory = async () => {
     setClearing(true);
     try {
-      // RLS-protected deletion targeting only the logged-in user's study_sessions.
-      // Removes activity records without affecting study_progress, bookmarks, textbook progress, or preferences.
-      const { error } = await supabase
-        .from('study_sessions')
-        .delete()
-        .eq('user_id', userId);
+      // Aggressively wipe all user history records to fix ghost state bugs
+      const [sessionsRes, studyRes, readingRes] = await Promise.all([
+        supabase.from('study_sessions').delete().eq('user_id', userId),
+        supabase.from('study_progress').delete().eq('user_id', userId),
+        supabase.from('reading_progress').delete().eq('user_id', userId)
+      ]);
       
-      if (error) throw error;
+      if (sessionsRes.error) throw sessionsRes.error;
+      if (studyRes.error) throw studyRes.error;
+      if (readingRes.error) throw readingRes.error;
 
       // Immediately reflect clean state in frontend without requiring page refresh
       setSessions([]);
@@ -291,10 +293,10 @@ export default function SessionsPage({ userId, onNavigate, onResume }) {
               </button>
             </div>
             <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 mb-2 font-['Montserrat']">
-              Clear Study History?
+              Clear all history?
             </h3>
             <p className="text-sm lg:text-base font-medium text-slate-600 leading-relaxed mb-6 lg:mb-8">
-              This will remove all your past study session records. Don't worry — your reading progress, textbook chapters, bookmarks, and account preferences will remain completely untouched.
+              This will permanently remove your reading history, AI conversations, and activity history. This action cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-3 lg:gap-4">
               <button
