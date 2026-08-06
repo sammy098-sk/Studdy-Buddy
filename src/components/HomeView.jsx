@@ -64,7 +64,7 @@ const CHIP_ICONS = {
   'JAMB': Bookmark
 };
 
-export default function HomeView({ user, onNavigate }) {
+export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
   const [subjects, setSubjects] = useState([]);
   const [books, setBooks] = useState([]);
   const [activeBook, setActiveBook] = useState(null);
@@ -529,7 +529,7 @@ export default function HomeView({ user, onNavigate }) {
 
         {/* 2. Rotating Promotional Marketing Banner (Req 2: First content block on mobile with 16-24px spacing from top nav) */}
         <div className="mt-2 md:mt-0">
-          <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} />
+          <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} mobileMenuOpen={mobileMenuOpen} />
         </div>
 
         {/* 3. Core Studdy Buddy Feature Cards (Displayed consistently across Desktop & Mobile) */}

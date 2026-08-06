@@ -337,7 +337,7 @@ function MainApp() {
             <Route path="/upload" element={<TextbookImporter onNavigate={navigateTo} user={user} />} />
             <Route path="/book/:id" element={<Navigate to="read" replace />} />
             <Route path="/book/:id/read" element={<ReaderRouteWrapper user={user} />} />
-            <Route path="/study" element={<HomeView user={user} onNavigate={navigateTo} />} />
+            <Route path="/study" element={<HomeView user={user} onNavigate={navigateTo} mobileMenuOpen={mobileMenuOpen} />} />
             <Route path="/ai-summaries" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
             <Route path="/jamb-practice" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
             <Route path="/explain-concept" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />

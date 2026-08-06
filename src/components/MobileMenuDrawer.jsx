@@ -24,9 +24,9 @@ export default function MobileMenuDrawer({ onClose, onNavigate, currentPage, use
   ];
 
   return (
-    <div className="md:hidden fixed inset-0 z-30 flex justify-end">
-      <div className="flex-1 bg-black/20" onClick={onClose} />
-      <div className="w-72 h-full bg-white px-5 py-6 flex flex-col overflow-y-auto" style={{ borderLeft: "1px solid #E3EAFB" }}>
+    <div className="md:hidden fixed inset-0 z-[100] flex justify-end">
+      <div className="flex-1 bg-black/35 backdrop-blur-xs transition-opacity duration-200" onClick={onClose} />
+      <div className="relative z-10 w-72 h-full bg-white px-5 py-6 flex flex-col overflow-y-auto shadow-2xl" style={{ borderLeft: "1px solid #E3EAFB" }}>
           {/* Logo at the top of the drawer */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-2">

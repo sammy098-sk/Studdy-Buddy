@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { cleanBookTitle, BookCoverThumbnail } from '../utils/bookHelpers';
 
-export default function HeroCarousel({ activeBook, recentActivity, user, onNavigate }) {
+export default function HeroCarousel({ activeBook, recentActivity, user, onNavigate, mobileMenuOpen = false }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const touchStartX = useRef(null);
@@ -151,14 +151,14 @@ export default function HeroCarousel({ activeBook, recentActivity, user, onNavig
     return promoSlides;
   }, [activeBook, recentActivity, user, onNavigate]);
 
-  // Req 9: Auto-slide every 6 seconds, pause on interaction, resume afterward
+  // Req 9: Auto-slide every 6 seconds, pause on interaction or mobile menu open, resume afterward
   useEffect(() => {
-    if (isPaused || slides.length <= 1) return;
+    if (isPaused || mobileMenuOpen || slides.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % slides.length);
     }, 6500);
     return () => clearInterval(timer);
-  }, [isPaused, slides.length]);
+  }, [isPaused, mobileMenuOpen, slides.length]);
 
   const handlePrev = (e) => {
     if (e) e.stopPropagation();
@@ -198,7 +198,7 @@ export default function HeroCarousel({ activeBook, recentActivity, user, onNavig
 
   return (
     <div 
-      className="relative w-full rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 bg-slate-900 group select-none transition-all"
+      className="relative z-0 w-full rounded-3xl overflow-hidden shadow-xl border border-slate-200/80 bg-slate-900 group select-none transition-all"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
@@ -302,19 +302,19 @@ export default function HeroCarousel({ activeBook, recentActivity, user, onNavig
       </div>
 
       {/* Manual Navigation Arrows (Visible on hover on desktop; touch friendly on tablet/mobile) */}
-      {slides.length > 1 && (
+      {!mobileMenuOpen && slides.length > 1 && (
         <>
           <button
             onClick={handlePrev}
             aria-label="Previous Slide"
-            className="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-lg cursor-pointer hover:scale-105 active:scale-95"
+            className="absolute left-2.5 sm:left-4 top-1/2 -translate-y-1/2 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-lg cursor-pointer hover:scale-105 active:scale-95"
           >
             <ChevronLeft size={22} className="lg:w-6 lg:h-6" />
           </button>
           <button
             onClick={handleNext}
             aria-label="Next Slide"
-            className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-lg cursor-pointer hover:scale-105 active:scale-95"
+            className="absolute right-2.5 sm:right-4 top-1/2 -translate-y-1/2 w-9 h-9 lg:w-12 lg:h-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-lg cursor-pointer hover:scale-105 active:scale-95"
           >
             <ChevronRight size={22} className="lg:w-6 lg:h-6" />
           </button>
@@ -322,8 +322,8 @@ export default function HeroCarousel({ activeBook, recentActivity, user, onNavig
       )}
 
       {/* Req 8: Slide Pagination Indicator Dots clearly positioned at the very bottom below action buttons */}
-      {slides.length > 1 && (
-        <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-30 bg-black/30 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 shadow-md">
+      {!mobileMenuOpen && slides.length > 1 && (
+        <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-20 bg-black/30 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 shadow-md">
           {slides.map((_, idx) => (
             <button
               key={idx}
