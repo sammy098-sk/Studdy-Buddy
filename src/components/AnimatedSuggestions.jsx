@@ -6,9 +6,8 @@ export default function AnimatedSuggestions({ suggestions, onSelect }) {
   return (
     <div className="flex flex-wrap gap-2 justify-center p-2 relative min-h-[45px]">
       {suggestions.map((chip, idx) => {
-        // Stagger the animation so they appear sequentially like steam
-        // Using a 8s duration from CSS, we stagger every 1.5s
-        const delay = idx * 1.5;
+        // Stagger the animation so they appear sequentially
+        const delay = idx * 0.15;
         
         return (
           <button
