@@ -480,4 +480,57 @@ CRITICAL INSTRUCTIONS:
       throw new Error("I'm having trouble responding right now. Please check your connection and try again.");
     }
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 9. Interactive Follow-Up Chips Generator
+  // ─────────────────────────────────────────────────────────────────────────
+  async generateFollowUpChips({ topic = '', chatHistory = [], isRetry = false }) {
+    const system = `You are an AI generating dynamic, contextual follow-up questions for a student learning about: "${topic}".
+Based on the conversation history provided, generate 3 to 5 highly relevant follow-up questions or prompts the student might want to ask next.
+
+CRITICAL INSTRUCTIONS:
+- You MUST return ONLY a valid JSON array of objects.
+- Do not include markdown code blocks, prefixes, or conversational text.
+- Each object must have EXACTLY two keys: "icon" and "text".
+- "text" should be a short, natural prompt (max 6 words).
+- "icon" must be one of the following emojis that best matches the intent: 💡, 📝, ❓, 🎯, ⚖, 📖.
+
+EXAMPLE OUTPUT:
+[
+  { "icon": "💡", "text": "Explain this simply" },
+  { "icon": "📝", "text": "Give me an example" },
+  { "icon": "❓", "text": "Test my understanding" }
+]`;
+
+    let historyStr = "No previous conversation.";
+    if (chatHistory && chatHistory.length > 0) {
+       historyStr = chatHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n');
+    }
+
+    const user = `Topic: ${topic}
+Conversation History:
+${historyStr}
+
+Generate 3-5 follow-up chips in the exact JSON format requested.`;
+
+    try {
+      const raw = await this.#generate(system, user);
+      const parsed = parseJsonLoose(raw);
+      if (Array.isArray(parsed) && parsed.length >= 3) {
+        return parsed;
+      }
+      throw new Error("Invalid array format returned by AI.");
+    } catch (err) {
+      console.warn('[OpenRouter] Follow-Up Chips generation failed.', err);
+      if (!isRetry) {
+        return await this.generateFollowUpChips({ topic, chatHistory, isRetry: true });
+      }
+      // Fallback chips if all retries fail
+      return [
+        { icon: '💡', text: 'Explain it again' },
+        { icon: '📝', text: 'Give me an example' },
+        { icon: '📖', text: 'Go deeper' }
+      ];
+    }
+  }
 }

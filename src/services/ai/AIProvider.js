@@ -78,4 +78,13 @@ export class AIProvider {
   async chatAboutTopic(params) {
     throw new Error(`AIProvider [${this.name}]: chatAboutTopic() not implemented.`);
   }
+
+  /**
+   * Generate 3-5 short, contextual follow-up questions/prompts based on the current chat topic and history.
+   * @param {Object} params - { topic, chatHistory }
+   * @returns {Promise<Array<Object>>} - Array of objects containing { icon, text }
+   */
+  async generateFollowUpChips(params) {
+    throw new Error(`AIProvider [${this.name}]: generateFollowUpChips() not implemented.`);
+  }
 }

@@ -11,6 +11,7 @@ import HomeView from './components/HomeView';
 import ProfilePage from './components/ProfilePage';
 import NotificationsPage from './components/NotificationsPage';
 import SessionsPage from './components/SessionsPage';
+import FullAITutorPage from './components/FullAITutorPage';
 import TextbookImporter from './components/TextbookImporter';
 import TextbookReader from './components/TextbookReader';
 import LibraryPage from './components/LibraryPage';
@@ -345,6 +346,7 @@ function MainApp() {
             <Route path="/ai-summaries" element={<DashboardAISummariesView user={user} onNavigate={navigateTo} />} />
             <Route path="/jamb-practice" element={<DashboardJAMBPracticeView user={user} onNavigate={navigateTo} />} />
             <Route path="/explain-concept" element={<DashboardExplainConceptView user={user} onNavigate={navigateTo} />} />
+            <Route path="/chat" element={<FullAITutorPage user={user} onNavigate={navigateTo} />} />
             <Route path="/about" element={<InfoPage bgVariant="about" onNavigate={navigateTo} />} />
             <Route path="/how-it-works" element={<InfoPage bgVariant="how-it-works" onNavigate={navigateTo} />} />
             <Route path="/help" element={<InfoPage bgVariant="help" onNavigate={navigateTo} />} />

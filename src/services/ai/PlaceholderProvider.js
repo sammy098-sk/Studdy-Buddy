@@ -198,4 +198,13 @@ export class PlaceholderProvider extends AIProvider {
     await this.#delay(500);
     return `[Mock Offline AI] You asked "${userMessage}" about ${topic || 'the topic'}. Since I am offline, I'll just say: "That is an excellent question! In a live environment, I would break down exactly how ${topic} relates to what you just asked using simple examples."`;
   }
+
+  async generateFollowUpChips({ topic }) {
+    await this.#delay();
+    return [
+      { icon: '💡', text: 'Explain it again' },
+      { icon: '📝', text: 'Give me an example' },
+      { icon: '❓', text: 'Test my understanding' }
+    ];
+  }
 }
