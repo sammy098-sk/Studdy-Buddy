@@ -6,8 +6,9 @@ import { isAdminUser } from '../config';
 import Footer from './Footer';
 
 export default function LibraryPage({ user, onNavigate }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const subjectFilter = searchParams.get('subject');
+  const viewFilter = searchParams.get('view') || 'my_subjects';
 
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +18,7 @@ export default function LibraryPage({ user, onNavigate }) {
   useEffect(() => {
     if (!user?.id) return;
     fetchBooks();
-  }, [user, subjectFilter]);
+  }, [user, subjectFilter, viewFilter]);
 
   const fetchBooks = async () => {
     try {
@@ -31,6 +32,8 @@ export default function LibraryPage({ user, onNavigate }) {
 
       if (subjectFilter) {
         query = query.eq('subject', subjectFilter);
+      } else if (viewFilter === 'my_subjects' && user?.favorite_subjects?.length > 0) {
+        query = query.in('subject', user.favorite_subjects);
       }
       
       const { data: textbooksData, error: textbooksError } = await query;
@@ -133,6 +136,23 @@ export default function LibraryPage({ user, onNavigate }) {
               {subjectFilter ? `${subjectFilter} Library` : 'Library'}
             </h1>
             <p className="text-slate-500">Access and manage published textbooks</p>
+
+            {!subjectFilter && user?.favorite_subjects?.length > 0 && (
+              <div className="flex items-center gap-2 mt-4 bg-slate-200/50 p-1 w-fit rounded-lg">
+                <button
+                  onClick={() => setSearchParams({ view: 'my_subjects' })}
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all ${viewFilter === 'my_subjects' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  My Subjects
+                </button>
+                <button
+                  onClick={() => setSearchParams({ view: 'all' })}
+                  className={`px-3 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-all ${viewFilter === 'all' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  All Subjects
+                </button>
+              </div>
+            )}
           </div>
           {isAdminUser(user) && (
             <button 

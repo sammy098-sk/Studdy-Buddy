@@ -385,68 +385,37 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
     return null;
   }, [recentSessions, books]);
 
-  // Construct intelligent database-driven Today's Study Plan (No hardcoded demo subjects)
+  // Construct intelligent database-driven Today's Study Plan
   const todayStudyPlan = useMemo(() => {
     const favs = user?.favorite_subjects && user.favorite_subjects.length > 0 ? user.favorite_subjects : [];
     const plan = [];
 
-    // Item 1: Continue Reading primary subject / in-progress book
-    const inProg = inProgressBooksList[0];
-    if (inProg) {
-      plan.push({
-        id: 'jamb-plan-0',
-        subject: inProg.subject || 'Syllabus Reading',
-        taskText: `Continue Reading (${inProg.progress?.current_page ? `Page ${inProg.progress.current_page}` : 'Chapter 1'}) - ${inProg.title}`,
-        actionText: 'Resume',
-        action: () => onNavigate('reader', { bookId: inProg.id })
-      });
-    }
+    favs.forEach((sub, idx) => {
+      const subjectBooks = books.filter(b => b.subject === sub || (b.title && b.title.toLowerCase().includes(sub.toLowerCase())));
+      if (subjectBooks.length > 0) {
+        // Pick the one in progress or the first one
+        const inProg = subjectBooks.find(b => b.progress && b.progress.current_page > 0);
+        const targetBook = inProg || subjectBooks[0];
+        
+        let taskText = '';
+        if (inProg) {
+           taskText = `Topic: Continue Reading Page ${targetBook.progress.current_page} in ${cleanBookTitle(targetBook.title)}`;
+        } else {
+           taskText = `Topic: Start Chapter 1 in ${cleanBookTitle(targetBook.title)}`;
+        }
 
-    // Item 2: Compulsory English or first selected subject practice if CBT questions exist
-    if (favs.length > 0) {
-      const cbtSubj = favs.includes('English Language') ? 'English Language' : favs[0];
-      const availQs = subjectMetadata[cbtSubj]?.cbtCount || 0;
-      if (availQs > 0) {
         plan.push({
-          id: 'jamb-plan-1',
-          subject: cbtSubj,
-          taskText: `Complete practice speed diagnostic quiz (${availQs} verified Qs available)`,
-          actionText: 'Start Drill',
-          action: () => onNavigate('library', { subject: cbtSubj })
+          id: `jamb-plan-${sub}-${idx}`,
+          subject: sub,
+          taskText: taskText,
+          actionText: inProg ? 'Resume' : 'Start',
+          action: () => onNavigate('reader', { bookId: targetBook.id })
         });
       }
-    }
-
-    // Item 3: Revision for second favorite subject if it has textbooks or progress
-    if (favs.length > 1) {
-      const revSubj = favs[1];
-      const hasBooks = subjectMetadata[revSubj]?.textbookCount > 0;
-      if (hasBooks || inProgressBooksList.length > 0) {
-        plan.push({
-          id: 'jamb-plan-2',
-          subject: revSubj,
-          taskText: `Revise key chapter terms and review study progress for ${revSubj}`,
-          actionText: 'Revise',
-          action: () => onNavigate('library', { subject: revSubj })
-        });
-      }
-    }
-
-    // Item 4: Time goal target
-    const goalMin = user?.daily_goal || 30;
-    if (favs.length > 0 && todayMinutes < goalMin) {
-      const remaining = goalMin - todayMinutes;
-      plan.push({
-        id: 'jamb-plan-3',
-        subject: favs[2] || favs[0] || 'Daily Target',
-        taskText: `Study for ${remaining} more ${remaining === 1 ? 'minute' : 'minutes'} today to maintain exam momentum`,
-        actionText: 'Study Now',
-        action: () => onNavigate('library')
-      });
-    }
+    });
 
     return plan;
-  }, [user, books, inProgressBooksList, todayMinutes, subjectMetadata, onNavigate]);
+  }, [user, books, onNavigate]);
 
   // Construct Actionable Recent Activity list from verified sessions (No welcome placeholder cards)
   const recentActivitiesList = useMemo(() => {
@@ -800,20 +769,12 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                   </div>
                 )}
 
-                {/* 5.5 PERSONALIZED JAMB COMBINATION ROW */}
                 <div className="space-y-3 sm:space-y-4">
                   <div className="flex items-baseline justify-between px-1">
                     <h2 className="text-base sm:text-lg lg:text-xl font-extrabold text-slate-900 flex items-center gap-2 tracking-tight">
                       <Award size={20} strokeWidth={2.5} className="text-emerald-600 shrink-0" />
                       <span>Your JAMB Combination</span>
                     </h2>
-                    <button 
-                      onClick={() => onNavigate('profile')} 
-                      className="text-xs sm:text-sm font-bold text-slate-500 hover:text-blue-600 flex items-center gap-0.5 transition-colors hover:underline"
-                    >
-                      <span>Edit Preferences</span>
-                      <ChevronRight size={14} strokeWidth={2.5} />
-                    </button>
                   </div>
 
                   {(!user?.favorite_subjects || user.favorite_subjects.length === 0) ? (
@@ -821,11 +782,8 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       <div className="space-y-1.5">
                         <div className="font-extrabold text-sm sm:text-base flex items-center gap-2">
                           <Sparkles size={18} className="text-amber-300 animate-pulse" />
-                          <span>Personalize Your Study Workspace</span>
+                          <span>Choose your JAMB subjects to personalize your study experience.</span>
                         </div>
-                        <p className="text-xs sm:text-sm text-blue-100 font-medium max-w-xl leading-relaxed">
-                          Choose your official JAMB subject combination to personalize textbook recommendations, CBT diagnostic quizzes, and AI practice drills.
-                        </p>
                       </div>
                       <button
                         onClick={() => onNavigate('profile')}
@@ -835,52 +793,27 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                      {user.favorite_subjects.slice(0, 4).map((subName) => {
-                        const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
-                        const pastelStyle = getSubjectPastel(subName);
-                        const iconStyle = getSubjectIconColor(subName);
-                        const isCompulsory = subName === "English Language" || subName === "Use of English";
-                        const stats = subjectMetadata[subName] || { textbookCount: 0, cbtCount: 0, lastOpenedText: null };
-
-                        return (
-                          <div
-                            key={subName}
-                            onClick={() => onNavigate('library', { subject: subName })}
-                            className={`bg-gradient-to-br ${pastelStyle} p-4 sm:p-5 rounded-2xl lg:rounded-3xl border border-slate-200/90 transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer shadow-2xs hover:shadow-md group flex flex-col justify-between h-full min-h-[9rem] lg:min-h-[10.5rem] relative overflow-hidden`}
-                          >
-                            <div>
-                              <div className="flex items-center justify-between gap-2 mb-2 min-w-0">
-                                <div className={`w-10 h-10 lg:w-11 lg:h-11 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border border-white/60 ${iconStyle} group-hover:scale-105 transition-transform`}>
-                                  <IconComponent size={20} strokeWidth={2.3} />
-                                </div>
-                                <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-md ${
-                                  isCompulsory ? 'bg-emerald-200 text-emerald-950' : 'bg-blue-200/80 text-blue-950'
-                                }`}>
-                                  {isCompulsory ? 'Compulsory' : 'Elective'}
-                                </span>
-                              </div>
-                              <span className="font-extrabold text-sm sm:text-[15px] lg:text-base truncate block text-slate-900" title={subName}>{subName}</span>
-                              
-                              <div className="mt-2 text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                                <Clock3 size={11} className="text-slate-400" />
-                                <span>Last opened: <strong className="text-slate-800">{stats.lastOpenedText || 'Never'}</strong></span>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-between text-xs font-extrabold pt-2.5 mt-3 border-t border-black/5 text-slate-700">
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
-                                <span>{stats.textbookCount} {stats.textbookCount === 1 ? 'book' : 'books'}</span>
-                                <span className="hidden sm:inline text-slate-300">•</span>
-                                <span className="text-[11px] text-indigo-700 font-bold">{stats.cbtCount} Qs</span>
-                              </div>
-                              <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-blue-600 font-black">
-                                <ArrowRight size={14} strokeWidth={2.5} />
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group">
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-black text-emerald-700 uppercase tracking-widest bg-emerald-50 w-fit px-2.5 py-1 rounded-lg border border-emerald-200/80">
+                          {user?.exam_goal || 'JAMB Preparation'}
+                        </div>
+                        <div className="font-extrabold text-slate-900 text-sm sm:text-base lg:text-lg flex flex-wrap gap-2 items-center">
+                          {user.favorite_subjects.map((sub, i) => (
+                            <React.Fragment key={sub}>
+                              <span className="text-slate-800">{sub}</span>
+                              {i < user.favorite_subjects.length - 1 && <span className="text-slate-300 mx-1">•</span>}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => onNavigate('profile')}
+                        className="px-4 py-2 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 font-extrabold text-xs sm:text-sm rounded-xl transition-all shrink-0 border border-slate-200 hover:border-blue-200 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <span>Edit Preferences</span>
+                        <ChevronRight size={14} strokeWidth={3} />
+                      </button>
                     </div>
                   )}
                 </div>
@@ -917,16 +850,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto shadow-xs border border-indigo-100">
                         <Target size={24} strokeWidth={2} />
                       </div>
-                      <h3 className="font-extrabold text-slate-800 text-base">No study tasks active today</h3>
-                      <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto font-medium leading-relaxed">
-                        Select your official JAMB subjects or begin reading a textbook to automatically generate your personalized daily study timeline and practice goals.
-                      </p>
-                      <button
-                        onClick={() => onNavigate(user?.favorite_subjects?.length > 0 ? 'library' : 'profile')}
-                        className="px-5 py-2.5 bg-indigo-600 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md hover:bg-indigo-700 transition-all cursor-pointer inline-block mt-1"
-                      >
-                        {user?.favorite_subjects?.length > 0 ? 'Browse Library' : 'Choose Subjects'}
-                      </button>
+                      <h3 className="font-extrabold text-slate-800 text-base">No study tasks available yet</h3>
                     </div>
                   ) : (
                     <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden p-2 sm:p-5 divide-y divide-slate-100">
@@ -1094,28 +1018,21 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                         </button>
                       </div>
 
-                      {((user?.favorite_subjects && user.favorite_subjects.length > 0 ? user.favorite_subjects : subjects.map(s => s.name)).length === 0) ? (
+                      {((user?.favorite_subjects && user.favorite_subjects.length > 0 ? user.favorite_subjects : subjects.map(s => s.name)).filter(subName => (subjectMetadata[subName]?.textbookCount || 0) > 0).length === 0) ? (
                         <div className="p-8 bg-white rounded-3xl border border-slate-200/90 text-center space-y-3 shadow-2xs">
                           <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center mx-auto shadow-xs border border-purple-100">
                             <GraduationCap size={24} strokeWidth={2} />
                           </div>
                           <h3 className="font-extrabold text-slate-800 text-base">No curriculum subjects available yet</h3>
-                          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto font-medium leading-relaxed">
-                            Upload textbooks to the library or customize your subject combination to view syllabus mastery tracking and practice resources.
-                          </p>
-                          <button
-                            onClick={() => onNavigate('library')}
-                            className="px-5 py-2.5 bg-purple-600 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md hover:bg-purple-700 transition-all cursor-pointer inline-block mt-1"
-                          >
-                            Browse Full Library
-                          </button>
                         </div>
                       ) : (
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                           {(user?.favorite_subjects && user.favorite_subjects.length > 0 
                             ? user.favorite_subjects 
-                            : subjects.map(s => s.name).slice(0, 4)
-                          ).map((subName) => {
+                            : subjects.map(s => s.name)
+                          ).filter(subName => (subjectMetadata[subName]?.textbookCount || 0) > 0)
+                           .slice(0, 4)
+                           .map((subName) => {
                             const IconComponent = SUBJECT_ICONS[subName] || BookOpen;
                             const pastelStyle = getSubjectPastel(subName);
                             const iconStyle = getSubjectIconColor(subName);
