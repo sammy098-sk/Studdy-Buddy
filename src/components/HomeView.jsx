@@ -775,6 +775,13 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       <Award size={20} strokeWidth={2.5} className="text-emerald-600 shrink-0" />
                       <span>Your JAMB Combination</span>
                     </h2>
+                    <button 
+                      onClick={() => onNavigate('profile')} 
+                      className="text-xs sm:text-sm font-bold text-slate-500 hover:text-blue-600 flex items-center gap-0.5 transition-colors hover:underline cursor-pointer"
+                    >
+                      <span>Edit Preferences</span>
+                      <ChevronRight size={14} strokeWidth={2.5} />
+                    </button>
                   </div>
 
                   {(!user?.favorite_subjects || user.favorite_subjects.length === 0) ? (
@@ -793,27 +800,52 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       </button>
                     </div>
                   ) : (
-                    <div className="p-5 sm:p-6 rounded-3xl bg-white border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group">
-                      <div className="space-y-2">
-                        <div className="text-[11px] font-black text-emerald-700 uppercase tracking-widest bg-emerald-50 w-fit px-2.5 py-1 rounded-lg border border-emerald-200/80">
-                          {user?.exam_goal || 'JAMB Preparation'}
-                        </div>
-                        <div className="font-extrabold text-slate-900 text-sm sm:text-base lg:text-lg flex flex-wrap gap-2 items-center">
-                          {user.favorite_subjects.map((sub, i) => (
-                            <React.Fragment key={sub}>
-                              <span className="text-slate-800">{sub}</span>
-                              {i < user.favorite_subjects.length - 1 && <span className="text-slate-300 mx-1">•</span>}
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => onNavigate('profile')}
-                        className="px-4 py-2 bg-slate-50 hover:bg-blue-50 text-slate-600 hover:text-blue-700 font-extrabold text-xs sm:text-sm rounded-xl transition-all shrink-0 border border-slate-200 hover:border-blue-200 cursor-pointer flex items-center gap-1.5"
-                      >
-                        <span>Edit Preferences</span>
-                        <ChevronRight size={14} strokeWidth={3} />
-                      </button>
+                    <div className="space-y-4">
+                      {user.favorite_subjects.map((subName) => {
+                        const subjectBooks = books.filter(b => b.subject === subName || (b.title && b.title.toLowerCase().includes(subName.toLowerCase())));
+                        const displayBooks = subjectBooks.slice(0, 3);
+                        return (
+                          <div key={subName} className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
+                            <div className="bg-slate-50/80 border-b border-slate-100 px-5 py-3.5 flex items-center justify-between">
+                              <h3 className="font-extrabold text-slate-800 text-sm sm:text-base">{subName}</h3>
+                              {subjectBooks.length > 3 && (
+                                <button 
+                                  onClick={() => onNavigate('library', { subject: subName })}
+                                  className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 cursor-pointer"
+                                >
+                                  View all <ChevronRight size={14} />
+                                </button>
+                              )}
+                            </div>
+                            <div className="p-4">
+                              {subjectBooks.length === 0 ? (
+                                <p className="text-sm font-medium text-slate-500 italic p-2">{subName} No textbooks available yet.</p>
+                              ) : (
+                                <div className="space-y-2">
+                                  {displayBooks.map(book => (
+                                    <div 
+                                      key={book.id} 
+                                      onClick={() => onNavigate('reader', { bookId: book.id })}
+                                      className="flex items-center gap-3 p-3 rounded-2xl hover:bg-blue-50 cursor-pointer transition-colors border border-transparent hover:border-blue-100 group"
+                                    >
+                                      <div className={`w-10 h-12 rounded bg-gradient-to-br ${getSubjectColor(book.subject)} shrink-0 flex items-center justify-center text-white shadow-sm overflow-hidden relative`}>
+                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-black/20" />
+                                        <BookOpen size={16} className="opacity-80" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <h4 className="font-bold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">
+                                          {cleanBookTitle(book.title)}
+                                        </h4>
+                                        <p className="text-xs text-slate-500 truncate">{book.author || 'Academic Press'}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
