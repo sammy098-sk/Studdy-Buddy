@@ -8,12 +8,12 @@ import {
 import { supabase } from '../supabase';
 
 const SidebarSection = ({ label, children, isExpanded }) => (
-  <div className={`relative group/section ${isExpanded ? 'mb-3 space-y-1.5' : 'mb-2 space-y-1'}`}>
+  <div className={`relative group/section ${isExpanded ? 'mb-3 space-y-1.5' : 'mb-2 space-y-1.5'}`}>
     <div className={`px-4 pt-4 pb-1.5 text-[12px] lg:text-[13px] font-extrabold text-slate-400 uppercase tracking-widest font-mono transition-all duration-200 whitespace-nowrap overflow-hidden ${isExpanded ? 'opacity-100 max-h-12' : 'opacity-0 max-h-0 pt-0 pb-0'}`}>
       {label}
     </div>
     {!isExpanded && <div className="mx-4 my-2 h-px bg-slate-100" />}
-    <div className={`px-2 ${isExpanded ? 'space-y-1' : 'space-y-1'}`}>
+    <div className={`px-2 ${isExpanded ? 'space-y-1.5' : 'space-y-1.5'}`}>
       {children}
     </div>
   </div>
@@ -25,7 +25,7 @@ const SidebarLink = ({ item, active, onClick, isHighlighted, isExpanded }) => {
     <button
       onClick={onClick}
       className={`relative w-full group flex items-center rounded-[14px] font-extrabold transition-all duration-200 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 select-none ${
-        isExpanded ? 'justify-between px-3 py-2.5 h-auto' : 'justify-center px-0 py-0 h-[38px]'
+        isExpanded ? 'justify-between px-3 py-2.5 h-auto' : 'justify-center px-0 py-0 h-[44px]'
       } ${
         active
           ? 'bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 text-white font-black shadow-xl shadow-blue-600/30 ring-1 ring-blue-400/30'

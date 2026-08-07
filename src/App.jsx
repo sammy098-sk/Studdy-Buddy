@@ -230,8 +230,8 @@ function MainApp() {
 
       {/* Expanded Desktop Header (Hidden on Reader route) */}
       {!isReaderRoute && (
-        <header className="bg-white border-b shrink-0 z-30 shadow-2xs" style={{ borderColor: "#E2E8F0" }}>
-          <div className="max-w-[1400px] mx-auto w-full flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3.5 gap-4">
+        <header className="bg-white border-b shrink-0 z-30 shadow-2xs w-full" style={{ borderColor: "#E2E8F0" }}>
+          <div className="w-full flex items-center justify-between px-4 lg:px-6 py-3.5 gap-4">
             {/* Brand Logo & Name / Mobile Greeting */}
             <button onClick={() => navigate('/study')} className="flex items-center gap-2.5 group shrink-0 focus-visible:outline-none min-w-0">
               <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-2xs shrink-0" style={{ background: "#2954E5" }}>
@@ -329,8 +329,8 @@ function MainApp() {
 
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onNavigate={navigateTo} currentPage={window.location.pathname.slice(1)} user={user} onLogout={handleLogout} />}
 
-      {/* Main Application Container: Centered (max-w-[1400px]) on standard routes, Full Screen on Reader */}
-      <div className={`flex-1 overflow-hidden relative flex flex-col md:flex-row ${!isReaderRoute ? 'max-w-[1400px] w-full mx-auto' : 'w-full'}`}>
+      {/* Main Application Container */}
+      <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row w-full">
         {!isReaderRoute && (
           <DesktopSidebar user={user} currentPath={window.location.pathname} onNavigate={navigateTo} />
         )}
