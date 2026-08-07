@@ -800,53 +800,72 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       </button>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {user.favorite_subjects.map((subName) => {
-                        const subjectBooks = books.filter(b => b.subject === subName || (b.title && b.title.toLowerCase().includes(subName.toLowerCase())));
-                        const displayBooks = subjectBooks.slice(0, 3);
+                    <>
+                      {(() => {
+                        const matchingBooks = books.filter(b => user.favorite_subjects.some(sub => b.subject === sub || (b.title && b.title.toLowerCase().includes(sub.toLowerCase()))));
+                        
+                        if (matchingBooks.length === 0) {
+                          return (
+                            <div className="p-8 sm:p-10 bg-white rounded-3xl border border-slate-200/90 text-center space-y-4 shadow-2xs mt-4">
+                              <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto shadow-xs border border-slate-100">
+                                <BookOpen size={32} strokeWidth={1.5} />
+                              </div>
+                              <div>
+                                <h3 className="font-extrabold text-slate-800 text-base sm:text-lg">No textbooks are available for your selected JAMB subjects yet.</h3>
+                                <p className="text-slate-500 text-sm mt-1">Your personalized bookshelf will appear here once textbooks are uploaded.</p>
+                              </div>
+                            </div>
+                          );
+                        }
+
                         return (
-                          <div key={subName} className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
-                            <div className="bg-slate-50/80 border-b border-slate-100 px-5 py-3.5 flex items-center justify-between">
-                              <h3 className="font-extrabold text-slate-800 text-sm sm:text-base">{subName}</h3>
-                              {subjectBooks.length > 3 && (
-                                <button 
-                                  onClick={() => onNavigate('library', { subject: subName })}
-                                  className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 cursor-pointer"
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 lg:gap-5 mt-4">
+                            {matchingBooks.map((book) => {
+                              const isProcessing = book.status !== 'ready';
+                              return (
+                                <div
+                                  key={book.id}
+                                  onClick={() => !isProcessing && onNavigate('reader', { bookId: book.id })}
+                                  className="bg-white rounded-2xl lg:rounded-3xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-lg transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] cursor-pointer flex flex-col group justify-between"
                                 >
-                                  View all <ChevronRight size={14} />
-                                </button>
-                              )}
-                            </div>
-                            <div className="p-4">
-                              {subjectBooks.length === 0 ? (
-                                <p className="text-sm font-medium text-slate-500 italic p-2">{subName} No textbooks available yet.</p>
-                              ) : (
-                                <div className="space-y-2">
-                                  {displayBooks.map(book => (
-                                    <div 
-                                      key={book.id} 
-                                      onClick={() => onNavigate('reader', { bookId: book.id })}
-                                      className="flex items-center gap-3 p-3 rounded-2xl hover:bg-blue-50 cursor-pointer transition-colors border border-transparent hover:border-blue-100 group"
-                                    >
-                                      <div className={`w-10 h-12 rounded bg-gradient-to-br ${getSubjectColor(book.subject)} shrink-0 flex items-center justify-center text-white shadow-sm overflow-hidden relative`}>
-                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-black/20" />
-                                        <BookOpen size={16} className="opacity-80" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-slate-900 text-sm truncate group-hover:text-blue-700 transition-colors">
-                                          {cleanBookTitle(book.title)}
-                                        </h4>
-                                        <p className="text-xs text-slate-500 truncate">{book.author || 'Academic Press'}</p>
-                                      </div>
+                                  <div className={`h-36 sm:h-40 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-3.5 sm:p-4 flex flex-col justify-between relative overflow-hidden shrink-0`}>
+                                    <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-black/20 border-r border-white/10 z-10" />
+                                    <div className="relative z-20 pl-1.5">
+                                      <span className="inline-block px-2 py-0.5 bg-black/30 backdrop-blur-md rounded-md text-[10px] sm:text-xs font-extrabold text-white uppercase tracking-wider">
+                                        {book.subject || 'Book'}
+                                      </span>
                                     </div>
-                                  ))}
+                                    <div className="relative z-20 pl-1.5 mt-auto">
+                                      <div className="w-6 h-0.5 bg-white/40 rounded-full mb-1"></div>
+                                      <p className="text-white text-xs sm:text-sm font-extrabold line-clamp-2 uppercase tracking-tight opacity-95 leading-tight">{cleanBookTitle(book.title)}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between bg-white">
+                                    <div>
+                                      <h3 className="text-xs sm:text-[14.5px] font-extrabold text-slate-900 line-clamp-2 leading-snug mb-1 min-h-[2.5rem]" title={book.title}>
+                                        {cleanBookTitle(book.title)}
+                                      </h3>
+                                      <p className="text-xs text-slate-500 font-semibold truncate mb-3">
+                                        {book.author || 'Academic Press'}
+                                      </p>
+                                    </div>
+                                    
+                                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-blue-600">
+                                      <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
+                                      <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-blue-700 font-black">
+                                        <span>Read</span>
+                                        <ArrowRight size={13} strokeWidth={2.5} />
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
-                            </div>
+                              );
+                            })}
                           </div>
                         );
-                      })}
-                    </div>
+                      })()}
+                    </>
                   )}
                 </div>
 
