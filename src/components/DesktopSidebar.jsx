@@ -8,12 +8,12 @@ import {
 import { supabase } from '../supabase';
 
 const SidebarSection = ({ label, children, isExpanded }) => (
-  <div className={`relative group/section ${isExpanded ? 'mb-4 space-y-2' : 'mb-3 space-y-1'}`}>
-    <div className={`px-4 pt-6 pb-2 text-[13px] lg:text-[14px] font-extrabold text-slate-400 uppercase tracking-widest font-mono transition-all duration-200 whitespace-nowrap overflow-hidden ${isExpanded ? 'opacity-100 max-h-12' : 'opacity-0 max-h-0 pt-0 pb-0'}`}>
+  <div className={`relative group/section ${isExpanded ? 'mb-3 space-y-1.5' : 'mb-2 space-y-1'}`}>
+    <div className={`px-4 pt-4 pb-1.5 text-[12px] lg:text-[13px] font-extrabold text-slate-400 uppercase tracking-widest font-mono transition-all duration-200 whitespace-nowrap overflow-hidden ${isExpanded ? 'opacity-100 max-h-12' : 'opacity-0 max-h-0 pt-0 pb-0'}`}>
       {label}
     </div>
-    {!isExpanded && <div className="mx-4 my-2.5 h-px bg-slate-100" />}
-    <div className={`px-2.5 ${isExpanded ? 'space-y-2.5' : 'space-y-1.5'}`}>
+    {!isExpanded && <div className="mx-4 my-2 h-px bg-slate-100" />}
+    <div className={`px-2 ${isExpanded ? 'space-y-1' : 'space-y-1'}`}>
       {children}
     </div>
   </div>
@@ -24,8 +24,8 @@ const SidebarLink = ({ item, active, onClick, isHighlighted, isExpanded }) => {
   return (
     <button
       onClick={onClick}
-      className={`relative w-full group flex items-center rounded-2xl font-extrabold transition-all duration-200 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 select-none ${
-        isExpanded ? 'justify-between px-3.5 py-3.5 sm:py-4 h-auto' : 'justify-center px-0 py-0 h-[44px]'
+      className={`relative w-full group flex items-center rounded-[14px] font-extrabold transition-all duration-200 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 select-none ${
+        isExpanded ? 'justify-between px-3 py-2.5 h-auto' : 'justify-center px-0 py-0 h-[38px]'
       } ${
         active
           ? 'bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 text-white font-black shadow-xl shadow-blue-600/30 ring-1 ring-blue-400/30'
@@ -34,9 +34,9 @@ const SidebarLink = ({ item, active, onClick, isHighlighted, isExpanded }) => {
             : 'text-slate-600 font-bold hover:bg-slate-100/80 hover:text-slate-950 hover:bg-slate-100/80'
       } ${isExpanded && (active || isHighlighted || true) ? 'hover:translate-x-1' : ''}`}
     >
-      <div className={`flex items-center min-w-0 ${isExpanded ? 'gap-3.5' : ''}`}>
+      <div className={`flex items-center min-w-0 ${isExpanded ? 'gap-3' : ''}`}>
         <IconComponent
-          size={isExpanded ? 23 : 21}
+          size={19}
           strokeWidth={active || isHighlighted ? 2.6 : 2.2}
           className={
             active 
@@ -46,13 +46,13 @@ const SidebarLink = ({ item, active, onClick, isHighlighted, isExpanded }) => {
                 : 'text-slate-500 group-hover:text-blue-600 shrink-0 transition-colors'
           }
         />
-        <span className={`truncate tracking-tight text-[15.5px] lg:text-[17px] transition-all duration-300 whitespace-nowrap overflow-hidden ${isExpanded ? 'opacity-100 max-w-[150px] ml-3.5' : 'opacity-0 max-w-0 ml-0'}`}>
+        <span className={`truncate tracking-tight text-[14px] lg:text-[15px] transition-all duration-300 whitespace-nowrap overflow-hidden ${isExpanded ? 'opacity-100 max-w-[150px] ml-3' : 'opacity-0 max-w-0 ml-0'}`}>
           {item.label}
         </span>
       </div>
       
       {item.badge && (
-        <span className={`px-2.5 py-0.5 rounded-full text-[11px] lg:text-xs font-black shrink-0 shadow-2xs tracking-tight font-mono transition-all duration-300 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 ml-2 max-w-[40px]' : 'opacity-0 ml-0 max-w-0 p-0 border-0 absolute w-0 h-0'} ${
+        <span className={`px-2 py-0.5 rounded-full text-[10px] lg:text-[11px] font-black shrink-0 shadow-2xs tracking-tight font-mono transition-all duration-300 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 ml-2 max-w-[40px]' : 'opacity-0 ml-0 max-w-0 p-0 border-0 absolute w-0 h-0'} ${
           active ? 'bg-white text-blue-700' : isHighlighted ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200/80'
         }`}>
           {item.badge}
@@ -61,10 +61,10 @@ const SidebarLink = ({ item, active, onClick, isHighlighted, isExpanded }) => {
 
       {/* CUSTOM TOOLTIP */}
       {!isExpanded && (
-        <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white text-slate-800 text-sm font-extrabold rounded-xl shadow-xl border border-slate-200/60 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 z-50 whitespace-nowrap flex items-center gap-2">
+        <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white text-slate-800 text-[13px] font-extrabold rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.12)] border border-slate-200 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200 z-50 whitespace-nowrap flex items-center gap-2">
           {item.label}
           {item.badge && (
-             <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] uppercase font-mono shadow-xs border border-blue-100">{item.badge}</span>
+             <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[9px] uppercase font-mono shadow-xs border border-blue-100">{item.badge}</span>
           )}
         </div>
       )}
@@ -146,31 +146,20 @@ export default function DesktopSidebar({ user, currentPath, onNavigate }) {
   return (
     <>
       <aside
-        className={`hidden lg:flex flex-col relative z-40 shrink-0 bg-white border-r border-slate-200 transition-[width] duration-300 ease-in-out overflow-y-auto overflow-x-hidden select-none ${isExpanded ? 'w-64 xl:w-72' : 'w-[72px]'}`}
+        className={`hidden lg:flex flex-col relative z-40 shrink-0 bg-white border-r border-slate-200 transition-[width] duration-300 ease-in-out overflow-y-auto overflow-x-hidden select-none ${isExpanded ? 'w-[260px]' : 'w-[68px]'}`}
         style={{ height: 'calc(100vh - 65px)' }}
       >
-        <div className={`flex items-center pt-5 pb-3 transition-all duration-300 ${isExpanded ? 'px-5 justify-between' : 'px-0 justify-center flex-col gap-3'}`}>
+        <div className={`flex items-center pt-4 pb-2 transition-all duration-300 ${isExpanded ? 'px-4 justify-start' : 'px-0 justify-center'}`}>
            <button 
               onClick={toggleSidebar} 
               className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-all cursor-pointer flex items-center justify-center shrink-0"
               title={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
            >
-              <Menu size={22} strokeWidth={2.5} />
+              <Menu size={20} strokeWidth={2.5} />
            </button>
-           
-           <div className={`flex items-center gap-3 transition-all duration-300 ${!isExpanded && 'mt-1'}`}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform duration-200 bg-blue-600 shrink-0 shadow-md">
-                <BookOpen size={20} color="#FFFFFF" strokeWidth={2.5} />
-              </div>
-              <div className={`flex flex-col text-left transition-all duration-300 overflow-hidden whitespace-nowrap ${isExpanded ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0 hidden'}`}>
-                <span className="font-extrabold text-[19px] leading-none tracking-tight text-slate-900 font-montserrat">
-                  StudyBuddy
-                </span>
-              </div>
-           </div>
         </div>
 
-        <div className="flex flex-col flex-1 pb-6 mt-2">
+        <div className="flex flex-col flex-1 pb-6 mt-1">
 
           {/* ── LIBRARY ── */}
           <SidebarSection label="Library" isExpanded={isExpanded}>
