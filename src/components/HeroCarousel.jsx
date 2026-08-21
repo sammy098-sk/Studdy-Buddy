@@ -252,12 +252,12 @@ export default function HeroCarousel({ activeBook, recentActivity, user, onNavig
                       <div className="flex items-center justify-between text-[11px] sm:text-xs lg:text-[13px] font-bold text-white/90">
                         <span>Page {slide.progressInfo.currentPage} {slide.progressInfo.totalPages ? `of ${slide.progressInfo.totalPages}` : ''}</span>
                         {slide.progressInfo.progressPercent !== null && (
-                          <span className="text-blue-200 font-black">{slide.progressInfo.progressPercent}% Complete</span>
+                          <span className="text-indigo-200 md:text-blue-200 font-black">{slide.progressInfo.progressPercent}% Complete</span>
                         )}
                       </div>
                       <div className="w-full h-2.5 sm:h-3 bg-black/40 backdrop-blur-sm rounded-full overflow-hidden p-0.5 border border-white/20">
                         <div 
-                          className="h-full bg-gradient-to-r from-blue-400 via-sky-300 to-emerald-400 rounded-full transition-all duration-1000 shadow-sm"
+                          className="h-full bg-gradient-to-r from-indigo-400 via-violet-300 to-emerald-400 md:from-blue-400 md:via-sky-300 md:to-emerald-400 rounded-full transition-all duration-1000 shadow-sm"
                           style={{ width: `${slide.progressInfo.progressPercent || Math.min(100, Math.max(10, (slide.progressInfo.currentPage / 100) * 10))}%` }}
                         />
                       </div>
@@ -268,11 +268,11 @@ export default function HeroCarousel({ activeBook, recentActivity, user, onNavig
                   <div className="pt-2 sm:pt-2.5">
                     <button
                       onClick={slide.action}
-                      className="inline-flex items-center gap-2.5 px-5 py-2.5 lg:px-6 lg:py-3.5 bg-white text-slate-900 hover:bg-blue-50 text-xs sm:text-sm lg:text-[15.5px] font-black rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg shadow-black/25 hover:-translate-y-0.5 active:translate-y-0 group/btn cursor-pointer"
+                      className="inline-flex items-center gap-2.5 px-5 py-2.5 lg:px-6 lg:py-3.5 bg-white text-slate-900 hover:bg-indigo-50 md:hover:bg-blue-50 text-xs sm:text-sm lg:text-[15.5px] font-black rounded-xl sm:rounded-2xl transition-all duration-200 shadow-lg shadow-black/25 hover:-translate-y-0.5 active:translate-y-0 group/btn cursor-pointer"
                     >
-                      <Play size={16} fill="currentColor" className="text-blue-600 lg:w-5 lg:h-5 shrink-0" />
+                      <Play size={16} fill="currentColor" className="text-indigo-600 md:text-blue-600 lg:w-5 lg:h-5 shrink-0" />
                       <span>{slide.ctaText}</span>
-                      <ArrowRight size={17} className="text-blue-600 group-hover/btn:translate-x-1.5 transition-transform" />
+                      <ArrowRight size={17} className="text-indigo-600 md:text-blue-600 group-hover/btn:translate-x-1.5 transition-transform" />
                     </button>
                   </div>
                 </div>

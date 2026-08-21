@@ -508,18 +508,18 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
           {/* Feature 1: AI-Generated Summaries */}
           <div 
             onClick={() => onNavigate('ai-summaries')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-purple-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-indigo-300/80 md:hover:border-purple-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-all duration-200 shadow-2xs">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white md:bg-purple-50 md:text-purple-600 md:border-purple-100 md:group-hover:bg-purple-600 flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs">
                 <Wand2 size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
               </div>
               <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-purple-700 transition-colors tracking-tight">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-indigo-700 md:group-hover:text-purple-700 transition-colors tracking-tight">
                     AI Study Notes
                   </h3>
-                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-indigo-600 md:group-hover:text-purple-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
                 </div>
                 <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
                   Generate comprehensive, teacher-level study notes detailed enough to master without another textbook.
@@ -535,18 +535,18 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
           {/* Feature 2: JAMB Practice Questions */}
           <div 
             onClick={() => onNavigate('jamb-practice')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-emerald-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-indigo-300/80 md:hover:border-emerald-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200 shadow-2xs">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white md:bg-emerald-50 md:text-emerald-600 md:border-emerald-100 md:group-hover:bg-emerald-600 flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs">
                 <ClipboardCheck size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
               </div>
               <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors tracking-tight">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-indigo-700 md:group-hover:text-emerald-700 transition-colors tracking-tight">
                     JAMB Practice
                   </h3>
-                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-indigo-600 md:group-hover:text-emerald-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
                 </div>
                 <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
                   Practice authentic JAMB-style questions and monitor your performance.
@@ -562,18 +562,18 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
           {/* Feature 3: Explain This Concept */}
           <div 
             onClick={() => onNavigate('explain-concept')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-blue-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-indigo-300/80 md:hover:border-blue-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-all duration-200 shadow-2xs">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white md:bg-blue-50 md:text-blue-600 md:border-blue-100 md:group-hover:bg-blue-600 flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs">
                 <Lightbulb size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
               </div>
               <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors tracking-tight">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-indigo-700 md:group-hover:text-blue-700 transition-colors tracking-tight">
                     Explain This Concept
                   </h3>
-                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-indigo-600 md:group-hover:text-blue-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
                 </div>
                 <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
                   Ask AI to explain any difficult topic in simple, easy-to-understand language.
@@ -604,7 +604,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter textbooks by title, subject, or topic..."
-                  className="w-full h-10 sm:h-12 lg:h-13 pl-10 sm:pl-12 lg:pl-13 pr-20 bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-bold text-xs sm:text-sm lg:text-base transition-all placeholder:text-slate-400"
+                  className="w-full h-10 sm:h-12 lg:h-13 pl-10 sm:pl-12 lg:pl-13 pr-20 bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 md:focus:ring-blue-500/20 md:focus:border-blue-500 font-bold text-xs sm:text-sm lg:text-base transition-all placeholder:text-slate-400"
                 />
                 {searchQuery && (
                   <button
@@ -627,11 +627,11 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       onClick={() => handleChipClick(chip)}
                       className={`h-8 sm:h-9 lg:h-10 px-3 sm:px-4 lg:px-4.5 rounded-xl lg:rounded-2xl text-[11.5px] sm:text-xs lg:text-sm font-extrabold transition-all shrink-0 flex items-center gap-1.5 lg:gap-2 border shadow-2xs hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
                         isSelected 
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20' 
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-50/70 hover:text-blue-700 hover:border-blue-200'
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20 md:bg-blue-600 md:border-blue-600 md:shadow-blue-600/20' 
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50/70 hover:text-indigo-700 hover:border-indigo-200 md:hover:bg-blue-50/70 md:hover:text-blue-700 md:hover:border-blue-200'
                       }`}
                     >
-                      <IconComponent size={13} strokeWidth={2.4} className={`lg:w-4 lg:h-4 ${isSelected ? 'text-white' : 'text-blue-600'}`} />
+                      <IconComponent size={13} strokeWidth={2.4} className={`lg:w-4 lg:h-4 ${isSelected ? 'text-white' : 'text-indigo-600 md:text-blue-600'}`} />
                       <span>{chip}</span>
                     </button>
                   );
@@ -645,11 +645,11 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                 <div className="flex items-center justify-between">
                   <h2 className="text-base sm:text-lg lg:text-2xl font-extrabold text-slate-800 flex items-center gap-2">
                     <span>Search & Filter Results</span>
-                    <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg text-xs lg:text-sm font-extrabold">{filteredBooks.length} found</span>
+                    <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 md:bg-blue-50 md:text-blue-700 md:border-blue-100 rounded-lg text-xs lg:text-sm font-extrabold">{filteredBooks.length} found</span>
                   </h2>
                   <button
                     onClick={() => { setSearchQuery(''); setSelectedGoalChip(null); }}
-                    className="text-xs lg:text-sm font-bold text-blue-600 hover:underline flex items-center gap-1"
+                    className="text-xs lg:text-sm font-bold text-indigo-600 md:text-blue-600 hover:underline flex items-center gap-1"
                   >
                     <span>Reset filters</span>
                   </button>
@@ -679,7 +679,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                           <p className="text-white font-extrabold text-[13px] lg:text-base line-clamp-2 ml-1.5 leading-tight drop-shadow-sm">{book.title}</p>
                         </div>
                         <div className="p-3.5 lg:p-4 bg-white">
-                          <div className="text-xs lg:text-sm font-extrabold text-blue-600 flex items-center justify-between group-hover:text-blue-700 transition-colors">
+                          <div className="text-xs lg:text-sm font-extrabold text-indigo-600 group-hover:text-indigo-700 md:text-blue-600 md:group-hover:text-blue-700 transition-colors flex items-center justify-between">
                             <span>Open textbook</span>
                             <ArrowRight size={14} className="lg:w-4 lg:h-4 group-hover:translate-x-1 transition-transform" />
                           </div>
@@ -696,10 +696,10 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                   <div className="space-y-3 lg:space-y-4">
                     <div className="flex items-center justify-between px-1">
                       <h2 className="text-xs lg:text-sm xl:text-base font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-2 font-mono">
-                        <BookMarked size={16} strokeWidth={2.2} className="text-blue-600 lg:w-5 lg:h-5" />
+                        <BookMarked size={16} strokeWidth={2.2} className="text-indigo-600 md:text-blue-600 lg:w-5 lg:h-5" />
                         <span>Continue Reading</span>
                       </h2>
-                      <button onClick={() => onNavigate('sessions')} className="text-xs lg:text-sm font-bold text-blue-600 hover:underline flex items-center gap-1">
+                      <button onClick={() => onNavigate('sessions')} className="text-xs lg:text-sm font-bold text-indigo-600 md:text-blue-600 hover:underline flex items-center gap-1">
                         <span>View reading sessions</span>
                         <ChevronRight size={14} className="lg:w-4 lg:h-4" />
                       </button>
@@ -715,11 +715,11 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
 
                       <div className="relative z-10 pl-3 sm:pl-5 max-w-2xl lg:max-w-3xl">
                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/30 backdrop-blur-md border border-white/20 rounded-xl text-xs lg:text-sm font-extrabold tracking-wide uppercase mb-3.5 shadow-2xs">
-                          <BookOpen size={13} strokeWidth={2.5} className="text-blue-300 lg:w-4 lg:h-4" />
+                          <BookOpen size={13} strokeWidth={2.5} className="text-indigo-300 md:text-blue-300 lg:w-4 lg:h-4" />
                           <span>{activeBook.subject || 'Textbook'}</span>
                         </div>
 
-                        <h3 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-2 group-hover:text-blue-200 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                        <h3 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-2 group-hover:text-indigo-200 md:group-hover:text-blue-200 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                           {cleanBookTitle(activeBook.title)}
                         </h3>
                         {activeBook.author && (
@@ -732,22 +732,22 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                           <div className="space-y-2.5 mb-6">
                             <div className="flex items-center justify-between text-xs sm:text-sm lg:text-base font-bold text-white/90">
                               <span className="flex items-center gap-1.5">
-                                <Clock3 size={15} strokeWidth={2.5} className="text-blue-300 lg:w-5 lg:h-5" />
+                                <Clock3 size={15} strokeWidth={2.5} className="text-indigo-300 md:text-blue-300 lg:w-5 lg:h-5" />
                                 <span>Page {activeBook.progress.current_page} of {activeBook.total_pages || '?'}</span>
                               </span>
-                              <span className="text-blue-200 font-extrabold">
+                              <span className="text-indigo-200 md:text-blue-200 font-extrabold">
                                 {Math.min(100, Math.round((activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}% Complete
                               </span>
                             </div>
                             <div className="w-full h-3 lg:h-3.5 bg-black/40 backdrop-blur-sm rounded-full overflow-hidden p-0.5 border border-white/15">
                               <div 
-                                className="h-full bg-gradient-to-r from-blue-400 via-indigo-300 to-emerald-400 rounded-full transition-all duration-1000 shadow-sm"
+                                className="h-full bg-gradient-to-r from-indigo-400 via-violet-300 to-emerald-400 md:from-blue-400 md:via-indigo-300 md:to-emerald-400 rounded-full transition-all duration-1000 shadow-sm"
                                 style={{ width: `${Math.min(100, Math.max(5, (activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%` }}
                               />
                             </div>
                           </div>
                         ) : (
-                          <p className="text-xs sm:text-sm lg:text-base text-blue-200 font-bold mb-6 flex items-center gap-2">
+                          <p className="text-xs sm:text-sm lg:text-base text-indigo-200 md:text-blue-200 font-bold mb-6 flex items-center gap-2">
                             <Play size={14} fill="currentColor" className="lg:w-5 lg:h-5" />
                             Ready for your first interactive reading session!
                           </p>
@@ -760,7 +760,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                           }}
                           className="h-12 lg:h-14 px-6 lg:px-8 bg-white text-slate-900 font-extrabold text-sm sm:text-base lg:text-lg rounded-2xl shadow-lg hover:bg-slate-100 active:scale-95 transition-all inline-flex items-center gap-2.5 group/btn border border-slate-200"
                         >
-                          <Play size={16} fill="currentColor" className="text-blue-600 lg:w-5 lg:h-5" />
+                          <Play size={16} fill="currentColor" className="text-indigo-600 md:text-blue-600 lg:w-5 lg:h-5" />
                           <span>{activeBook.progress?.current_page ? 'Continue Reading' : 'Start Reading'}</span>
                           <ArrowRight size={18} strokeWidth={2.5} className="lg:w-5 lg:h-5 group-hover/btn:translate-x-1 transition-transform text-slate-400" />
                         </button>
@@ -777,7 +777,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                     </h2>
                     <button 
                       onClick={() => onNavigate('profile')} 
-                      className="text-xs sm:text-sm font-bold text-slate-500 hover:text-blue-600 flex items-center gap-0.5 transition-colors hover:underline cursor-pointer"
+                      className="text-xs sm:text-sm font-bold text-slate-500 hover:text-indigo-600 md:hover:text-blue-600 flex items-center gap-0.5 transition-colors hover:underline cursor-pointer"
                     >
                       <span>Edit Preferences</span>
                       <ChevronRight size={14} strokeWidth={2.5} />
@@ -785,7 +785,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                   </div>
 
                   {(!user?.favorite_subjects || user.favorite_subjects.length === 0) ? (
-                    <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md border border-blue-500/40">
+                    <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-indigo-600 to-violet-700 border-indigo-500/40 md:from-blue-600 md:to-indigo-700 md:border-blue-500/40 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
                       <div className="space-y-1.5">
                         <div className="font-extrabold text-sm sm:text-base flex items-center gap-2">
                           <Sparkles size={18} className="text-amber-300 animate-pulse" />
@@ -794,7 +794,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       </div>
                       <button
                         onClick={() => onNavigate('profile')}
-                        className="px-5 py-2.5 bg-white text-blue-950 hover:bg-blue-50 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
+                        className="px-5 py-2.5 bg-white text-indigo-950 hover:bg-indigo-50 md:text-blue-950 md:hover:bg-blue-50 font-black text-xs sm:text-sm rounded-xl shadow-md transition-all shrink-0 active:scale-95 cursor-pointer"
                       >
                         Choose Subjects
                       </button>
@@ -851,9 +851,9 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                       </p>
                                     </div>
                                     
-                                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-blue-600">
+                                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-indigo-600 md:text-blue-600">
                                       <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
-                                      <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-blue-700 font-black">
+                                      <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-indigo-700 md:text-blue-700 font-black">
                                         <span>Read</span>
                                         <ArrowRight size={13} strokeWidth={2.5} />
                                       </span>
@@ -913,31 +913,31 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                             key={item.id}
                             onClick={() => togglePlanItem(item.id)}
                             className={`py-3.5 px-3 sm:px-4 rounded-2xl transition-all flex items-start sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer group select-none ${
-                              isDone ? 'bg-slate-50/60 hover:bg-slate-100/50' : 'hover:bg-blue-50/60'
+                              isDone ? 'bg-slate-50/60 hover:bg-slate-100/50' : 'hover:bg-indigo-50/60 md:hover:bg-blue-50/60'
                             }`}
                           >
                             <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0 flex-1">
                               <button
                                 onClick={(e) => togglePlanItem(item.id, e)}
                                 aria-label="Toggle study plan task completion"
-                                className="shrink-0 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer mt-0.5 sm:mt-0"
+                                className="shrink-0 text-slate-400 hover:text-indigo-600 md:hover:text-blue-600 transition-colors cursor-pointer mt-0.5 sm:mt-0"
                               >
                                 {isDone ? (
                                   <CheckCircle2 size={23} className="text-emerald-500 shrink-0 fill-emerald-50" strokeWidth={2.5} />
                                 ) : (
-                                  <Circle size={23} className="text-slate-300 group-hover:text-blue-500 shrink-0" strokeWidth={2.2} />
+                                  <Circle size={23} className="text-slate-300 group-hover:text-indigo-500 md:group-hover:text-blue-500 shrink-0" strokeWidth={2.2} />
                                 )}
                               </button>
                               
                               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0 flex-1">
                                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-extrabold shrink-0 border shadow-2xs uppercase tracking-tight w-fit ${
-                                  isDone ? 'bg-slate-100 text-slate-600 border-slate-200/80' : 'bg-blue-50 text-blue-800 border-blue-200/80'
+                                  isDone ? 'bg-slate-100 text-slate-600 border-slate-200/80' : 'bg-indigo-50 text-indigo-800 border-indigo-200/80 md:bg-blue-50 md:text-blue-800 md:border-blue-200/80'
                                 }`}>
-                                  <SubjIcon size={13} className={isDone ? 'text-slate-500' : 'text-blue-600'} />
+                                  <SubjIcon size={13} className={isDone ? 'text-slate-500' : 'text-indigo-600 md:text-blue-600'} />
                                   <span>{item.subject}</span>
                                 </span>
                                 <span className={`text-xs sm:text-[14px] lg:text-[15px] font-extrabold line-clamp-2 sm:line-clamp-1 whitespace-normal leading-snug transition-all ${
-                                  isDone ? 'line-through text-slate-400 font-semibold' : 'text-slate-800 group-hover:text-blue-700'
+                                  isDone ? 'line-through text-slate-400 font-semibold' : 'text-slate-800 group-hover:text-indigo-700 md:group-hover:text-blue-700'
                                 }`}>
                                   {item.taskText}
                                 </span>
@@ -949,7 +949,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                 e.stopPropagation();
                                 item.action();
                               }}
-                              className="shrink-0 inline-flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-blue-600 text-slate-800 hover:text-white text-[11px] sm:text-xs font-extrabold rounded-xl sm:rounded-2xl transition-all shadow-2xs group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-md cursor-pointer mt-0.5 sm:mt-0"
+                              className="shrink-0 inline-flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-100 hover:bg-indigo-600 md:hover:bg-blue-600 text-slate-800 hover:text-white text-[11px] sm:text-xs font-extrabold rounded-xl sm:rounded-2xl transition-all shadow-2xs group-hover:bg-indigo-600 md:group-hover:bg-blue-600 group-hover:text-white group-hover:shadow-md cursor-pointer mt-0.5 sm:mt-0"
                             >
                               <span>{item.actionText}</span>
                               <ArrowRight size={13} strokeWidth={2.5} />
@@ -972,12 +972,12 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                     <div className="space-y-3 sm:space-y-4 pt-2">
                       <div className="flex items-baseline justify-between px-1">
                         <h2 className="text-base sm:text-lg lg:text-xl font-extrabold text-slate-900 flex items-center gap-2 tracking-tight">
-                          <History size={20} strokeWidth={2.5} className="text-blue-600 shrink-0" />
+                          <History size={20} strokeWidth={2.5} className="text-indigo-600 md:text-blue-600 shrink-0" />
                           <span>Recent Activity</span>
                         </h2>
                         <button 
                           onClick={() => onNavigate('sessions')}
-                          className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline cursor-pointer"
+                          className="text-xs sm:text-sm font-bold text-indigo-600 hover:text-indigo-700 md:text-blue-600 md:hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline cursor-pointer"
                         >
                           <span>View History Log</span>
                           <ChevronRight size={14} strokeWidth={2.5} />
@@ -986,7 +986,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
 
                       {recentActivitiesList.length === 0 ? (
                         <div className="p-8 sm:p-10 bg-white rounded-3xl border border-slate-200/90 text-center space-y-3 shadow-2xs">
-                          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto shadow-xs border border-blue-100">
+                          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 md:bg-blue-50 md:text-blue-600 flex items-center justify-center mx-auto shadow-xs border border-indigo-100 md:border-blue-100">
                             <BookOpen size={24} strokeWidth={2} />
                           </div>
                           <h3 className="font-extrabold text-slate-800 text-base">No study sessions recorded yet</h3>
@@ -995,7 +995,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                           </p>
                           <button
                             onClick={() => onNavigate('library', { filter: 'JAMB' })}
-                            className="px-5 py-2.5 bg-blue-600 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md hover:bg-blue-700 transition-all cursor-pointer inline-block mt-1"
+                            className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 md:bg-blue-600 md:hover:bg-blue-700 font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition-all cursor-pointer inline-block mt-1"
                           >
                             Browse JAMB Library
                           </button>
@@ -1006,22 +1006,22 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                             <div
                               key={act.id}
                               onClick={act.action}
-                              className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-lg hover:border-blue-300/80 p-4 sm:p-5 transition-all duration-200 hover:-translate-y-1 cursor-pointer flex items-center gap-3.5 justify-between h-full group"
+                              className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-2xs hover:shadow-lg hover:border-indigo-300/80 md:hover:border-blue-300/80 p-4 sm:p-5 transition-all duration-200 hover:-translate-y-1 cursor-pointer flex items-center gap-3.5 justify-between h-full group"
                             >
                               <div className="flex items-center gap-3.5 min-w-0 flex-1">
                                 {act.bookCover ? (
                                   <BookCoverThumbnail title={act.bookCover.title} subject={act.bookCover.subject} size="md" className="shrink-0 group-hover:scale-105 transition-transform" />
                                 ) : (
-                                  <div className="w-13 h-18 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                                  <div className="w-13 h-18 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 md:bg-blue-50 md:border-blue-100 md:text-blue-600 flex items-center justify-center shrink-0">
                                     <BookOpen size={24} strokeWidth={2.2} />
                                   </div>
                                 )}
 
                                 <div className="min-w-0 flex-1 space-y-1">
-                                  <span className="inline-block text-[10px] font-black text-blue-800 bg-blue-50/90 px-2 py-0.5 rounded-md uppercase tracking-wide border border-blue-200/80">
+                                  <span className="inline-block text-[10px] font-black text-indigo-800 bg-indigo-50/90 border-indigo-200/80 md:text-blue-800 md:bg-blue-50/90 md:border-blue-200/80 px-2 py-0.5 rounded-md uppercase tracking-wide border">
                                     {act.subject}
                                   </span>
-                                  <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors" title={act.title}>
+                                  <h3 className="text-sm sm:text-[15px] font-extrabold text-slate-900 truncate leading-tight group-hover:text-indigo-600 md:group-hover:text-blue-600 transition-colors" title={act.title}>
                                     {act.title}
                                   </h3>
                                   <div className="text-xs font-extrabold text-slate-600 truncate">
@@ -1030,7 +1030,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                   <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-slate-400 pt-0.5">
                                     <span className="truncate">{act.detail}</span>
                                     <span>•</span>
-                                    <span className="text-blue-600 font-extrabold shrink-0">{act.timeString}</span>
+                                    <span className="text-indigo-600 md:text-blue-600 font-extrabold shrink-0">{act.timeString}</span>
                                   </div>
                                 </div>
                               </div>
@@ -1041,7 +1041,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                     e.stopPropagation();
                                     act.action();
                                   }}
-                                  className="px-3.5 py-2 bg-slate-900 group-hover:bg-blue-600 text-white font-extrabold text-[11px] sm:text-xs rounded-xl transition-all shadow-md flex items-center gap-1 hover:bg-blue-700 cursor-pointer shrink-0"
+                                  className="px-3.5 py-2 bg-slate-900 group-hover:bg-indigo-600 hover:bg-indigo-700 md:group-hover:bg-blue-600 md:hover:bg-blue-700 text-white font-extrabold text-[11px] sm:text-xs rounded-xl transition-all shadow-md flex items-center gap-1 cursor-pointer shrink-0"
                                 >
                                   <span>{act.actionText || "Continue"}</span>
                                   <ChevronRight size={13} strokeWidth={3} />
@@ -1062,7 +1062,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                         </h2>
                         <button 
                           onClick={() => onNavigate('library')} 
-                          className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline"
+                          className="text-xs sm:text-sm font-bold text-indigo-600 hover:text-indigo-700 md:text-blue-600 md:hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline"
                         >
                           <span>View Full Library</span>
                           <ChevronRight size={14} strokeWidth={2.5} />
@@ -1101,7 +1101,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                       <IconComponent size={20} strokeWidth={2.2} />
                                     </div>
                                     <span className={`text-[11px] font-black px-2 py-0.5 rounded-md border shrink-0 ${
-                                      stats.hasProgress && stats.mastery > 0 ? 'text-blue-950 bg-blue-100 border-blue-200/60' : 'text-slate-600 bg-white/70 border-slate-200/50'
+                                      stats.hasProgress && stats.mastery > 0 ? 'text-indigo-950 bg-indigo-100 border-indigo-200/60 md:text-blue-950 md:bg-blue-100 md:border-blue-200/60' : 'text-slate-600 bg-white/70 border-slate-200/50'
                                     }`}>
                                       {stats.hasProgress && stats.mastery > 0 ? `${stats.mastery}% Mastery` : 'No progress yet'}
                                     </span>
@@ -1111,7 +1111,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                   <div className="mt-2 space-y-1">
                                     {stats.hasProgress && stats.mastery > 0 ? (
                                       <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
-                                        <div className="h-full bg-blue-600 rounded-full transition-all duration-500" style={{ width: `${stats.mastery}%` }} />
+                                        <div className="h-full bg-indigo-600 md:bg-blue-600 rounded-full transition-all duration-500" style={{ width: `${stats.mastery}%` }} />
                                       </div>
                                     ) : (
                                       <div className="text-[10.5px] font-semibold text-slate-500 italic">Start reading to track mastery</div>
@@ -1128,7 +1128,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                     <span>Practice CBT</span>
                                     <span className="text-slate-900">{stats.cbtCount} Qs</span>
                                   </div>
-                                  <div className="flex justify-between text-blue-600 pt-1 group-hover:translate-x-1 transition-transform font-black">
+                                  <div className="flex justify-between text-indigo-600 md:text-blue-600 pt-1 group-hover:translate-x-1 transition-transform font-black">
                                     <span>{stats.hasProgress && stats.mastery > 0 ? 'Continue Studying' : 'Explore Syllabus'}</span>
                                     <ArrowRight size={12} strokeWidth={3} />
                                   </div>
@@ -1150,7 +1150,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                           </h2>
                           <button 
                             onClick={() => onNavigate('library')}
-                            className="text-xs sm:text-sm font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline"
+                            className="text-xs sm:text-sm font-bold text-indigo-600 hover:text-indigo-700 md:text-blue-600 md:hover:text-blue-700 flex items-center gap-0.5 transition-colors hover:underline"
                           >
                             <span>See All ({books.length})</span>
                             <ChevronRight size={14} strokeWidth={2.5} />
@@ -1189,9 +1189,9 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                     </p>
                                   </div>
                                   
-                                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-blue-600">
+                                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-indigo-600 md:text-blue-600">
                                     <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
-                                    <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-blue-700 font-black">
+                                    <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-indigo-700 md:text-blue-700 font-black">
                                       <span>Read</span>
                                       <ArrowRight size={13} strokeWidth={2.5} />
                                     </span>

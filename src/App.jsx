@@ -234,7 +234,7 @@ function MainApp() {
           <div className="w-full flex items-center justify-between px-4 lg:px-6 py-3.5 gap-4">
             {/* Brand Logo & Name / Mobile Greeting */}
             <button onClick={() => navigate('/study')} className="flex items-center gap-2.5 group shrink-0 focus-visible:outline-none min-w-0">
-              <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-2xs shrink-0" style={{ background: "#2954E5" }}>
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-105 shadow-2xs shrink-0 bg-indigo-600 md:bg-[#2954E5]">
                 <BookOpen size={17} color="#FFFFFF" />
               </div>
               {/* Desktop Branding (Hidden on mobile) */}
@@ -247,7 +247,7 @@ function MainApp() {
               {/* Mobile Greeting (Replaces branding text on mobile) */}
               <div className="flex flex-col md:hidden text-left min-w-0">
                 <span className="text-[11px] font-medium text-slate-400 truncate">{getGreeting()}</span>
-                <span className="text-[14px] font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                <span className="text-[14px] font-bold text-slate-900 truncate group-hover:text-indigo-600 md:group-hover:text-blue-600 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                   {user?.name || "Student"} 👋
                 </span>
               </div>
