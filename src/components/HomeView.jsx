@@ -64,7 +64,7 @@ const CHIP_ICONS = {
   'JAMB': Bookmark
 };
 
-export default function HomeView({ user, onNavigate, mobileMenuOpen = false, theme = 'light', toggleTheme }) {
+export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
   const [subjects, setSubjects] = useState([]);
   const [books, setBooks] = useState([]);
   const [activeBook, setActiveBook] = useState(null);
@@ -538,25 +538,25 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
   }, [inProgressBooksList, recentSessions, books, onNavigate]);
 
   return (
-    <div className={`flex-1 overflow-y-auto ${theme === 'dark' ? 'bg-[#090D16] text-white' : 'bg-[#edf5f1] text-slate-900'} flex flex-col justify-between`}>
+    <div className="flex-1 overflow-y-auto bg-[#edf5f1] text-slate-900 flex flex-col justify-between">
       <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 lg:space-y-8">
         
         {/* 1. Compact Welcome Message & Header (Req 1: Hidden entirely on mobile to eliminate duplicate greeting & space) */}
         <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
           <div className="space-y-1.5 min-w-0">
-            <h1 className={`text-xl sm:text-2xl lg:text-[28px] xl:text-[30px] font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight truncate`} style={{ fontFamily: "'Montserrat', sans-serif" }}>
+            <h1 className="text-xl sm:text-2xl lg:text-[28px] xl:text-[30px] font-extrabold text-slate-900 tracking-tight truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
               {getTimeGreeting()}, {user?.name || 'Student'} 👋
             </h1>
-            <p className={`${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'} text-xs sm:text-sm lg:text-[15px] font-medium truncate`}>
+            <p className="text-slate-500 text-xs sm:text-sm lg:text-[15px] font-medium truncate">
               Welcome back to your study space. Pick up where you left off or explore new academic resources.
             </p>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/80 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-xs font-extrabold shadow-2xs">
-                <Target size={14} className="text-indigo-600 dark:text-indigo-400" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-200/80 text-indigo-900 text-xs font-extrabold shadow-2xs">
+                <Target size={14} className="text-indigo-600" />
                 <span>Target Score: {user?.target_score || "250+"} (AI {user?.target_score === "300+" ? "Elite Tier" : "Advanced Tier"})</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-xs font-extrabold shadow-2xs">
-                <Calendar size={14} className="text-blue-600 dark:text-blue-400" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200/80 text-blue-900 text-xs font-extrabold shadow-2xs">
+                <Calendar size={14} className="text-blue-600" />
                 <span>JAMB {user?.exam_year || "2027"} Countdown: {Math.max(0, Math.ceil((new Date(user?.target_exam_date || "2027-04-15") - new Date()) / (1000 * 60 * 60 * 24)))} days left</span>
               </span>
             </div>
@@ -573,42 +573,42 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
 
         {/* Desktop Hero Carousel (Hidden on Mobile) */}
         <div className="hidden md:block mt-0">
-          <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} mobileMenuOpen={mobileMenuOpen} theme={theme} />
+          <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} mobileMenuOpen={mobileMenuOpen} />
         </div>
 
-        {/* Mobile Hero Section: Two Stacked Dark Hero Cards + Your Week at a Glance (Mobile Only) */}
+        {/* Mobile Hero Section: Two Stacked Hero Cards + Your Week at a Glance (Mobile Only) */}
         <div className="md:hidden space-y-4 mt-2">
           
-          {/* CARD 1 — "TODAY'S FOCUS" (Amber / Gold Glass + Custom 3D Illustration) */}
+          {/* CARD 1 — "TODAY'S FOCUS" */}
           {activeBook && activeBook.progress && activeBook.progress.current_page > 0 ? (
             <div 
               onClick={() => onNavigate('reader', { bookId: activeBook.id })}
-              className={`rounded-3xl p-5 border shadow-xl transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden ${theme === 'dark' ? 'bg-gradient-to-br from-[#1c150b] via-[#281c0d] to-[#171108] border-amber-500/30 text-slate-100 shadow-amber-950/20' : 'bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 border-amber-300/80 text-slate-900 shadow-amber-500/10'}`}
+              className="bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 rounded-3xl p-5 border border-amber-300/80 shadow-xs text-slate-900 transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-full text-[11px] font-black tracking-wider uppercase font-mono shadow-xs">
-                  <Sparkles size={13} className="text-amber-400" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/15 border border-amber-500/30 text-amber-900 rounded-full text-[11px] font-black tracking-wider uppercase font-mono shadow-xs">
+                  <Sparkles size={13} className="text-amber-600" />
                   <span>TODAY'S FOCUS</span>
                 </span>
-                <span className="text-xs font-black text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/40 font-mono">
+                <span className="text-xs font-black text-amber-900 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/30 font-mono">
                   {Math.min(100, Math.round((activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%
                 </span>
               </div>
 
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-extrabold text-white leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  <h2 className="text-xl font-extrabold text-slate-900 leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                     {cleanBookTitle(activeBook.title)}
                   </h2>
                   {activeBook.author && (
-                    <p className="text-slate-300 text-xs font-medium">
+                    <p className="text-slate-600 text-xs font-medium">
                       By {activeBook.author} • Page {activeBook.progress.current_page} {activeBook.total_pages ? `of ${activeBook.total_pages}` : ''}
                     </p>
                   )}
                 </div>
 
                 {/* Custom AI Illustration 1 */}
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-amber-500/30 bg-slate-900">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-md border border-amber-300 bg-white">
                   <img 
                     src="/todays_focus_illustration.jpg" 
                     alt="Today's Focus Illustration" 
@@ -618,9 +618,9 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
               </div>
 
               {/* Real Lesson Progress Bar */}
-              <div className="w-full h-2.5 bg-slate-900/90 rounded-full overflow-hidden mb-4 p-0.5 border border-amber-500/30">
+              <div className="w-full h-2.5 bg-amber-200/60 rounded-full overflow-hidden mb-4 p-0.5 border border-amber-300/50">
                 <div 
-                  className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-700 shadow-sm shadow-amber-500/50"
+                  className="h-full bg-gradient-to-r from-amber-500 to-amber-600 rounded-full transition-all duration-700 shadow-xs"
                   style={{ width: `${Math.min(100, Math.max(5, (activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%` }}
                 />
               </div>
@@ -630,7 +630,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
                   e.stopPropagation();
                   onNavigate('reader', { bookId: activeBook.id });
                 }}
-                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white font-black text-sm rounded-2xl shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
               >
                 <Play size={16} fill="currentColor" />
                 <span>Continue Lesson</span>
@@ -638,57 +638,57 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
               </button>
             </div>
           ) : (
-            <div className="bg-gradient-to-br from-[#1c150b] via-[#281c0d] to-[#171108] rounded-3xl p-5 border border-amber-500/30 shadow-xl shadow-amber-950/20 text-slate-100 flex items-center justify-between gap-4">
+            <div className="bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 rounded-3xl p-5 border border-amber-300/80 shadow-xs text-slate-900 flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles size={16} className="text-amber-400" />
-                  <span className="text-xs font-black uppercase text-amber-300 tracking-wider font-mono">TODAY'S FOCUS</span>
+                  <Sparkles size={16} className="text-amber-600" />
+                  <span className="text-xs font-black uppercase text-amber-900 tracking-wider font-mono">TODAY'S FOCUS</span>
                 </div>
-                <h2 className="text-lg font-extrabold text-white mb-1">No Active Lesson</h2>
-                <p className="text-xs text-slate-300 mb-4">Select a textbook from your library to start tracking your progress.</p>
+                <h2 className="text-lg font-extrabold text-slate-900 mb-1">No Active Lesson</h2>
+                <p className="text-xs text-slate-600 mb-4">Select a textbook from your library to start tracking your progress.</p>
                 <button
                   onClick={() => onNavigate('library')}
-                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs rounded-2xl shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <BookOpen size={15} />
                   <span>Browse Library</span>
                 </button>
               </div>
 
-              <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-amber-500/30 bg-slate-900">
+              <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-md border border-amber-300 bg-white">
                 <img src="/todays_focus_illustration.jpg" alt="Today's Focus Illustration" className="w-full h-full object-cover" />
               </div>
             </div>
           )}
 
-          {/* CARD 2 — TIME-RELEVANT STUDY ITEM / "UP NEXT" (Dark Teal / Mint Glass + Custom 3D Illustration) */}
+          {/* CARD 2 — TIME-RELEVANT STUDY ITEM / "UP NEXT" */}
           {upNextItem ? (
             <div 
               onClick={upNextItem.action}
-              className="bg-gradient-to-br from-[#0a1a18] via-[#0d2623] to-[#071715] rounded-3xl p-5 border border-teal-500/30 shadow-xl shadow-teal-950/20 text-slate-100 transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
+              className="bg-gradient-to-br from-teal-500/10 via-teal-50 to-emerald-50/50 rounded-3xl p-5 border border-teal-300/80 shadow-xs text-slate-900 transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-500/20 border border-teal-500/40 text-teal-300 rounded-full text-[11px] font-black tracking-wider uppercase font-mono shadow-xs">
-                  <Clock3 size={13} className="text-teal-400" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-500/15 border border-teal-500/30 text-teal-900 rounded-full text-[11px] font-black tracking-wider uppercase font-mono shadow-xs">
+                  <Clock3 size={13} className="text-teal-600" />
                   <span>{upNextItem.badge}</span>
                 </span>
-                <span className="text-xs font-bold text-teal-300 bg-teal-500/20 px-2.5 py-0.5 rounded-full border border-teal-500/40 font-mono">
+                <span className="text-xs font-bold text-teal-900 bg-teal-500/20 px-2.5 py-0.5 rounded-full border border-teal-500/30 font-mono">
                   {upNextItem.subject}
                 </span>
               </div>
 
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-extrabold text-white leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  <h3 className="text-lg font-extrabold text-slate-900 leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                     {upNextItem.title}
                   </h3>
-                  <p className="text-slate-300 text-xs font-medium">
+                  <p className="text-slate-600 text-xs font-medium">
                     {upNextItem.subtitle}
                   </p>
                 </div>
 
                 {/* Custom AI Illustration 2 */}
-                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-teal-500/30 bg-slate-900">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-md border border-teal-300 bg-white">
                   <img 
                     src="/up_next_illustration.jpg" 
                     alt="Up Next Illustration" 
@@ -702,7 +702,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
                   e.stopPropagation();
                   upNextItem.action();
                 }}
-                className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-teal-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-black text-sm rounded-2xl shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
               >
                 <Play size={16} fill="currentColor" />
                 <span>{upNextItem.ctaText}</span>
@@ -710,55 +710,55 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
               </button>
             </div>
           ) : (
-            <div className="bg-gradient-to-br from-[#0a1a18] via-[#0d2623] to-[#071715] rounded-3xl p-5 border border-teal-500/30 shadow-xl shadow-teal-950/20 text-slate-100 flex items-center justify-between gap-4">
+            <div className="bg-gradient-to-br from-teal-500/10 via-teal-50 to-emerald-50/50 rounded-3xl p-5 border border-teal-300/80 shadow-xs text-slate-900 flex items-center justify-between gap-4">
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-black uppercase text-teal-300 tracking-wider font-mono mb-2">UP NEXT</div>
-                <h3 className="text-base font-extrabold text-white mb-1">CBT Practice Session</h3>
-                <p className="text-xs text-slate-300 mb-4">Practice authentic JAMB questions and monitor your performance.</p>
+                <div className="text-xs font-black uppercase text-teal-900 tracking-wider font-mono mb-2">UP NEXT</div>
+                <h3 className="text-base font-extrabold text-slate-900 mb-1">CBT Practice Session</h3>
+                <p className="text-xs text-slate-600 mb-4">Practice authentic JAMB questions and monitor your performance.</p>
                 <button
                   onClick={() => onNavigate('jamb-practice')}
-                  className="w-full py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-black text-xs rounded-2xl shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span>Start Practice</span>
                 </button>
               </div>
 
-              <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-teal-500/30 bg-slate-900">
+              <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-md border border-teal-300 bg-white">
                 <img src="/up_next_illustration.jpg" alt="Up Next Illustration" className="w-full h-full object-cover" />
               </div>
             </div>
           )}
 
-          {/* SECTION 3 — YOUR WEEK AT A GLANCE (Dark Surface) */}
-          <div className="bg-slate-900/90 rounded-3xl p-4 border border-slate-800 shadow-xl space-y-3">
+          {/* SECTION 3 — YOUR WEEK AT A GLANCE */}
+          <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-xs space-y-3">
             <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider font-mono px-1">
               Your Week at a Glance
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
               {/* Lessons Remaining */}
-              <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800/80 flex flex-col justify-center items-center text-center">
-                <span className="text-3xl font-black text-white font-mono leading-none">
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col justify-center items-center text-center">
+                <span className="text-3xl font-black text-slate-900 font-mono leading-none">
                   {lessonsRemainingCount}
                 </span>
-                <span className="text-[11px] font-extrabold text-slate-400 mt-1">
+                <span className="text-[11px] font-extrabold text-slate-500 mt-1">
                   Lessons Remaining
                 </span>
               </div>
 
               {/* Days Active Circular SVG Progress Ring */}
-              <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800/80 flex items-center justify-center gap-2.5">
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 flex items-center justify-center gap-2.5">
                 <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
                   <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
                     <path
-                      className="text-slate-800"
+                      className="text-slate-200"
                       strokeWidth="4"
                       stroke="currentColor"
                       fill="none"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
                     <path
-                      className="text-teal-400"
+                      className="text-teal-600"
                       strokeDasharray={`${Math.round((weeklyDaysActiveCount / 7) * 100)}, 100`}
                       strokeWidth="4"
                       strokeLinecap="round"
@@ -767,13 +767,13 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
                   </svg>
-                  <span className="absolute text-[10px] font-black text-teal-300 font-mono">
+                  <span className="absolute text-[10px] font-black text-teal-700 font-mono">
                     {weeklyDaysActiveCount}/7
                   </span>
                 </div>
                 <div className="text-left leading-tight min-w-0">
-                  <div className="text-xs font-black text-white font-mono">{weeklyDaysActiveCount} / 7</div>
-                  <div className="text-[10.5px] font-extrabold text-slate-400">Days Active</div>
+                  <div className="text-xs font-black text-slate-900 font-mono">{weeklyDaysActiveCount} / 7</div>
+                  <div className="text-[10.5px] font-extrabold text-slate-500">Days Active</div>
                 </div>
               </div>
             </div>
@@ -781,12 +781,12 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
 
         </div>
 
-        {/* 3. Core Studdy Buddy Feature Cards (Displayed UNTOUCHED below new sections) */}
-        <div className="mt-5 sm:mt-6 lg:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 lg:gap-6">
+        {/* 3. Core Studdy Buddy Feature Cards (Mobile: Horizontal Swipe Carousel with edge peek | Desktop: 3-column grid) */}
+        <div className="mt-5 sm:mt-6 lg:mt-8 flex md:grid overflow-x-auto md:overflow-visible snap-x snap-mandatory md:snap-none gap-3.5 sm:gap-4 lg:gap-6 -mx-4 px-4 md:mx-0 md:px-0 pb-2 md:pb-0 pt-1 no-scrollbar md:grid-cols-3">
           {/* Feature 1: AI-Generated Summaries */}
           <div 
             onClick={() => onNavigate('ai-summaries')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-purple-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="w-[84%] md:w-auto shrink-0 md:shrink snap-start bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-purple-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
               <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-all duration-200 shadow-2xs">
@@ -813,7 +813,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
           {/* Feature 2: JAMB Practice Questions */}
           <div 
             onClick={() => onNavigate('jamb-practice')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-emerald-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="w-[84%] md:w-auto shrink-0 md:shrink snap-start bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-emerald-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
               <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200 shadow-2xs">
@@ -840,7 +840,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false, the
           {/* Feature 3: Explain This Concept */}
           <div 
             onClick={() => onNavigate('explain-concept')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-blue-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="w-[84%] md:w-auto shrink-0 md:shrink snap-start bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-blue-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
               <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-all duration-200 shadow-2xs">

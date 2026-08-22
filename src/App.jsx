@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, useParams } from 'react-router-dom';
-import { Home, Bell, User, Menu, BookOpen, History, Plus, Search, Settings, Sparkles, Sun, Moon } from 'lucide-react';
+import { Home, Bell, User, Menu, BookOpen, History, Plus, Search, Settings, Sparkles } from 'lucide-react';
 import { supabase } from './supabase';
 import DesktopLanding from './components/DesktopLanding';
 import OnboardingFlow from './components/OnboardingFlow';
@@ -42,7 +42,6 @@ function useIsDesktop() {
 function ReaderRouteWrapper({ user }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  // We use navigate('/library') instead of letting TextbookReader guess
   return <TextbookReader bookId={id} user={user} onNavigate={() => navigate('/library')} />;
 }
 
@@ -65,24 +64,6 @@ function MainApp() {
   const [resetKey, setResetKey] = useState(0);
   const [completed, setCompleted] = useState([]);
   const [resumeSession, setResumeSession] = useState(null);
-
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('studybuddy_theme') || 'light';
-  });
-
-  const toggleTheme = (newTheme) => {
-    const targetTheme = newTheme || (theme === 'dark' ? 'light' : 'dark');
-    setTheme(targetTheme);
-    localStorage.setItem('studybuddy_theme', targetTheme);
-  };
-
-  useEffect(() => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [theme]);
 
   useEffect(() => {
     const fetchProfile = async (session) => {
@@ -240,13 +221,13 @@ function MainApp() {
   const isReaderRoute = window.location.pathname.startsWith('/book/');
 
   return (
-    <div className={`h-screen flex flex-col w-full ${theme === 'dark' ? 'bg-[#090D16] text-white' : 'bg-[#edf5f1] text-slate-900'}`} style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="h-screen flex flex-col w-full bg-[#edf5f1] text-slate-900" style={{ fontFamily: "'Inter', sans-serif" }}>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
 
       {/* Expanded Desktop Header (Hidden on Reader route) */}
       {!isReaderRoute && (
-        <header className={`${theme === 'dark' ? 'bg-slate-900/95 border-slate-800' : 'bg-white border-slate-200'} border-b shrink-0 z-30 shadow-2xs w-full`}>
+        <header className="bg-white border-b border-slate-200/80 shrink-0 z-30 shadow-2xs w-full">
           <div className="w-full flex items-center justify-between px-4 lg:px-6 py-3.5 gap-4">
             {/* Brand Logo & Name / Mobile Greeting */}
             <button onClick={() => navigate('/study')} className="flex items-center gap-2.5 group shrink-0 focus-visible:outline-none min-w-0">
@@ -255,7 +236,7 @@ function MainApp() {
               </div>
               {/* Desktop Branding (Hidden on mobile) */}
               <div className="hidden md:flex flex-col text-left">
-                <span className={`font-extrabold text-[18px] lg:text-[20px] leading-none tracking-tight ${theme === 'dark' ? 'text-white' : 'text-slate-900'} group-hover:text-blue-600 transition-colors`} style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                <span className="font-extrabold text-[18px] lg:text-[20px] leading-none tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                   StudyBuddy
                 </span>
                 <span className="text-[11px] lg:text-[12px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 font-mono">Platform</span>
@@ -263,7 +244,7 @@ function MainApp() {
               {/* Mobile Greeting (Replaces branding text on mobile) */}
               <div className="flex flex-col md:hidden text-left min-w-0">
                 <span className="text-[11px] font-medium text-slate-400 truncate">{getGreeting()}</span>
-                <span className={`text-[14px] font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'} truncate group-hover:text-indigo-600 transition-colors`} style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                <span className="text-[14px] font-bold text-slate-900 truncate group-hover:text-indigo-600 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                   {user?.name || "Student"} 👋
                 </span>
               </div>
@@ -286,7 +267,7 @@ function MainApp() {
                 name="topSearch"
                 type="text" 
                 placeholder="Search study library, textbooks, or subjects..."
-                className={`w-full pl-10 lg:pl-12 pr-16 py-2.5 lg:py-3.5 ${theme === 'dark' ? 'bg-slate-800/80 border-slate-700 text-white placeholder:text-slate-400' : 'bg-slate-50 border-slate-200/80 text-slate-800 placeholder:text-slate-400'} hover:border-slate-300 focus:outline-none rounded-xl lg:rounded-2xl text-sm lg:text-[16px] xl:text-[17px] font-bold transition-all`}
+                className="w-full pl-10 lg:pl-12 pr-16 py-2.5 lg:py-3.5 bg-slate-50 border border-slate-200/80 text-slate-800 placeholder:text-slate-400 hover:border-slate-300 focus:outline-none rounded-xl lg:rounded-2xl text-sm lg:text-[16px] xl:text-[17px] font-bold transition-all"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] lg:text-[13px] font-mono font-bold bg-indigo-600 text-white px-2.5 py-1 rounded-lg shadow-2xs">
                 Library
@@ -295,20 +276,11 @@ function MainApp() {
 
             {/* Right Header Shortcuts */}
             <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 shrink-0">
-              {/* Quick Light / Dark Theme Switcher */}
-              <button
-                onClick={() => toggleTheme()}
-                title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-                className={`flex items-center justify-center w-9 h-9 lg:w-10 lg:h-10 rounded-xl transition-all border ${theme === 'dark' ? 'bg-slate-800 text-amber-400 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'} cursor-pointer`}
-              >
-                {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-              </button>
-
               {/* Notifications */}
               <button
                 onClick={() => navigate('/notifications')}
                 title="Notifications"
-                className={`hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl ${theme === 'dark' ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'} border border-transparent hover:border-slate-200 transition-all shadow-2xs cursor-pointer`}
+                className="hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs cursor-pointer"
               >
                 <Bell size={20} className="lg:w-5 lg:h-5" />
               </button>
@@ -317,7 +289,7 @@ function MainApp() {
               <button
                 onClick={() => navigate('/profile')}
                 title="Account Settings"
-                className={`hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl ${theme === 'dark' ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'} border border-transparent hover:border-slate-200 transition-all shadow-2xs cursor-pointer`}
+                className="hidden md:flex items-center justify-center w-10 h-10 lg:w-11 lg:h-11 rounded-xl lg:rounded-2xl text-slate-500 hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all shadow-2xs cursor-pointer"
               >
                 <Settings size={20} className="lg:w-5 lg:h-5" />
               </button>
@@ -326,13 +298,13 @@ function MainApp() {
               <button
                 onClick={() => navigate('/profile')}
                 title="View Profile"
-                className={`hidden md:flex items-center gap-2.5 lg:gap-3 px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl lg:rounded-2xl border ${theme === 'dark' ? 'border-slate-800 bg-slate-900 text-white' : 'border-slate-200/80 bg-white text-slate-900'} hover:border-blue-300 hover:shadow-sm transition-all text-left group cursor-pointer`}
+                className="hidden md:flex items-center gap-2.5 lg:gap-3 px-3 py-1.5 lg:px-4 lg:py-2 rounded-xl lg:rounded-2xl border border-slate-200/80 bg-white text-slate-900 hover:border-blue-300 hover:shadow-sm transition-all text-left group cursor-pointer"
               >
                 <div className="w-7 h-7 lg:w-9 lg:h-9 rounded-lg lg:rounded-xl bg-blue-50 text-blue-700 font-extrabold text-xs lg:text-sm flex items-center justify-center border border-blue-100 uppercase group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   {(user?.name || "S")[0]}
                 </div>
                 <div className="min-w-0 pr-1">
-                  <div className={`text-[13px] lg:text-[16px] font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-900'} leading-tight truncate max-w-[120px] lg:max-w-[170px] group-hover:text-blue-600 transition-colors`}>
+                  <div className="text-[13px] lg:text-[16px] font-extrabold text-slate-900 leading-tight truncate max-w-[120px] lg:max-w-[170px] group-hover:text-blue-600 transition-colors">
                     {user?.name || "Student"}
                   </div>
                   <div className="text-[11px] lg:text-[13px] font-bold text-slate-400 capitalize">{user?.role || "Student"}</div>
@@ -342,7 +314,7 @@ function MainApp() {
               {/* Mobile hamburger opens side drawer */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className={`md:hidden flex items-center justify-center w-10 h-10 rounded-xl ${theme === 'dark' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700'} hover:opacity-80 transition-colors`}
+                className="md:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-slate-100 text-slate-700 hover:opacity-80 transition-colors"
                 aria-label="Open menu"
               >
                 <Menu size={20} />
@@ -352,43 +324,41 @@ function MainApp() {
         </header>
       )}
 
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onNavigate={navigateTo} currentPage={window.location.pathname.slice(1)} user={user} onLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onNavigate={navigateTo} currentPage={window.location.pathname.slice(1)} user={user} onLogout={handleLogout} />}
 
       {/* Main Application Container */}
       <div className="flex-1 overflow-hidden relative flex flex-col md:flex-row w-full">
         {!isReaderRoute && (
-          <DesktopSidebar user={user} currentPath={window.location.pathname} onNavigate={navigateTo} theme={theme} />
+          <DesktopSidebar user={user} currentPath={window.location.pathname} onNavigate={navigateTo} />
         )}
 
         <div className="flex-1 overflow-y-auto flex flex-col min-w-0 w-full relative">
           <Routes>
             <Route path="/" element={<Navigate to="/study" replace />} />
-            <Route path="/library" element={<LibraryPage user={user} onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/upload" element={<TextbookImporter onNavigate={navigateTo} user={user} theme={theme} />} />
+            <Route path="/library" element={<LibraryPage user={user} onNavigate={navigateTo} />} />
+            <Route path="/upload" element={<TextbookImporter onNavigate={navigateTo} user={user} />} />
             <Route path="/book/:id" element={<Navigate to="read" replace />} />
             <Route path="/book/:id/read" element={<ReaderRouteWrapper user={user} />} />
-            <Route path="/study" element={<HomeView user={user} onNavigate={navigateTo} mobileMenuOpen={mobileMenuOpen} theme={theme} toggleTheme={toggleTheme} />} />
-            <Route path="/ai-summaries" element={<DashboardAISummariesView user={user} onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/jamb-practice" element={<DashboardJAMBPracticeView user={user} onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/explain-concept" element={<DashboardExplainConceptView user={user} onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/chat" element={<FullAITutorPage user={user} onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/about" element={<InfoPage bgVariant="about" onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/how-it-works" element={<InfoPage bgVariant="how-it-works" onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/help" element={<InfoPage bgVariant="help" onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/privacy" element={<InfoPage bgVariant="privacy" onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/terms" element={<InfoPage bgVariant="terms" onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/contact" element={<ContactPage onNavigate={navigateTo} theme={theme} />} />
-            <Route path="/legacy-study" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} theme={theme} />} />
-            <Route path="/sessions" element={<SessionsPage userId={user.id} onNavigate={navigateTo} onResume={handleResume} theme={theme} />} />
-            <Route path="/notifications" element={<NotificationsPage user={user} onNavigate={navigateTo} theme={theme} />} />
+            <Route path="/study" element={<HomeView user={user} onNavigate={navigateTo} mobileMenuOpen={mobileMenuOpen} />} />
+            <Route path="/ai-summaries" element={<DashboardAISummariesView user={user} onNavigate={navigateTo} />} />
+            <Route path="/jamb-practice" element={<DashboardJAMBPracticeView user={user} onNavigate={navigateTo} />} />
+            <Route path="/explain-concept" element={<DashboardExplainConceptView user={user} onNavigate={navigateTo} />} />
+            <Route path="/chat" element={<FullAITutorPage user={user} onNavigate={navigateTo} />} />
+            <Route path="/about" element={<InfoPage bgVariant="about" onNavigate={navigateTo} />} />
+            <Route path="/how-it-works" element={<InfoPage bgVariant="how-it-works" onNavigate={navigateTo} />} />
+            <Route path="/help" element={<InfoPage bgVariant="help" onNavigate={navigateTo} />} />
+            <Route path="/privacy" element={<InfoPage bgVariant="privacy" onNavigate={navigateTo} />} />
+            <Route path="/terms" element={<InfoPage bgVariant="terms" onNavigate={navigateTo} />} />
+            <Route path="/contact" element={<ContactPage onNavigate={navigateTo} />} />
+            <Route path="/legacy-study" element={<ChatView key={resetKey} completed={completed} setCompleted={setCompleted} onNavigate={navigateTo} user={user} resumeSession={resumeSession} />} />
+            <Route path="/sessions" element={<SessionsPage userId={user.id} onNavigate={navigateTo} onResume={handleResume} />} />
+            <Route path="/notifications" element={<NotificationsPage user={user} onNavigate={navigateTo} />} />
             <Route path="/profile" element={
               <ProfilePage
                 user={user}
                 onLogout={handleLogout}
                 onNavigate={navigateTo}
                 onUpdateUser={(updates) => setUser((prev) => ({ ...prev, ...updates }))}
-                theme={theme}
-                toggleTheme={toggleTheme}
               />
             } />
             <Route path="*" element={<Navigate to="/study" replace />} />
@@ -396,7 +366,7 @@ function MainApp() {
         </div>
       </div>
 
-      {!isReaderRoute && <NowPlayingBar theme={theme} />}
+      {!isReaderRoute && <NowPlayingBar />}
     </div>
   );
 }
