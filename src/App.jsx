@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, useParams } from 'react-router-dom';
-import { Home, Bell, User, Menu, BookOpen, History, Plus, Search, Settings, Sparkles } from 'lucide-react';
+import { Home, Bell, User, Menu, BookOpen, History, Plus, Search, Settings, Sparkles, Sun, Moon } from 'lucide-react';
 import { supabase } from './supabase';
 import DesktopLanding from './components/DesktopLanding';
 import OnboardingFlow from './components/OnboardingFlow';
