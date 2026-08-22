@@ -538,7 +538,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
   }, [inProgressBooksList, recentSessions, books, onNavigate]);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50/70 flex flex-col justify-between">
+    <div className="flex-1 overflow-y-auto bg-[#edf5f1] flex flex-col justify-between">
       <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 lg:space-y-8">
         
         {/* 1. Compact Welcome Message & Header (Req 1: Hidden entirely on mobile to eliminate duplicate greeting & space) */}

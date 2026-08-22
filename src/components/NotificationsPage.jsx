@@ -32,7 +32,7 @@ export default function NotificationsPage({ user, onNavigate }) {
   }, [toast]);
 
   return (
-    <div className="flex-1 overflow-y-auto flex flex-col relative w-full" style={{ background: "#FAFBFF" }}>
+    <div className="flex-1 overflow-y-auto flex flex-col relative w-full" style={{ background: "#edf5f1" }}>
       <div className="flex-1 px-4 sm:px-8 py-10">
         <div className="max-w-xl mx-auto">
           <BackToHomeButton onNavigate={onNavigate} />

@@ -164,7 +164,7 @@ export default function FullAITutorPage({ user, onNavigate }) {
   };
 
   return (
-    <div className="flex h-screen bg-[#F9FAFB] font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#edf5f1] font-sans overflow-hidden">
       {/* Sidebar Navigation */}
       <div className={`fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-200/60 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out flex flex-col shadow-xl md:shadow-none`}>
         <div className="p-5 border-b border-slate-100 flex items-center justify-between">

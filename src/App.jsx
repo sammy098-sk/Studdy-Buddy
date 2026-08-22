@@ -224,7 +224,7 @@ function MainApp() {
   const isReaderRoute = window.location.pathname.startsWith('/book/');
 
   return (
-    <div className="h-screen flex flex-col w-full bg-slate-100/60" style={{ fontFamily: "'Inter', sans-serif" }}>
+    <div className="h-screen flex flex-col w-full bg-[#edf5f1]" style={{ fontFamily: "'Inter', sans-serif" }}>
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
 

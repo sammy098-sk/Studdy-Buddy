@@ -119,7 +119,7 @@ export default function LibraryPage({ user, onNavigate }) {
   };
 
   return (
-    <div className="flex-1 w-full h-full overflow-y-auto bg-slate-50 flex flex-col justify-between">
+    <div className="flex-1 w-full h-full overflow-y-auto bg-[#edf5f1] flex flex-col justify-between">
       <div className="max-w-7xl mx-auto p-4 sm:p-8 w-full">
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">

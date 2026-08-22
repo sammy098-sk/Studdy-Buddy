@@ -61,7 +61,7 @@ export default function DashboardExplainConceptView({ user, onNavigate }) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: '#F4F7FC' }}>
+    <div className="flex flex-col min-h-screen" style={{ background: '#edf5f1' }}>
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8">
         <BackToHomeButton onNavigate={onNavigate} />
 

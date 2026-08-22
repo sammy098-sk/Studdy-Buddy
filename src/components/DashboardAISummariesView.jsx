@@ -208,7 +208,7 @@ export default function DashboardAISummariesView({ user, onNavigate }) {
   const progressPercent = totalSections > 0 ? Math.round((completedCount / totalSections) * 100) : 0;
 
   return (
-    <div className="flex flex-col min-h-screen font-sans" style={{ background: '#F8FAFC' }}>
+    <div className="flex flex-col min-h-screen font-sans" style={{ background: '#edf5f1' }}>
       <div className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 py-8">
         <BackToHomeButton onNavigate={onNavigate} />
 

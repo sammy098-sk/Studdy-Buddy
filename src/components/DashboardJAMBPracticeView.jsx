@@ -99,7 +99,7 @@ export default function DashboardJAMBPracticeView({ user, onNavigate }) {
   const activeSubjectObj = SUPPORTED_ALOC_SUBJECTS.find(s => s.key === selectedSubject) || SUPPORTED_ALOC_SUBJECTS[0];
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: '#F4F7FC' }}>
+    <div className="flex flex-col min-h-screen" style={{ background: '#edf5f1' }}>
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8">
         {viewState === 'setup' && <BackToHomeButton onNavigate={onNavigate} />}
         {viewState === 'error' && <BackToHomeButton onNavigate={onNavigate} />}

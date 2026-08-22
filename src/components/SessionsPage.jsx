@@ -111,7 +111,7 @@ export default function SessionsPage({ userId, onNavigate, onResume }) {
   const grouped = groupByDate(sessions);
 
   return (
-    <div className="flex-1 overflow-y-auto flex flex-col" style={{ background: '#F0F4FF' }}>
+    <div className="flex-1 overflow-y-auto flex flex-col" style={{ background: '#edf5f1' }}>
       <div className="flex-1 px-4 sm:px-8 lg:px-12 py-10">
         <div className="max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto">
 

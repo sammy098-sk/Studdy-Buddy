@@ -236,7 +236,7 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
   const sectionLabels = { edit: "Edit profile", password: "Change password", preferences: "JAMB Preferences" };
 
   return (
-    <div className="flex-1 overflow-y-auto flex flex-col w-full" style={{ background: "#F0F4FF", position: 'relative' }}>
+    <div className="flex-1 overflow-y-auto flex flex-col w-full" style={{ background: "#edf5f1", position: 'relative' }}>
 
       {/* ── DECORATIVE HEADER BAND ────────────────────────────────────────
           A rich gradient banner sits behind the avatar card area.
