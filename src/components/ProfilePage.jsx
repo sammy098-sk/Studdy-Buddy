@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronRight, LogOut, Activity, CheckCircle2, Home, Upload, Lock, Calendar, Target, Award, Check, Camera, Sparkles, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ChevronRight, LogOut, Activity, CheckCircle2, Home, Upload, Lock, Calendar, Target, Award, Check, Camera, Sparkles, Image as ImageIcon, Loader2, Sun, Moon } from 'lucide-react';
 import { SUBJECTS, isAdminUser } from '../config';
 import Footer from './Footer';
 import { supabase } from '../supabase';
 import BackToHomeButton from './BackToHomeButton';
 
-export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }) {
+export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser, theme, toggleTheme }) {
   const initials = ((user.name || "S").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("") || "S").toUpperCase();
   const [expanded, setExpanded] = useState(null); // 'edit' | 'password' | 'preferences' | null
   const toggleSection = (key) => setExpanded((cur) => (cur === key ? null : key));
@@ -455,6 +455,45 @@ export default function ProfilePage({ user, onLogout, onNavigate, onUpdateUser }
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* App Theme Toggle Control */}
+          <div className={`p-4 sm:p-5 rounded-2xl border transition-all mb-6 ${theme === 'dark' ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'} shadow-sm`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                  {theme === 'dark' ? <Moon size={20} /> : <Sun size={20} />}
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm sm:text-base">
+                    App Theme Mode
+                  </h4>
+                  <p className={`text-xs font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Choose between Light Mode and Dark Mode instantly.
+                  </p>
+                </div>
+              </div>
+
+              {/* Segmented Switch */}
+              <div className={`flex items-center p-1 rounded-xl border shrink-0 self-start sm:self-auto ${theme === 'dark' ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
+                <button
+                  type="button"
+                  onClick={() => toggleTheme && toggleTheme('light')}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${theme !== 'dark' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <Sun size={15} />
+                  <span>Light Mode</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleTheme && toggleTheme('dark')}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-extrabold transition-all cursor-pointer ${theme === 'dark' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'}`}
+                >
+                  <Moon size={15} />
+                  <span>Dark Mode</span>
+                </button>
+              </div>
             </div>
           </div>
 

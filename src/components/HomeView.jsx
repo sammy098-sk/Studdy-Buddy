@@ -64,7 +64,7 @@ const CHIP_ICONS = {
   'JAMB': Bookmark
 };
 
-export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
+export default function HomeView({ user, onNavigate, mobileMenuOpen = false, theme = 'light', toggleTheme }) {
   const [subjects, setSubjects] = useState([]);
   const [books, setBooks] = useState([]);
   const [activeBook, setActiveBook] = useState(null);
@@ -538,25 +538,25 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
   }, [inProgressBooksList, recentSessions, books, onNavigate]);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#090D16] md:bg-[#edf5f1] flex flex-col justify-between">
+    <div className={`flex-1 overflow-y-auto ${theme === 'dark' ? 'bg-[#090D16] text-white' : 'bg-[#edf5f1] text-slate-900'} flex flex-col justify-between`}>
       <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 lg:space-y-8">
         
         {/* 1. Compact Welcome Message & Header (Req 1: Hidden entirely on mobile to eliminate duplicate greeting & space) */}
         <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-1">
           <div className="space-y-1.5 min-w-0">
-            <h1 className="text-xl sm:text-2xl lg:text-[28px] xl:text-[30px] font-extrabold text-slate-900 tracking-tight truncate" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+            <h1 className={`text-xl sm:text-2xl lg:text-[28px] xl:text-[30px] font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-900'} tracking-tight truncate`} style={{ fontFamily: "'Montserrat', sans-serif" }}>
               {getTimeGreeting()}, {user?.name || 'Student'} 👋
             </h1>
-            <p className="text-slate-500 text-xs sm:text-sm lg:text-[15px] font-medium truncate">
+            <p className={`${theme === 'dark' ? 'text-slate-400' : 'text-slate-500'} text-xs sm:text-sm lg:text-[15px] font-medium truncate`}>
               Welcome back to your study space. Pick up where you left off or explore new academic resources.
             </p>
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 border border-indigo-200/80 text-indigo-900 text-xs font-extrabold shadow-2xs">
-                <Target size={14} className="text-indigo-600" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/80 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 text-xs font-extrabold shadow-2xs">
+                <Target size={14} className="text-indigo-600 dark:text-indigo-400" />
                 <span>Target Score: {user?.target_score || "250+"} (AI {user?.target_score === "300+" ? "Elite Tier" : "Advanced Tier"})</span>
               </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 border border-blue-200/80 text-blue-900 text-xs font-extrabold shadow-2xs">
-                <Calendar size={14} className="text-blue-600" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-200/80 dark:border-blue-800 text-blue-900 dark:text-blue-200 text-xs font-extrabold shadow-2xs">
+                <Calendar size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>JAMB {user?.exam_year || "2027"} Countdown: {Math.max(0, Math.ceil((new Date(user?.target_exam_date || "2027-04-15") - new Date()) / (1000 * 60 * 60 * 24)))} days left</span>
               </span>
             </div>
@@ -573,17 +573,17 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
 
         {/* Desktop Hero Carousel (Hidden on Mobile) */}
         <div className="hidden md:block mt-0">
-          <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} mobileMenuOpen={mobileMenuOpen} />
+          <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} mobileMenuOpen={mobileMenuOpen} theme={theme} />
         </div>
 
         {/* Mobile Hero Section: Two Stacked Dark Hero Cards + Your Week at a Glance (Mobile Only) */}
         <div className="md:hidden space-y-4 mt-2">
           
-          {/* CARD 1 — "TODAY'S FOCUS" (Dark Amber / Gold Glass + Custom 3D Illustration) */}
+          {/* CARD 1 — "TODAY'S FOCUS" (Amber / Gold Glass + Custom 3D Illustration) */}
           {activeBook && activeBook.progress && activeBook.progress.current_page > 0 ? (
             <div 
               onClick={() => onNavigate('reader', { bookId: activeBook.id })}
-              className="bg-gradient-to-br from-[#1c150b] via-[#281c0d] to-[#171108] rounded-3xl p-5 border border-amber-500/30 shadow-xl shadow-amber-950/20 text-slate-100 transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
+              className={`rounded-3xl p-5 border shadow-xl transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden ${theme === 'dark' ? 'bg-gradient-to-br from-[#1c150b] via-[#281c0d] to-[#171108] border-amber-500/30 text-slate-100 shadow-amber-950/20' : 'bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 border-amber-300/80 text-slate-900 shadow-amber-500/10'}`}
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-full text-[11px] font-black tracking-wider uppercase font-mono shadow-xs">
