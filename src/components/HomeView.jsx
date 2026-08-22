@@ -538,7 +538,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
   }, [inProgressBooksList, recentSessions, books, onNavigate]);
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#edf5f1] flex flex-col justify-between">
+    <div className="flex-1 overflow-y-auto bg-[#090D16] md:bg-[#edf5f1] flex flex-col justify-between">
       <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 lg:space-y-8">
         
         {/* 1. Compact Welcome Message & Header (Req 1: Hidden entirely on mobile to eliminate duplicate greeting & space) */}
@@ -576,38 +576,51 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
           <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} mobileMenuOpen={mobileMenuOpen} />
         </div>
 
-        {/* Mobile Hero Section: Two Stacked Hero Cards + Your Week at a Glance (Mobile Only) */}
+        {/* Mobile Hero Section: Two Stacked Dark Hero Cards + Your Week at a Glance (Mobile Only) */}
         <div className="md:hidden space-y-4 mt-2">
           
-          {/* CARD 1 — "TODAY'S FOCUS" (Warm Amber / Gold Visual Treatment) */}
+          {/* CARD 1 — "TODAY'S FOCUS" (Dark Amber / Gold Glass + Custom 3D Illustration) */}
           {activeBook && activeBook.progress && activeBook.progress.current_page > 0 ? (
             <div 
               onClick={() => onNavigate('reader', { bookId: activeBook.id })}
-              className="bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 rounded-3xl p-5 border border-amber-300/80 shadow-sm transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
+              className="bg-gradient-to-br from-[#1c150b] via-[#281c0d] to-[#171108] rounded-3xl p-5 border border-amber-500/30 shadow-xl shadow-amber-950/20 text-slate-100 transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/15 border border-amber-300/80 text-amber-900 rounded-full text-[11px] font-black tracking-wider uppercase font-mono">
-                  <Sparkles size={13} className="text-amber-600" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 rounded-full text-[11px] font-black tracking-wider uppercase font-mono shadow-xs">
+                  <Sparkles size={13} className="text-amber-400" />
                   <span>TODAY'S FOCUS</span>
                 </span>
-                <span className="text-xs font-black text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-200/80 font-mono">
+                <span className="text-xs font-black text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/40 font-mono">
                   {Math.min(100, Math.round((activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%
                 </span>
               </div>
 
-              <h2 className="text-xl font-extrabold text-slate-900 leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                {cleanBookTitle(activeBook.title)}
-              </h2>
-              {activeBook.author && (
-                <p className="text-slate-600 text-xs font-medium mb-3">
-                  By {activeBook.author} • Page {activeBook.progress.current_page} {activeBook.total_pages ? `of ${activeBook.total_pages}` : ''}
-                </p>
-              )}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-xl font-extrabold text-white leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                    {cleanBookTitle(activeBook.title)}
+                  </h2>
+                  {activeBook.author && (
+                    <p className="text-slate-300 text-xs font-medium">
+                      By {activeBook.author} • Page {activeBook.progress.current_page} {activeBook.total_pages ? `of ${activeBook.total_pages}` : ''}
+                    </p>
+                  )}
+                </div>
+
+                {/* Custom AI Illustration 1 */}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-amber-500/30 bg-slate-900">
+                  <img 
+                    src="/todays_focus_illustration.jpg" 
+                    alt="Today's Focus Illustration" 
+                    className="w-full h-full object-cover" 
+                  />
+                </div>
+              </div>
 
               {/* Real Lesson Progress Bar */}
-              <div className="w-full h-2.5 bg-amber-200/60 rounded-full overflow-hidden mb-4 p-0.5 border border-amber-300/40">
+              <div className="w-full h-2.5 bg-slate-900/90 rounded-full overflow-hidden mb-4 p-0.5 border border-amber-500/30">
                 <div 
-                  className="h-full bg-gradient-to-r from-amber-500 to-amber-600 rounded-full transition-all duration-700 shadow-sm"
+                  className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-700 shadow-sm shadow-amber-500/50"
                   style={{ width: `${Math.min(100, Math.max(5, (activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%` }}
                 />
               </div>
@@ -617,7 +630,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                   e.stopPropagation();
                   onNavigate('reader', { bookId: activeBook.id });
                 }}
-                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
               >
                 <Play size={16} fill="currentColor" />
                 <span>Continue Lesson</span>
@@ -625,52 +638,71 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
               </button>
             </div>
           ) : (
-            <div className="bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 rounded-3xl p-5 border border-amber-300/80 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={16} className="text-amber-600" />
-                <span className="text-xs font-black uppercase text-amber-900 tracking-wider font-mono">TODAY'S FOCUS</span>
+            <div className="bg-gradient-to-br from-[#1c150b] via-[#281c0d] to-[#171108] rounded-3xl p-5 border border-amber-500/30 shadow-xl shadow-amber-950/20 text-slate-100 flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles size={16} className="text-amber-400" />
+                  <span className="text-xs font-black uppercase text-amber-300 tracking-wider font-mono">TODAY'S FOCUS</span>
+                </div>
+                <h2 className="text-lg font-extrabold text-white mb-1">No Active Lesson</h2>
+                <p className="text-xs text-slate-300 mb-4">Select a textbook from your library to start tracking your progress.</p>
+                <button
+                  onClick={() => onNavigate('library')}
+                  className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <BookOpen size={15} />
+                  <span>Browse Library</span>
+                </button>
               </div>
-              <h2 className="text-lg font-extrabold text-slate-900 mb-1">No Active Lesson In Progress</h2>
-              <p className="text-xs text-slate-600 mb-4">Select a textbook from your library to start tracking your daily reading progress.</p>
-              <button
-                onClick={() => onNavigate('library')}
-                className="w-full py-3 bg-amber-600 text-white font-extrabold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <BookOpen size={16} />
-                <span>Browse Textbooks</span>
-              </button>
+
+              <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-amber-500/30 bg-slate-900">
+                <img src="/todays_focus_illustration.jpg" alt="Today's Focus Illustration" className="w-full h-full object-cover" />
+              </div>
             </div>
           )}
 
-          {/* CARD 2 — TIME-RELEVANT STUDY ITEM / "UP NEXT" (Teal / Mint Visual Treatment) */}
+          {/* CARD 2 — TIME-RELEVANT STUDY ITEM / "UP NEXT" (Dark Teal / Mint Glass + Custom 3D Illustration) */}
           {upNextItem ? (
             <div 
               onClick={upNextItem.action}
-              className="bg-gradient-to-br from-teal-500/10 via-teal-50 to-emerald-50/50 rounded-3xl p-5 border border-teal-300/80 shadow-sm transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
+              className="bg-gradient-to-br from-[#0a1a18] via-[#0d2623] to-[#071715] rounded-3xl p-5 border border-teal-500/30 shadow-xl shadow-teal-950/20 text-slate-100 transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-500/15 border border-teal-300/80 text-teal-900 rounded-full text-[11px] font-black tracking-wider uppercase font-mono">
-                  <Clock3 size={13} className="text-teal-700" />
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-500/20 border border-teal-500/40 text-teal-300 rounded-full text-[11px] font-black tracking-wider uppercase font-mono shadow-xs">
+                  <Clock3 size={13} className="text-teal-400" />
                   <span>{upNextItem.badge}</span>
                 </span>
-                <span className="text-xs font-bold text-teal-800 bg-teal-100/80 px-2.5 py-0.5 rounded-full border border-teal-200/80 font-mono">
+                <span className="text-xs font-bold text-teal-300 bg-teal-500/20 px-2.5 py-0.5 rounded-full border border-teal-500/40 font-mono">
                   {upNextItem.subject}
                 </span>
               </div>
 
-              <h3 className="text-lg font-extrabold text-slate-900 leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                {upNextItem.title}
-              </h3>
-              <p className="text-slate-600 text-xs font-medium mb-4">
-                {upNextItem.subtitle}
-              </p>
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-extrabold text-white leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                    {upNextItem.title}
+                  </h3>
+                  <p className="text-slate-300 text-xs font-medium">
+                    {upNextItem.subtitle}
+                  </p>
+                </div>
+
+                {/* Custom AI Illustration 2 */}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-teal-500/30 bg-slate-900">
+                  <img 
+                    src="/up_next_illustration.jpg" 
+                    alt="Up Next Illustration" 
+                    className="w-full h-full object-cover" 
+                  />
+                </div>
+              </div>
 
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   upNextItem.action();
                 }}
-                className="w-full py-3 bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+                className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 text-slate-950 font-black text-sm rounded-2xl shadow-lg shadow-teal-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
               >
                 <Play size={16} fill="currentColor" />
                 <span>{upNextItem.ctaText}</span>
@@ -678,49 +710,55 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
               </button>
             </div>
           ) : (
-            <div className="bg-gradient-to-br from-teal-500/10 via-teal-50 to-emerald-50/50 rounded-3xl p-5 border border-teal-300/80 shadow-sm">
-              <div className="text-xs font-black uppercase text-teal-900 tracking-wider font-mono mb-2">UP NEXT</div>
-              <h3 className="text-base font-extrabold text-slate-900 mb-1">CBT Practice Session</h3>
-              <p className="text-xs text-slate-600 mb-4">Practice authentic JAMB questions and monitor your performance.</p>
-              <button
-                onClick={() => onNavigate('jamb-practice')}
-                className="w-full py-3 bg-teal-700 text-white font-extrabold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <span>Start Practice</span>
-              </button>
+            <div className="bg-gradient-to-br from-[#0a1a18] via-[#0d2623] to-[#071715] rounded-3xl p-5 border border-teal-500/30 shadow-xl shadow-teal-950/20 text-slate-100 flex items-center justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-black uppercase text-teal-300 tracking-wider font-mono mb-2">UP NEXT</div>
+                <h3 className="text-base font-extrabold text-white mb-1">CBT Practice Session</h3>
+                <p className="text-xs text-slate-300 mb-4">Practice authentic JAMB questions and monitor your performance.</p>
+                <button
+                  onClick={() => onNavigate('jamb-practice')}
+                  className="w-full py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Start Practice</span>
+                </button>
+              </div>
+
+              <div className="w-24 h-24 rounded-2xl overflow-hidden shrink-0 shadow-lg border border-teal-500/30 bg-slate-900">
+                <img src="/up_next_illustration.jpg" alt="Up Next Illustration" className="w-full h-full object-cover" />
+              </div>
             </div>
           )}
 
-          {/* SECTION 3 — YOUR WEEK AT A GLANCE */}
-          <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-2xs space-y-3">
-            <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider font-mono px-1">
+          {/* SECTION 3 — YOUR WEEK AT A GLANCE (Dark Surface) */}
+          <div className="bg-slate-900/90 rounded-3xl p-4 border border-slate-800 shadow-xl space-y-3">
+            <h3 className="text-xs font-extrabold text-slate-400 uppercase tracking-wider font-mono px-1">
               Your Week at a Glance
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
               {/* Lessons Remaining */}
-              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 flex flex-col justify-center items-center text-center">
-                <span className="text-2xl font-black text-slate-900 font-mono leading-none">
+              <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800/80 flex flex-col justify-center items-center text-center">
+                <span className="text-3xl font-black text-white font-mono leading-none">
                   {lessonsRemainingCount}
                 </span>
-                <span className="text-[11px] font-extrabold text-slate-500 mt-1">
+                <span className="text-[11px] font-extrabold text-slate-400 mt-1">
                   Lessons Remaining
                 </span>
               </div>
 
               {/* Days Active Circular SVG Progress Ring */}
-              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 flex items-center justify-center gap-2.5">
+              <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800/80 flex items-center justify-center gap-2.5">
                 <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
                   <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
                     <path
-                      className="text-slate-200"
+                      className="text-slate-800"
                       strokeWidth="4"
                       stroke="currentColor"
                       fill="none"
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
                     <path
-                      className="text-indigo-600"
+                      className="text-teal-400"
                       strokeDasharray={`${Math.round((weeklyDaysActiveCount / 7) * 100)}, 100`}
                       strokeWidth="4"
                       strokeLinecap="round"
@@ -729,13 +767,13 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     />
                   </svg>
-                  <span className="absolute text-[10px] font-black text-indigo-950 font-mono">
+                  <span className="absolute text-[10px] font-black text-teal-300 font-mono">
                     {weeklyDaysActiveCount}/7
                   </span>
                 </div>
                 <div className="text-left leading-tight min-w-0">
-                  <div className="text-xs font-black text-slate-900">{weeklyDaysActiveCount} / 7</div>
-                  <div className="text-[10.5px] font-extrabold text-slate-500">Days Active</div>
+                  <div className="text-xs font-black text-white font-mono">{weeklyDaysActiveCount} / 7</div>
+                  <div className="text-[10.5px] font-extrabold text-slate-400">Days Active</div>
                 </div>
               </div>
             </div>
