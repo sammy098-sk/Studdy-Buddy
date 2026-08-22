@@ -887,63 +887,76 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
 
                     <div 
                       onClick={() => onNavigate('reader', { bookId: activeBook.id })}
-                      className={`bg-gradient-to-br ${getSubjectColor(activeBook.subject)} rounded-3xl p-6 sm:p-8 lg:p-10 text-white shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer relative overflow-hidden group border border-white/15 hover:-translate-y-0.5`}
+                      className="bg-white rounded-3xl p-5 sm:p-7 border border-slate-200/90 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer relative overflow-hidden group hover:-translate-y-0.5"
                     >
-                      <div className="absolute top-0 right-0 -mt-10 -mr-10 w-80 h-80 lg:w-96 lg:h-96 bg-white/10 rounded-full blur-3xl pointer-events-none" />
-                      <BookOpen className="absolute right-6 sm:right-10 top-1/2 -translate-y-1/2 w-36 h-36 sm:w-52 sm:h-52 lg:w-64 lg:h-64 text-white/10 rotate-12 pointer-events-none group-hover:scale-110 transition-transform duration-500" />
-                      <div className="absolute left-0 top-0 bottom-0 w-4 bg-black/25 border-r border-white/15" />
+                      {/* Gentle Teal/Cyan Background Shapes & Accents */}
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-teal-50/70 rounded-full blur-2xl pointer-events-none -mt-16 -mr-16" />
+                      <div className="absolute bottom-0 left-1/3 w-48 h-48 bg-cyan-50/60 rounded-full blur-xl pointer-events-none -mb-12" />
 
-                      <div className="relative z-10 pl-3 sm:pl-5 max-w-2xl lg:max-w-3xl">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/30 backdrop-blur-md border border-white/20 rounded-xl text-xs lg:text-sm font-extrabold tracking-wide uppercase mb-3.5 shadow-2xs">
-                          <BookOpen size={13} strokeWidth={2.5} className="text-indigo-300 md:text-blue-300 lg:w-4 lg:h-4" />
-                          <span>{activeBook.subject || 'Textbook'}</span>
-                        </div>
+                      <div className="relative z-10 flex flex-col-reverse sm:flex-row items-start sm:items-center justify-between gap-5">
+                        {/* Left Column: Badge, Title, Author, Progress, Action Button */}
+                        <div className="flex-1 min-w-0 space-y-3.5 w-full">
+                          {/* Badge: PHYSICS */}
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-50 border border-teal-200/80 rounded-xl text-xs font-black text-teal-800 tracking-wider uppercase font-mono shadow-2xs">
+                            <Sparkles size={13} className="text-teal-600" />
+                            <span>{activeBook.subject || 'PHYSICS'}</span>
+                          </div>
 
-                        <h3 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-extrabold text-white leading-tight mb-2 group-hover:text-indigo-200 md:group-hover:text-blue-200 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                          {cleanBookTitle(activeBook.title)}
-                        </h3>
-                        {activeBook.author && (
-                          <p className="text-white/80 font-medium text-sm sm:text-base lg:text-lg xl:text-xl mb-6">
-                            By {activeBook.author}
-                          </p>
-                        )}
+                          {/* Book Title & Author */}
+                          <div>
+                            <h3 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-slate-900 leading-tight mb-1 group-hover:text-teal-700 transition-colors" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                              {cleanBookTitle(activeBook.title)}
+                            </h3>
+                            <p className="text-slate-500 font-semibold text-xs sm:text-sm">
+                              {activeBook.author ? `By ${activeBook.author}` : 'By Unknown'}
+                            </p>
+                          </div>
 
-                        {activeBook.progress && activeBook.progress.current_page ? (
-                          <div className="space-y-2.5 mb-6">
-                            <div className="flex items-center justify-between text-xs sm:text-sm lg:text-base font-bold text-white/90">
-                              <span className="flex items-center gap-1.5">
-                                <Clock3 size={15} strokeWidth={2.5} className="text-indigo-300 md:text-blue-300 lg:w-5 lg:h-5" />
-                                <span>Page {activeBook.progress.current_page} of {activeBook.total_pages || '?'}</span>
+                          {/* Subtle Progress Indicator */}
+                          <div className="space-y-2 pt-1 max-w-md">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                              <span className="flex items-center gap-1.5 text-slate-500">
+                                <Clock3 size={14} className="text-teal-600" />
+                                <span>Page {activeBook.progress?.current_page || 1} of {activeBook.total_pages || 464}</span>
                               </span>
-                              <span className="text-indigo-200 md:text-blue-200 font-extrabold">
-                                {Math.min(100, Math.round((activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}% Complete
+                              <span className="text-teal-700 font-extrabold font-mono">
+                                {Math.min(100, Math.round(((activeBook.progress?.current_page || 1) / (activeBook.total_pages || 464)) * 100))}% Complete
                               </span>
                             </div>
-                            <div className="w-full h-3 lg:h-3.5 bg-black/40 backdrop-blur-sm rounded-full overflow-hidden p-0.5 border border-white/15">
+
+                            {/* Soft Teal Progress Bar */}
+                            <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden p-0.5 border border-slate-200/70">
                               <div 
-                                className="h-full bg-gradient-to-r from-indigo-400 via-violet-300 to-emerald-400 md:from-blue-400 md:via-indigo-300 md:to-emerald-400 rounded-full transition-all duration-1000 shadow-sm"
-                                style={{ width: `${Math.min(100, Math.max(5, (activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%` }}
+                                className="h-full bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full transition-all duration-700 shadow-xs"
+                                style={{ width: `${Math.min(100, Math.max(5, ((activeBook.progress?.current_page || 1) / (activeBook.total_pages || 464)) * 100))}%` }}
                               />
                             </div>
                           </div>
-                        ) : (
-                          <p className="text-xs sm:text-sm lg:text-base text-indigo-200 md:text-blue-200 font-bold mb-6 flex items-center gap-2">
-                            <Play size={14} fill="currentColor" className="lg:w-5 lg:h-5" />
-                            Ready for your first interactive reading session!
-                          </p>
-                        )}
 
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onNavigate('reader', { bookId: activeBook.id });
-                          }}
-                          className="h-12 lg:h-14 px-6 lg:px-8 bg-white text-slate-900 font-extrabold text-sm sm:text-base lg:text-lg rounded-2xl shadow-lg hover:bg-slate-100 active:scale-95 transition-all inline-flex items-center gap-2.5 group/btn border border-slate-200"
-                        >
-                          <Play size={16} fill="currentColor" className="text-indigo-600 md:text-blue-600 lg:w-5 lg:h-5" />
-                          <span>{activeBook.progress?.current_page ? 'Continue Reading' : 'Start Reading'}</span>
-                          <ArrowRight size={18} strokeWidth={2.5} className="lg:w-5 lg:h-5 group-hover/btn:translate-x-1 transition-transform text-slate-400" />
-                        </button>
+                          {/* Button: Continue Reading with Play icon */}
+                          <div className="pt-2">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onNavigate('reader', { bookId: activeBook.id });
+                              }}
+                              className="px-6 py-3.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-xs sm:text-sm rounded-2xl shadow-md shadow-teal-600/20 active:scale-95 transition-all inline-flex items-center gap-2.5 cursor-pointer group/btn"
+                            >
+                              <Play size={16} fill="currentColor" className="text-white" />
+                              <span>Continue Reading</span>
+                              <ArrowRight size={16} strokeWidth={2.5} className="group-hover/btn:translate-x-1 transition-transform" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Right Column: Friendly Cartoon Custom Illustration */}
+                        <div className="w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 rounded-2xl sm:rounded-3xl overflow-hidden shrink-0 shadow-md border border-teal-100 bg-teal-50/50 self-start sm:self-auto">
+                          <img 
+                            src="/physics_continue_reading_illustration.jpg" 
+                            alt="Physics Continue Reading Illustration" 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
