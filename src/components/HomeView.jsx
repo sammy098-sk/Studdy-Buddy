@@ -464,6 +464,79 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
     return list;
   }, [recentSessions, books, inProgressBooksList, onNavigate]);
 
+  const weeklyDaysActiveCount = useMemo(() => {
+    if (!user?.id) return 0;
+    const startOfWeek = new Date();
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const activeDatesInWeek = new Set();
+    (books || []).forEach(b => {
+      if (b.progress && (b.progress.updated_at || b.progress.last_read_at)) {
+        const d = new Date(b.progress.updated_at || b.progress.last_read_at);
+        if (d >= startOfWeek) {
+          activeDatesInWeek.add(d.toISOString().split('T')[0]);
+        }
+      }
+    });
+    (recentSessions || []).forEach(s => {
+      if (s.started_at) {
+        const d = new Date(s.started_at);
+        if (d >= startOfWeek) {
+          activeDatesInWeek.add(d.toISOString().split('T')[0]);
+        }
+      }
+    });
+
+    return Math.min(7, activeDatesInWeek.size);
+  }, [user, books, recentSessions]);
+
+  const lessonsRemainingCount = useMemo(() => {
+    if (!books || books.length === 0) return 0;
+    return books.filter(b => !b.progress || (b.total_pages > 0 && b.progress.current_page < b.total_pages)).length;
+  }, [books]);
+
+  const upNextItem = useMemo(() => {
+    if (inProgressBooksList.length > 1) {
+      const secondBook = inProgressBooksList[1];
+      return {
+        badge: 'UP NEXT',
+        subject: secondBook.subject || 'Textbook',
+        title: cleanBookTitle(secondBook.title),
+        subtitle: secondBook.author ? `By ${secondBook.author}` : 'Continue your current study path.',
+        detail: `Page ${secondBook.progress?.current_page || 1}${secondBook.total_pages ? ` of ${secondBook.total_pages}` : ''}`,
+        ctaText: 'Start Learning',
+        action: () => onNavigate('reader', { bookId: secondBook.id })
+      };
+    } else if (recentSessions.length > 0) {
+      const s = recentSessions[0];
+      const matchBook = books.find(b => b.subject === s.subject || b.title?.includes(s.topic || s.subject));
+      return {
+        badge: 'UP NEXT',
+        subject: s.subject || 'JAMB Practice',
+        title: cleanBookTitle(matchBook?.title || s.topic || `${s.subject} Review`),
+        subtitle: 'Continue your current study path.',
+        detail: s.mode === 'quiz' || s.mode === 'questionnaire' ? 'CBT Practice Drill' : 'Review recent material',
+        ctaText: 'Start Learning',
+        action: () => matchBook ? onNavigate('reader', { bookId: matchBook.id }) : onNavigate('jamb-practice')
+      };
+    } else if (books.length > 0) {
+      const nextBook = books.find(b => !b.progress || b.progress.current_page === 0) || books[0];
+      return {
+        badge: 'UP NEXT',
+        subject: nextBook.subject || 'Textbook',
+        title: cleanBookTitle(nextBook.title),
+        subtitle: 'Begin your next syllabus textbook.',
+        detail: 'Not started',
+        ctaText: 'Start Learning',
+        action: () => onNavigate('reader', { bookId: nextBook.id })
+      };
+    }
+    return null;
+  }, [inProgressBooksList, recentSessions, books, onNavigate]);
+
   return (
     <div className="flex-1 overflow-y-auto bg-slate-50/70 flex flex-col justify-between">
       <div className="max-w-[1400px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6 lg:space-y-8">
@@ -498,28 +571,195 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
           </button>
         </div>
 
-        {/* 2. Rotating Promotional Marketing Banner (Req 2: First content block on mobile with 16-24px spacing from top nav) */}
-        <div className="mt-2 md:mt-0">
+        {/* Desktop Hero Carousel (Hidden on Mobile) */}
+        <div className="hidden md:block mt-0">
           <HeroCarousel activeBook={activeBook} recentActivity={recentActivity} user={user} onNavigate={onNavigate} mobileMenuOpen={mobileMenuOpen} />
         </div>
 
-        {/* 3. Core Studdy Buddy Feature Cards (Displayed consistently across Desktop & Mobile) */}
+        {/* Mobile Hero Section: Two Stacked Hero Cards + Your Week at a Glance (Mobile Only) */}
+        <div className="md:hidden space-y-4 mt-2">
+          
+          {/* CARD 1 — "TODAY'S FOCUS" (Warm Amber / Gold Visual Treatment) */}
+          {activeBook && activeBook.progress && activeBook.progress.current_page > 0 ? (
+            <div 
+              onClick={() => onNavigate('reader', { bookId: activeBook.id })}
+              className="bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 rounded-3xl p-5 border border-amber-300/80 shadow-sm transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/15 border border-amber-300/80 text-amber-900 rounded-full text-[11px] font-black tracking-wider uppercase font-mono">
+                  <Sparkles size={13} className="text-amber-600" />
+                  <span>TODAY'S FOCUS</span>
+                </span>
+                <span className="text-xs font-black text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-200/80 font-mono">
+                  {Math.min(100, Math.round((activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%
+                </span>
+              </div>
+
+              <h2 className="text-xl font-extrabold text-slate-900 leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                {cleanBookTitle(activeBook.title)}
+              </h2>
+              {activeBook.author && (
+                <p className="text-slate-600 text-xs font-medium mb-3">
+                  By {activeBook.author} • Page {activeBook.progress.current_page} {activeBook.total_pages ? `of ${activeBook.total_pages}` : ''}
+                </p>
+              )}
+
+              {/* Real Lesson Progress Bar */}
+              <div className="w-full h-2.5 bg-amber-200/60 rounded-full overflow-hidden mb-4 p-0.5 border border-amber-300/40">
+                <div 
+                  className="h-full bg-gradient-to-r from-amber-500 to-amber-600 rounded-full transition-all duration-700 shadow-sm"
+                  style={{ width: `${Math.min(100, Math.max(5, (activeBook.progress.current_page / (activeBook.total_pages || 1)) * 100))}%` }}
+                />
+              </div>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigate('reader', { bookId: activeBook.id });
+                }}
+                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+              >
+                <Play size={16} fill="currentColor" />
+                <span>Continue Lesson</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="bg-gradient-to-br from-amber-500/10 via-amber-50 to-orange-50/50 rounded-3xl p-5 border border-amber-300/80 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={16} className="text-amber-600" />
+                <span className="text-xs font-black uppercase text-amber-900 tracking-wider font-mono">TODAY'S FOCUS</span>
+              </div>
+              <h2 className="text-lg font-extrabold text-slate-900 mb-1">No Active Lesson In Progress</h2>
+              <p className="text-xs text-slate-600 mb-4">Select a textbook from your library to start tracking your daily reading progress.</p>
+              <button
+                onClick={() => onNavigate('library')}
+                className="w-full py-3 bg-amber-600 text-white font-extrabold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <BookOpen size={16} />
+                <span>Browse Textbooks</span>
+              </button>
+            </div>
+          )}
+
+          {/* CARD 2 — TIME-RELEVANT STUDY ITEM / "UP NEXT" (Teal / Mint Visual Treatment) */}
+          {upNextItem ? (
+            <div 
+              onClick={upNextItem.action}
+              className="bg-gradient-to-br from-teal-500/10 via-teal-50 to-emerald-50/50 rounded-3xl p-5 border border-teal-300/80 shadow-sm transition-all active:scale-[0.99] cursor-pointer relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-teal-500/15 border border-teal-300/80 text-teal-900 rounded-full text-[11px] font-black tracking-wider uppercase font-mono">
+                  <Clock3 size={13} className="text-teal-700" />
+                  <span>{upNextItem.badge}</span>
+                </span>
+                <span className="text-xs font-bold text-teal-800 bg-teal-100/80 px-2.5 py-0.5 rounded-full border border-teal-200/80 font-mono">
+                  {upNextItem.subject}
+                </span>
+              </div>
+
+              <h3 className="text-lg font-extrabold text-slate-900 leading-tight mb-1" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                {upNextItem.title}
+              </h3>
+              <p className="text-slate-600 text-xs font-medium mb-4">
+                {upNextItem.subtitle}
+              </p>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  upNextItem.action();
+                }}
+                className="w-full py-3 bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 cursor-pointer"
+              >
+                <Play size={16} fill="currentColor" />
+                <span>{upNextItem.ctaText}</span>
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="bg-gradient-to-br from-teal-500/10 via-teal-50 to-emerald-50/50 rounded-3xl p-5 border border-teal-300/80 shadow-sm">
+              <div className="text-xs font-black uppercase text-teal-900 tracking-wider font-mono mb-2">UP NEXT</div>
+              <h3 className="text-base font-extrabold text-slate-900 mb-1">CBT Practice Session</h3>
+              <p className="text-xs text-slate-600 mb-4">Practice authentic JAMB questions and monitor your performance.</p>
+              <button
+                onClick={() => onNavigate('jamb-practice')}
+                className="w-full py-3 bg-teal-700 text-white font-extrabold text-sm rounded-2xl shadow-md flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>Start Practice</span>
+              </button>
+            </div>
+          )}
+
+          {/* SECTION 3 — YOUR WEEK AT A GLANCE */}
+          <div className="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-2xs space-y-3">
+            <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider font-mono px-1">
+              Your Week at a Glance
+            </h3>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* Lessons Remaining */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 flex flex-col justify-center items-center text-center">
+                <span className="text-2xl font-black text-slate-900 font-mono leading-none">
+                  {lessonsRemainingCount}
+                </span>
+                <span className="text-[11px] font-extrabold text-slate-500 mt-1">
+                  Lessons Remaining
+                </span>
+              </div>
+
+              {/* Days Active Circular SVG Progress Ring */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 flex items-center justify-center gap-2.5">
+                <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
+                  <svg className="w-10 h-10 transform -rotate-90" viewBox="0 0 36 36">
+                    <path
+                      className="text-slate-200"
+                      strokeWidth="4"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="text-indigo-600"
+                      strokeDasharray={`${Math.round((weeklyDaysActiveCount / 7) * 100)}, 100`}
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      stroke="currentColor"
+                      fill="none"
+                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <span className="absolute text-[10px] font-black text-indigo-950 font-mono">
+                    {weeklyDaysActiveCount}/7
+                  </span>
+                </div>
+                <div className="text-left leading-tight min-w-0">
+                  <div className="text-xs font-black text-slate-900">{weeklyDaysActiveCount} / 7</div>
+                  <div className="text-[10.5px] font-extrabold text-slate-500">Days Active</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* 3. Core Studdy Buddy Feature Cards (Displayed UNTOUCHED below new sections) */}
         <div className="mt-5 sm:mt-6 lg:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4 lg:gap-6">
           {/* Feature 1: AI-Generated Summaries */}
           <div 
             onClick={() => onNavigate('ai-summaries')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-indigo-300/80 md:hover:border-purple-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-purple-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white md:bg-purple-50 md:text-purple-600 md:border-purple-100 md:group-hover:bg-purple-600 flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 group-hover:bg-purple-600 group-hover:text-white transition-all duration-200 shadow-2xs">
                 <Wand2 size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
               </div>
               <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-indigo-700 md:group-hover:text-purple-700 transition-colors tracking-tight">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-purple-700 transition-colors tracking-tight">
                     AI Study Notes
                   </h3>
-                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-indigo-600 md:group-hover:text-purple-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
                 </div>
                 <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
                   Generate comprehensive, teacher-level study notes detailed enough to master without another textbook.
@@ -535,18 +775,18 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
           {/* Feature 2: JAMB Practice Questions */}
           <div 
             onClick={() => onNavigate('jamb-practice')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-indigo-300/80 md:hover:border-emerald-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-emerald-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white md:bg-emerald-50 md:text-emerald-600 md:border-emerald-100 md:group-hover:bg-emerald-600 flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200 shadow-2xs">
                 <ClipboardCheck size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
               </div>
               <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-indigo-700 md:group-hover:text-emerald-700 transition-colors tracking-tight">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-emerald-700 transition-colors tracking-tight">
                     JAMB Practice
                   </h3>
-                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-indigo-600 md:group-hover:text-emerald-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-emerald-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
                 </div>
                 <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
                   Practice authentic JAMB-style questions and monitor your performance.
@@ -562,18 +802,18 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
           {/* Feature 3: Explain This Concept */}
           <div 
             onClick={() => onNavigate('explain-concept')} 
-            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-indigo-300/80 md:hover:border-blue-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
+            className="bg-white p-4 sm:p-5 lg:p-6 rounded-3xl border border-slate-200/80 shadow-2xs hover:shadow-md hover:-translate-y-1 hover:border-blue-300/80 active:scale-[0.98] transition-all duration-200 flex flex-col justify-between group cursor-pointer h-full"
           >
             <div className="flex items-start gap-3.5 sm:flex-col sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 group-hover:bg-indigo-600 group-hover:text-white md:bg-blue-50 md:text-blue-600 md:border-blue-100 md:group-hover:bg-blue-600 flex items-center justify-center shrink-0 transition-all duration-200 shadow-2xs">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 group-hover:bg-blue-600 group-hover:text-white transition-all duration-200 shadow-2xs">
                 <Lightbulb size={24} strokeWidth={2.2} className="lg:w-8 lg:h-8" />
               </div>
               <div className="space-y-1 sm:space-y-1.5 min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-indigo-700 md:group-hover:text-blue-700 transition-colors tracking-tight">
+                  <h3 className="text-[17px] sm:text-lg lg:text-xl font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors tracking-tight">
                     Explain This Concept
                   </h3>
-                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-indigo-600 md:group-hover:text-blue-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
+                  <ArrowRight size={18} strokeWidth={2.5} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 sm:hidden transition-all duration-200 shrink-0" />
                 </div>
                 <p className="text-xs sm:text-[13px] lg:text-sm font-medium text-slate-500 leading-relaxed">
                   Ask AI to explain any difficult topic in simple, easy-to-understand language.
