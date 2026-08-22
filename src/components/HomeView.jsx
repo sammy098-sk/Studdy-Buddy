@@ -871,105 +871,7 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
           {/* LEFT / MAIN CONTENT AREA (8 Columns on Desktop) */}
           <div className="lg:col-span-8 space-y-8 sm:space-y-10 min-w-0">
             
-            {/* 4. Search Bar & Goal Filter Chips (Compact Mobile UX) */}
-            <div className="bg-white p-3 sm:p-5 lg:p-6 rounded-2xl lg:rounded-3xl border border-slate-200/80 shadow-2xs space-y-2.5 sm:space-y-3">
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 lg:pl-5 flex items-center pointer-events-none text-slate-400">
-                  <Search size={17} strokeWidth={2.5} className="lg:w-5 lg:h-5" />
-                </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter textbooks by title, subject, or topic..."
-                  className="w-full h-10 sm:h-12 lg:h-13 pl-10 sm:pl-12 lg:pl-13 pr-20 bg-slate-50 border border-slate-200/80 rounded-xl sm:rounded-2xl hover:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 md:focus:ring-blue-500/20 md:focus:border-blue-500 font-bold text-xs sm:text-sm lg:text-base transition-all placeholder:text-slate-400"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-0 pr-4 lg:pr-5 flex items-center text-xs lg:text-sm font-bold text-slate-400 hover:text-slate-700 cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pt-0.5 select-none">
-                <span className="text-[11px] lg:text-xs font-extrabold text-slate-400 uppercase tracking-wider shrink-0 mr-1 hidden sm:inline-block">Filter:</span>
-                {['Popular', 'Recently Added', 'Exam Prep', 'JAMB'].map((chip) => {
-                  const isSelected = selectedGoalChip === chip;
-                  const IconComponent = CHIP_ICONS[chip] || Sparkles;
-                  return (
-                    <button
-                      key={chip}
-                      onClick={() => handleChipClick(chip)}
-                      className={`h-8 sm:h-9 lg:h-10 px-3 sm:px-4 lg:px-4.5 rounded-xl lg:rounded-2xl text-[11.5px] sm:text-xs lg:text-sm font-extrabold transition-all shrink-0 flex items-center gap-1.5 lg:gap-2 border shadow-2xs hover:-translate-y-0.5 active:scale-95 cursor-pointer ${
-                        isSelected 
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20 md:bg-blue-600 md:border-blue-600 md:shadow-blue-600/20' 
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50/70 hover:text-indigo-700 hover:border-indigo-200 md:hover:bg-blue-50/70 md:hover:text-blue-700 md:hover:border-blue-200'
-                      }`}
-                    >
-                      <IconComponent size={13} strokeWidth={2.4} className={`lg:w-4 lg:h-4 ${isSelected ? 'text-white' : 'text-indigo-600 md:text-blue-600'}`} />
-                      <span>{chip}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* LIVE SEARCH RESULTS VIEW */}
-            {isSearching ? (
-              <div className="space-y-6 bg-white p-6 lg:p-8 rounded-3xl border border-slate-200/80 shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base sm:text-lg lg:text-2xl font-extrabold text-slate-800 flex items-center gap-2">
-                    <span>Search & Filter Results</span>
-                    <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 md:bg-blue-50 md:text-blue-700 md:border-blue-100 rounded-lg text-xs lg:text-sm font-extrabold">{filteredBooks.length} found</span>
-                  </h2>
-                  <button
-                    onClick={() => { setSearchQuery(''); setSelectedGoalChip(null); }}
-                    className="text-xs lg:text-sm font-bold text-indigo-600 md:text-blue-600 hover:underline flex items-center gap-1"
-                  >
-                    <span>Reset filters</span>
-                  </button>
-                </div>
-
-                {filteredBooks.length === 0 ? (
-                  <div className="p-12 text-center bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
-                    <Compass size={36} strokeWidth={1.5} className="mx-auto text-slate-300 mb-3 lg:w-12 lg:h-12" />
-                    <h3 className="text-base lg:text-lg font-bold text-slate-700 mb-1">No textbooks match your criteria</h3>
-                    <p className="text-sm lg:text-base text-slate-500 max-w-sm mx-auto">
-                      Try adjusting your search keywords or clearing active filter badges.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4 lg:gap-6">
-                    {filteredBooks.map(book => (
-                      <div 
-                        key={book.id}
-                        onClick={() => onNavigate('reader', { bookId: book.id })}
-                        className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-2xs hover:shadow-md hover:-translate-y-1 transition-all duration-200 cursor-pointer group flex flex-col justify-between"
-                      >
-                        <div className={`h-36 lg:h-44 w-full bg-gradient-to-br ${getSubjectColor(book.subject)} p-3.5 lg:p-4 flex flex-col justify-between relative overflow-hidden shrink-0`}>
-                          <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-black/20 border-r border-white/10" />
-                          <span className="ml-1.5 px-2 py-0.5 bg-black/30 backdrop-blur-md rounded-md text-[9px] lg:text-xs font-extrabold text-white uppercase w-fit tracking-wider">
-                            {book.subject}
-                          </span>
-                          <p className="text-white font-extrabold text-[13px] lg:text-base line-clamp-2 ml-1.5 leading-tight drop-shadow-sm">{book.title}</p>
-                        </div>
-                        <div className="p-3.5 lg:p-4 bg-white">
-                          <div className="text-xs lg:text-sm font-extrabold text-indigo-600 group-hover:text-indigo-700 md:text-blue-600 md:group-hover:text-blue-700 transition-colors flex items-center justify-between">
-                            <span>Open textbook</span>
-                            <ArrowRight size={14} className="lg:w-4 lg:h-4 group-hover:translate-x-1 transition-transform" />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                {/* 5. CONTINUE READING HERO WIDGET */}
+            {/* 5. CONTINUE READING HERO WIDGET */}
                 {activeBook && activeBook.progress && activeBook.progress.current_page > 0 && (
                   <div className="space-y-3 lg:space-y-4">
                     <div className="flex items-center justify-between px-1">
@@ -1128,24 +1030,23 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                                         {book.author || 'Academic Press'}
                                       </p>
                                     </div>
-                                    
-                                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-indigo-600 md:text-blue-600">
-                                      <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
-                                      <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-indigo-700 md:text-blue-700 font-black">
-                                        <span>Read</span>
-                                        <ArrowRight size={13} strokeWidth={2.5} />
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-                    </>
-                  )}
-                </div>
+                                                                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-extrabold text-indigo-600 md:text-blue-600">
+                                       <span>{book.progress?.current_page ? `Pg ${book.progress.current_page}` : 'New'}</span>
+                                       <span className="group-hover:translate-x-1 transition-transform flex items-center gap-0.5 text-indigo-700 md:text-blue-700 font-black">
+                                         <span>Read</span>
+                                         <ArrowRight size={13} strokeWidth={2.5} />
+                                       </span>
+                                     </div>
+                                   </div>
+                                 </div>
+                               );
+                             })}
+                           </div>
+                         );
+                       })()}
+                     </>
+                   )}
+                 </div>
 
                 {/* TODAY'S STUDY PLAN */}
                 <div className="space-y-3 sm:space-y-4 pt-1">
@@ -1483,8 +1384,6 @@ export default function HomeView({ user, onNavigate, mobileMenuOpen = false }) {
                     )}
                   </>
                 )}
-              </>
-            )}
           </div>
 
           {/* RIGHT INFORMATION PANEL (Desktop ONLY — reordered by user importance with AI slots) */}
