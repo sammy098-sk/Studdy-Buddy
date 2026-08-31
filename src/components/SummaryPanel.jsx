@@ -3,8 +3,9 @@ import { ChevronLeft, Loader2, Volume2, VolumeX, Pause, Play, Sparkles, Database
 import useSpeech from '../hooks/useSpeech';
 import { studyToolsService } from '../services/StudyToolsService';
 import ScopeSelector from './ScopeSelector';
+import { TextWithCitations } from './MobileStudyNotesView';
 
-export default function SummaryPanel({ subject = "General Subject", topic = "Topic Chapter", bookId, pageNumber, initialScope = "page", onScopeChange, onBack }) {
+export default function SummaryPanel({ subject = "General Subject", topic = "Topic Chapter", bookId, pageNumber, initialScope = "page", onScopeChange, onBack, onPageClick }) {
   const [scope, setScope] = useState(initialScope);
   const [style, setStyle] = useState('quick');
   const [summary, setSummary] = useState(null);
@@ -273,26 +274,83 @@ export default function SummaryPanel({ subject = "General Subject", topic = "Top
               </div>
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-semibold mb-6" style={{ color: "#101C34", fontFamily: "'Montserrat', sans-serif" }}>
-              {scope === 'book' ? (selectedModule === 'overview' ? `Textbook Overview: ${subject || topic}` : selectedModule) : topic}
+            <h2 className="text-xl sm:text-2xl font-semibold mb-3" style={{ color: "#101C34", fontFamily: "'Montserrat', sans-serif" }}>
+              {summary.title || (scope === 'book' ? (selectedModule === 'overview' ? `Textbook Overview: ${subject || topic}` : selectedModule) : topic)}
             </h2>
 
+            {summary.overview && (
+              <div className="mb-6 p-4 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm sm:text-base leading-relaxed">
+                <TextWithCitations text={summary.overview} onPageClick={onPageClick} />
+              </div>
+            )}
+
             <div className="flex flex-col gap-5">
-              {(summary.subtopics || []).map((st, idx) => (
-                <div key={idx} className="rounded-2xl border p-5 sm:p-6 shadow-2xs transition-all hover:shadow-xs" style={{ borderColor: "#D8E3F8", background: "#FFFFFF" }}>
-                  <h3 className="text-[16px] font-bold mb-3 pb-2 border-b border-slate-100" style={{ color: "#101C34", fontFamily: "'Montserrat', sans-serif" }}>
-                    {st.name}
-                  </h3>
-                  <div className="flex flex-col gap-3.5">
-                    {(st.points || []).map((pt, i) => (
-                      <div key={i} className="flex items-start gap-3 text-sm sm:text-[14.5px] leading-relaxed" style={{ color: "#2B3A55" }}>
-                        <span className="mt-2 w-2 h-2 rounded-full shrink-0 shadow-2xs" style={{ background: "#2954E5" }} />
-                        <p className="flex-1">{pt}</p>
+              {summary.sections && summary.sections.length > 0 ? (
+                summary.sections.map((sec, idx) => (
+                  <div key={idx} className="rounded-2xl border p-5 sm:p-6 shadow-2xs transition-all hover:shadow-xs bg-white" style={{ borderColor: "#D8E3F8" }}>
+                    {sec.title && (
+                      <h3 className="text-[16px] font-bold mb-3 pb-2 border-b border-slate-100" style={{ color: "#101C34", fontFamily: "'Montserrat', sans-serif" }}>
+                        {sec.title}
+                      </h3>
+                    )}
+                    {sec.intro && (
+                      <p className="text-sm text-slate-700 mb-3 leading-relaxed">
+                        <TextWithCitations text={sec.intro} onPageClick={onPageClick} />
+                      </p>
+                    )}
+                    {sec.bullets && (
+                      <div className="flex flex-col gap-3">
+                        {sec.bullets.map((b, i) => (
+                          <div key={i} className="text-sm sm:text-[14.5px] leading-relaxed text-slate-800">
+                            <div className="flex items-start gap-2.5">
+                              <span className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-blue-600 shadow-2xs" />
+                              <div className="flex-1">
+                                {b.lead && <strong className="font-bold text-slate-900 mr-1.5">{b.lead}:</strong>}
+                                <TextWithCitations text={b.content || b.text || b} onPageClick={onPageClick} />
+                              </div>
+                            </div>
+                            {b.subBullets && b.subBullets.length > 0 && (
+                              <div className="ml-6 mt-2 space-y-1.5 border-l-2 border-slate-100 pl-3">
+                                {b.subBullets.map((sb, sbIdx) => (
+                                  <div key={sbIdx} className="text-xs sm:text-sm text-slate-700">
+                                    {sb.lead && <strong className="font-semibold text-slate-800 mr-1">{sb.lead}:</strong>}
+                                    <TextWithCitations text={sb.content || sb.text || sb} onPageClick={onPageClick} />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
+                ))
+              ) : (
+                (summary.subtopics || []).map((st, idx) => (
+                  <div key={idx} className="rounded-2xl border p-5 sm:p-6 shadow-2xs transition-all hover:shadow-xs bg-white" style={{ borderColor: "#D8E3F8" }}>
+                    <h3 className="text-[16px] font-bold mb-3 pb-2 border-b border-slate-100" style={{ color: "#101C34", fontFamily: "'Montserrat', sans-serif" }}>
+                      {st.name}
+                    </h3>
+                    <div className="flex flex-col gap-3.5">
+                      {(st.points || []).map((pt, i) => (
+                        <div key={i} className="flex items-start gap-3 text-sm sm:text-[14.5px] leading-relaxed" style={{ color: "#2B3A55" }}>
+                          <span className="mt-2 w-2 h-2 rounded-full shrink-0 shadow-2xs" style={{ background: "#2954E5" }} />
+                          <p className="flex-1">
+                            <TextWithCitations text={pt} onPageClick={onPageClick} />
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {summary.remember && (
+                <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 text-sm font-medium leading-relaxed shadow-2xs">
+                  <strong className="font-bold text-amber-900 mr-1">Remember:</strong>
+                  <TextWithCitations text={summary.remember} onPageClick={onPageClick} />
                 </div>
-              ))}
+              )}
             </div>
           </>
         )}

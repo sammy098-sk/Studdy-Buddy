@@ -207,7 +207,10 @@ class TextbookRetrievalService {
       }
     }
 
-    const compiledText = selectedChunks.map(c => `[${c.chapterTitle}]: ${c.text}`).join('\n\n').trim();
+    const compiledText = selectedChunks
+      .map(c => c.pageNumber ? `--- PAGE ${c.pageNumber} ---\n[${c.chapterTitle}]: ${c.text}` : `[${c.chapterTitle}]: ${c.text}`)
+      .join('\n\n')
+      .trim();
     const titleHeader = scope === 'chapter' ? targetChapterTitle : `Entire Textbook (Retrieved Highlights)`;
 
     return {

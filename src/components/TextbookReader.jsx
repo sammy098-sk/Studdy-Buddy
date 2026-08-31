@@ -5,6 +5,7 @@ import ReaderToolbar from './ReaderToolbar';
 import ChapterSidebar from './ChapterSidebar';
 import AiStudySidebar from './AiStudySidebar';
 import ReaderCanvas from './ReaderCanvas';
+import MobileStudyNotesView from './MobileStudyNotesView';
 import studyToolsService from '../services/StudyToolsService';
 
 
@@ -25,7 +26,36 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
   // We'll initialize these to standard defaults, then override them once `isLoading` is false
   const [zoom, setZoom] = useState(1.0);
   const [fitWidth, setFitWidth] = useState(true);
-  const [mode, setMode] = useState('continuous');
+  const [mode, setMode] = useState('continuous'); // 'continuous' | 'page' | 'mobile_notes'
+  const [mobileNotesData, setMobileNotesData] = useState(null);
+  const [loadingMobileNotes, setLoadingMobileNotes] = useState(false);
+
+  const fetchMobileNotes = async (force = false) => {
+    if (!bookId) return;
+    setLoadingMobileNotes(true);
+    try {
+      const res = await studyToolsService.generateSummary({
+        bookId,
+        pageNumber: currentPage,
+        subject: bookMeta?.subject || bookMeta?.title || 'Biology',
+        topic: bookMeta?.title || 'Study Notes',
+        scope: 'page',
+        style: 'quick',
+        forceRefresh: force
+      });
+      setMobileNotesData(res.summary);
+    } catch (e) {
+      console.warn("Could not fetch mobile notes:", e);
+    } finally {
+      setLoadingMobileNotes(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mode === 'mobile_notes' && bookId) {
+      fetchMobileNotes();
+    }
+  }, [mode, currentPage, bookId]);
 
   // Once loading completes, load the DB preferences (if they exist)
   useEffect(() => {
@@ -203,6 +233,25 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
     );
   }
 
+  if (mode === 'mobile_notes') {
+    return (
+      <MobileStudyNotesView
+        bookTitle={bookMeta?.title || 'Textbook Notes'}
+        notesData={mobileNotesData}
+        loading={loadingMobileNotes}
+        onBack={() => setMode('continuous')}
+        onSwitchToPdf={() => setMode('continuous')}
+        onRefresh={() => fetchMobileNotes(true)}
+        onPageClick={(pg) => {
+          if (pg > 0 && pg <= (bookMeta?.total_pages || 9999)) {
+            setCurrentPage(pg);
+            setMode('continuous');
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-full w-full bg-[#E2E8F0] overflow-hidden relative" style={{ touchAction: 'pan-y' }}>
        <ReaderToolbar 
@@ -259,6 +308,7 @@ export default function TextbookReader({ bookId, user, onNavigate }) {
            bookId={bookId}
            bookTitle={bookMeta?.title || 'Textbook'}
            user={user}
+           onPageChange={setCurrentPage}
          />
 
          {/* Floating HUD (Page Number Overlay) */}

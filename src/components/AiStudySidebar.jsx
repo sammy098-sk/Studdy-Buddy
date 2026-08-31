@@ -11,7 +11,7 @@ import QuestionnairePanel from './QuestionnairePanel';
 import ScopeSelector from './ScopeSelector';
 import useSpeech from '../hooks/useSpeech';
 
-export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, bookTitle = 'Textbook', user }) {
+export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, bookTitle = 'Textbook', user, onPageChange }) {
   const [activeView, setActiveView] = useState('menu'); // 'menu' | 'ask' | 'summary' | 'quiz' | 'explain'
   const [bookmarkedPages, setBookmarkedPages] = useState({});
   const [bookmarkMessage, setBookmarkMessage] = useState(null);
@@ -154,7 +154,10 @@ export default function AiStudySidebar({ isOpen, onClose, currentPage, bookId, b
             pageNumber={currentPage} 
             initialScope={studyScope}
             onScopeChange={handleScopeChange}
-            onBack={() => setActiveView('menu')} 
+            onBack={() => setActiveView('menu')}
+            onPageClick={(pg) => {
+              if (onPageChange) onPageChange(pg);
+            }}
           />
         )}
 

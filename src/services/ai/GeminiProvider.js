@@ -85,38 +85,47 @@ Student question: ${prompt}`;
   // 2. Summarize — Structured revision bullet points
   // ─────────────────────────────────────────────────────────────────────────
   async summarize({ text = '', topic = 'Current Section', subject = 'General', pageNumber = '', scope = 'page', style = 'quick', moduleTitle = null, targetScore = '250+', subjectCombination = ['English Language'] }) {
-    const system = `You are an experienced academic master teacher writing comprehensive study revision notes for Nigerian students preparing for JAMB and university examinations.
+    const system = `You are an expert AI Study Notes author creating concise, high-yield educational study notes for students.
 ${getDifficultyPrompt(targetScore, subjectCombination)}
 
-Instead of producing short bullet points or a generic textbook outline, you must TEACH the content in comprehensive detail based entirely on the extracted textbook data.
+DO NOT reflow or reproduce the entire textbook verbatim. Instead, understand the content, extract the essential material, and synthesize it into clean, condensed study notes.
 
-Return ONLY a JSON object in this exact format, with no markdown fences or extra text:
+CRITICAL PAGE CITATION RULE:
+The input text contains page headers like '--- PAGE X ---'. Attach inline page citations formatted strictly as 📄X (e.g. 📄2 or 📄25) after key statements, definitions, or bullet points. Always use the exact page number from the preceding '--- PAGE X ---' section. Never invent page numbers.
+
+Return ONLY a valid JSON object in this exact schema, with no markdown code blocks:
 {
-  "subtopics": [
+  "title": "Topic or Chapter Heading",
+  "overview": "Concise high-level overview explaining what this topic is about with page citations 📄X.",
+  "sections": [
     {
-      "name": "Academic Chapter or Topic Heading",
-      "points": [
-        "Deep instructional explanation of underlying theoretical principles and definitions.",
-        "Concrete numerical problem or practical laboratory analogy demonstrating application.",
-        "JAMB testing emphasis, classic distractors to avoid, and memory shortcuts."
+      "title": "Section or Sub-concept Title",
+      "intro": "Short introductory explanation connecting the key concepts 📄X.",
+      "bullets": [
+        {
+          "lead": "Short Concept Name",
+          "content": "Clear, concise bullet point explanation with citation 📄X.",
+          "subBullets": [
+            {
+              "lead": "Sub-concept Name",
+              "content": "Specific detail or definition."
+            }
+          ]
+        }
       ]
     }
-  ]
-}
-
-Rules:
-- NEVER output superficial textbook outline headings like 'Core Chapter Structure' or 'Revision Goals'. Teach the actual material!
-- For Page scope, generate 4 to 6 detailed subtopics (~700 to 1,500 words total).
-- For Chapter or Book scope modules (${moduleTitle || scope}), generate exhaustive teacher study guides (~2,000 to 4,000 words equivalent across 6 to 10 subtopics) so students experience reading an AI-generated textbook chapter rather than a brief summary.`;
+  ],
+  "remember": "Short takeaway summary sentence highlighting the core intuition or principle 📄X."
+}`;
 
     const user = `Subject: ${subject}
 Topic: ${moduleTitle || topic}
 Scope: ${scope.toUpperCase()} ${pageNumber ? `(Page ${pageNumber})` : ''}
 
-Textbook content:
+Source Textbook Content (with page markers):
 ${text || 'No extracted text available.'}
 
-Summarize this content into comprehensive structured teacher study notes.`;
+Produce concise, structured AI Study Notes with inline page citations as JSON.`;
 
     const raw = await this.#generate(system, user);
 
@@ -131,12 +140,18 @@ Summarize this content into comprehensive structured teacher study notes.`;
     } catch (e) {
       console.warn('[GeminiProvider] summarize() could not parse JSON response. Wrapping as plain text.', raw);
       return {
-        subtopics: [
+        title: moduleTitle || topic,
+        overview: raw.slice(0, 300),
+        sections: [
           {
-            name: `Comprehensive Notes: ${moduleTitle || topic}`,
-            points: raw.split('\n').filter(l => l.trim()).slice(0, 15)
+            title: `Key Notes: ${moduleTitle || topic}`,
+            bullets: raw.split('\n').filter(l => l.trim()).slice(0, 10).map(l => ({
+              lead: 'Key Concept',
+              content: l.replace(/^[•*\-\d.]+\s*/, '')
+            }))
           }
-        ]
+        ],
+        remember: "Focus on foundational intuition and core principles."
       };
     }
   }

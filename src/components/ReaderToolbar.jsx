@@ -169,10 +169,14 @@ export default function ReaderToolbar({
                  <div className="px-4 py-2 border-b" style={{ borderColor: '#E2E8F0' }}>
                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Layout Mode</div>
                    <button onClick={() => { setMode('continuous'); setMenuOpen(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium ${mode === 'continuous' ? 'text-blue-600 bg-blue-50' : 'text-slate-600 hover:bg-slate-50'}`}>
-                     Continuous Scroll
+                     Continuous Scroll (PDF)
                    </button>
                    <button onClick={() => { setMode('page'); setMenuOpen(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium ${mode === 'page' ? 'text-blue-600 bg-blue-50' : 'text-slate-600 hover:bg-slate-50'}`}>
                      Page-by-Page
+                   </button>
+                   <button onClick={() => { setMode('mobile_notes'); setMenuOpen(false); }} className={`w-full text-left px-2 py-1.5 rounded-lg text-sm font-medium flex items-center justify-between ${mode === 'mobile_notes' ? 'text-blue-600 bg-blue-50 font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                     <span>AI Study Notes</span>
+                     <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">Paper Mode</span>
                    </button>
                  </div>
                  

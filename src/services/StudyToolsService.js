@@ -66,7 +66,8 @@ class StudyToolsService {
   async getScopedContext({ bookId, scope = 'page', pageNumber = 1, query = '' }) {
     if (scope === 'page') {
       const p = await this.extractPageText(bookId, pageNumber);
-      return { text: p.text, title: p.chapterTitle, isEmpty: p.isEmpty };
+      const textWithPage = p.text ? `--- PAGE ${pageNumber} ---\n${p.text}` : '';
+      return { text: textWithPage, title: p.chapterTitle, isEmpty: p.isEmpty };
     }
     const rag = await textbookRetrievalService.retrieveContext({ bookId, scope, currentPage: pageNumber, query });
     return { text: rag.text, title: rag.title, isEmpty: rag.isEmpty };

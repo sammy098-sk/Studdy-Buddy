@@ -149,51 +149,47 @@ ${prompt}`;
   // 2. Summarize — Structured revision bullet points across study styles & scopes
   // ─────────────────────────────────────────────────────────────────────────
   async summarize({ text = '', topic = 'Current Section', subject = 'General Study', pageNumber = '', scope = 'page', style = 'quick', moduleTitle = null, targetScore = '250+', subjectCombination = ['English Language'] }) {
-    const styleInstructions = {
-      quick: "Focus on rapid revision mastery: extract core theoretical takeaways and formula derivations with rich explanations.",
-      detailed: "Provide a comprehensive pedagogical study book: elaborate in exhaustive depth on all arguments, foundational intuition, definitions, and proofs.",
-      exam_notes: "Format as Comprehensive Exam Lecture Notes: focus strictly on JAMB syllabus alignment, historic exam drills, memory tricks, and examiner trap avoidance.",
-      definitions: "Format as Master Glossary & Theoretical Principles: define every primary academic vocabulary term, constant, symbol, and rule with concrete examples.",
-      formulas: "Highlight Comprehensive Governing Formulas & Principles: derive equations, clearly explain variable relationships, units, and practical laboratory applications.",
-      concepts: "Focus on Master Mental Models & Deep Intuition: thoroughly explain *why* phenomena occur with engaging relatable analogies and step-by-step reasoning.",
-      frequent_topics: "Focus on High-Yield Recurring Exam Patterns: analyze historic problem structures, calculation workflows, and standard JAMB testing strategies."
-    }[style] || "Provide exhaustive teacher study notes and revision guidance.";
-
-    const system = `You are an experienced academic subject specialist and master teacher writing comprehensive revision notes for students preparing for JAMB and higher education examinations.
+    const system = `You are an expert AI Study Notes author creating concise, high-yield educational study notes for students.
 ${getDifficultyPrompt(targetScore, subjectCombination)}
-Instead of giving short bullet points, brief summaries, or a table of contents outline, you must TEACH the content itself in exhaustive detail based entirely on the extracted textbook data.
 
-Return ONLY a valid JSON object in this exact structure, with no markdown fences, no conversational preamble, and no explanation:
+DO NOT reflow or reproduce the entire textbook verbatim. Instead, understand the content, extract the essential material, and synthesize it into clean, condensed study notes.
+
+CRITICAL PAGE CITATION RULE:
+The input text contains page headers like '--- PAGE X ---'. Attach inline page citations formatted strictly as 📄X (e.g. 📄2 or 📄25) after key statements, definitions, or bullet points. Always use the exact page number from the preceding '--- PAGE X ---' section. Never invent page numbers.
+
+Return ONLY a valid JSON object in this exact schema, with no markdown code blocks:
 {
-  "subtopics": [
+  "title": "Topic or Chapter Heading",
+  "overview": "Concise high-level overview explaining what this topic is about with page citations 📄X.",
+  "sections": [
     {
-      "name": "Logical Academic Chapter or Topic Heading",
-      "points": [
-        "Detailed instructional paragraph teaching the underlying theoretical concepts, definitions, and formulas.",
-        "Concrete example, real-world analogy, or numerical problem walkthrough demonstrating application.",
-        "JAMB examination strategy, memory trick, or classic examiner distractor trap to avoid."
+      "title": "Section or Sub-concept Title",
+      "intro": "Short introductory explanation connecting the key concepts 📄X.",
+      "bullets": [
+        {
+          "lead": "Short Concept Name",
+          "content": "Clear, concise bullet point explanation with citation 📄X.",
+          "subBullets": [
+            {
+              "lead": "Sub-concept Name",
+              "content": "Specific detail or definition."
+            }
+          ]
+        }
       ]
     }
-  ]
-}
-
-Rules:
-- NEVER output generic textbook outline metadata headings like 'Core Chapter Structure', 'Revision Goals', 'Key Concepts', or 'Pedagogical Tools'. Teach the actual theory!
-- Style Guidance: ${styleInstructions}
-- Length & Depth Requirements:
-  * If Scope is PAGE: write comprehensive notes (~700 to 1,500 words across 4 to 6 detailed subtopic sections).
-  * If Scope is CHAPTER or BOOK: write deep master lecture notes (~2,000 to 4,000 words equivalent across 6 to 10 comprehensive subtopic sections) so the student experiences reading an AI-generated textbook rather than a short summary.
-- Format strictly as valid JSON without markdown formatting code blocks.`;
+  ],
+  "remember": "Short takeaway summary sentence highlighting the core intuition or principle 📄X."
+}`;
 
     const user = `Subject: ${subject}
 Topic: ${moduleTitle || topic}
 Scope: ${scope.toUpperCase()} ${pageNumber ? `(Page ${pageNumber})` : ''}
-${moduleTitle ? `Current Revision Book Module to teach: ${moduleTitle}` : ''}
 
-Textbook content to transform into teacher study notes:
+Source Textbook Content (with page markers):
 ${text || 'No extracted text available.'}
 
-Generate comprehensive teacher study notes and revision analysis according to the requested study style (${style}) as structured JSON.`;
+Generate concise, structured AI Study Notes with inline page citations as JSON.`;
 
     const raw = await this.#generate(system, user);
 
@@ -208,12 +204,18 @@ Generate comprehensive teacher study notes and revision analysis according to th
     } catch (e) {
       console.warn('[OpenRouterProvider] summarize() JSON parsing fallback:', raw);
       return {
-        subtopics: [
+        title: moduleTitle || topic,
+        overview: raw.slice(0, 300),
+        sections: [
           {
-            name: `${style.toUpperCase()} Comprehensive Study Notes: ${moduleTitle || topic}`,
-            points: raw.split('\n').filter(l => l.trim().length > 0).slice(0, 15)
+            title: `Key Notes: ${moduleTitle || topic}`,
+            bullets: raw.split('\n').filter(l => l.trim().length > 0).slice(0, 10).map(l => ({
+              lead: 'Key Concept',
+              content: l.replace(/^[•*\-\d.]+\s*/, '')
+            }))
           }
-        ]
+        ],
+        remember: "Focus on foundational intuition and core principles."
       };
     }
   }

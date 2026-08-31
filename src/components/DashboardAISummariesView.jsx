@@ -4,6 +4,7 @@ import { Sparkles, Search, Loader2, BookOpen, Bookmark, Star, Share2, CheckCircl
 import BackToHomeButton from './BackToHomeButton';
 import Footer from './Footer';
 import { getAIProvider } from '../services/ai/AIProviderFactory';
+import { TextWithCitations } from './MobileStudyNotesView';
 
 const SAMPLE_TOPICS = [
   "Introduction to Chemistry",
@@ -15,14 +16,14 @@ const SAMPLE_TOPICS = [
 ];
 
 // Helper to render distinct pedagogical content blocks
-function BlockRenderer({ block, index }) {
+function BlockRenderer({ block, index, onPageClick }) {
   if (!block || !block.type) return null;
 
   switch (block.type) {
     case 'paragraph':
       return (
         <p key={index} className="text-slate-700 leading-relaxed text-[16px] mb-4 font-normal">
-          {block.content}
+          <TextWithCitations text={block.content} onPageClick={onPageClick} />
         </p>
       );
 
